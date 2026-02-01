@@ -64,6 +64,9 @@ const currentEnvironment = computed(
     () => page.props.currentEnvironment as Environment | null | undefined,
 );
 
+// Hide sidebar during onboarding (no active environment)
+const showSidebar = computed(() => !!currentEnvironment.value);
+
 const iconMap: Record<string, Component> = {
     LayoutDashboard,
     Server,
@@ -146,8 +149,9 @@ router.on('finish', () => {
             <div class="flex items-center h-full">
                 <!-- Traffic lights area (macOS window controls) -->
                 <div class="w-[78px]"></div>
-                <!-- Toggle button -->
+                <!-- Toggle button (hidden during onboarding) -->
                 <button
+                    v-if="showSidebar"
                     @click.stop="toggleSidebar"
                     class="flex items-center justify-center w-7 h-7 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 transition-colors no-drag"
                     :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
@@ -194,8 +198,9 @@ router.on('finish', () => {
 
         <!-- Main container with sidebar and content -->
         <div class="flex flex-1 overflow-hidden">
-            <!-- Sidebar -->
+            <!-- Sidebar (hidden during onboarding) -->
             <aside
+                v-if="showSidebar"
                 class="bg-zinc-950 flex flex-col border-r border-zinc-800/50 transition-all duration-200 overflow-hidden"
                 :class="sidebarCollapsed ? 'w-16' : 'w-56'"
             >
