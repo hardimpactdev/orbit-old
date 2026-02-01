@@ -96,6 +96,7 @@ class SetupService
 
         $phpBinary = PHP_BINARY;
         $result = Process::timeout(10)
+            ->env(['PATH' => $this->getSafePath()])
             ->run("{$phpBinary} {$cliPath} status --json 2>/dev/null");
 
         if (! $result->successful()) {
@@ -110,7 +111,8 @@ class SetupService
         $data = json_decode($output, true);
 
         // Check if services array exists and has running containers
-        $services = $data['services'] ?? [];
+        // Note: CLI output wraps everything in 'data' key, but sometimes it might be direct
+        $services = $data['data']['services'] ?? $data['services'] ?? [];
         if (empty($services)) {
             return false;
         }
@@ -227,6 +229,7 @@ class SetupService
         // The install command handles TLD configuration, so we pass it here
         // Note: install command doesn't support --json, so we capture all output
         $result = Process::timeout(600)
+            ->env(['PATH' => $this->getSafePath()])
             ->run("{$phpBinary} {$cliPath} install --tld={$tld} --yes 2>&1");
 
         if (! $result->successful()) {
@@ -251,6 +254,7 @@ class SetupService
 
         // Set TLD via CLI config command
         $result = Process::timeout(30)
+            ->env(['PATH' => $this->getSafePath()])
             ->run("{$phpBinary} {$cliPath} config:set tld {$tld} --json 2>&1");
 
         if (! $result->successful()) {
@@ -321,5 +325,28 @@ class SetupService
             'steps' => $results,
             'error' => $lastError,
         ];
+    }
+
+    /**
+     * Get a safe PATH that includes common locations for tools.
+     * This is needed because GUI apps on macOS don't inherit the user's shell PATH.
+     */
+    protected function getSafePath(): string
+    {
+        $currentPath = getenv('PATH') ?: '';
+        $commonPaths = [
+            '/Users/' . get_current_user() . '/.orbstack/bin',
+            '/opt/homebrew/bin',
+            '/usr/local/bin',
+            '/usr/bin',
+            '/bin',
+            '/usr/sbin',
+            '/sbin',
+        ];
+
+        return implode(':', array_unique(array_filter(array_merge(
+            explode(':', $currentPath),
+            $commonPaths
+        ))));
     }
 }
