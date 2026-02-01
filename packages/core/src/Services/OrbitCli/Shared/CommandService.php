@@ -246,6 +246,8 @@ BASH;
         if ($home) {
             $commonPaths[] = $home.'/.local/bin/orbit';
             $commonPaths[] = $home.'/.composer/vendor/bin/orbit';
+            $commonPaths[] = $home.'/projects/orbit-cli/orbit';
+            $commonPaths[] = $home.'/projects/orbit/orbit';
         }
 
         foreach ($commonPaths as $path) {
@@ -255,7 +257,22 @@ BASH;
         }
 
         // Try `which orbit` as last resort (may not work in HTTP context)
-        $result = @shell_exec('which orbit 2>/dev/null');
+        // Ensure PATH includes common binary directories for web server context
+        $pathEnv = getenv('PATH') ?: '';
+        $additionalPaths = [];
+
+        if ($home) {
+            $additionalPaths[] = $home.'/.local/bin';
+            $additionalPaths[] = $home.'/.composer/vendor/bin';
+        }
+        $additionalPaths[] = '/usr/local/bin';
+        $additionalPaths[] = '/opt/homebrew/bin';
+        $additionalPaths[] = '/usr/bin';
+        $additionalPaths[] = '/bin';
+
+        $enhancedPath = implode(':', array_merge($additionalPaths, [$pathEnv]));
+
+        $result = @shell_exec("PATH={$enhancedPath} which orbit 2>/dev/null");
         if ($result) {
             $path = trim($result);
             if ($path && file_exists($path) && is_executable($path)) {
