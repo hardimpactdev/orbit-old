@@ -83,15 +83,34 @@ class CommandService
                 ];
             }
 
-            $decoded = json_decode($result->output(), true);
+            $output = $result->output();
+            \Illuminate\Support\Facades\Log::info("CommandService success: {$fullCommand}", [
+                'output_length' => strlen($output),
+                'output_preview' => substr($output, 0, 500),
+            ]);
+
+            $decoded = json_decode($output, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
+                \Illuminate\Support\Facades\Log::error("CommandService JSON parse failed: " . json_last_error_msg(), [
+                    'command' => $fullCommand,
+                    'output' => $output,
+                ]);
+
                 return [
                     'success' => false,
                     'error' => 'Failed to parse JSON: '.json_last_error_msg(),
                     'exit_code' => $result->exitCode(),
                 ];
             }
+
+            \Illuminate\Support\Facades\Log::info("CommandService decoded successfully", [
+                'command' => $fullCommand,
+                'has_success' => isset($decoded['success']),
+                'has_data' => isset($decoded['data']),
+                'has_services' => isset($decoded['data']['services']),
+                'services_count' => isset($decoded['data']['services']) ? count($decoded['data']['services']) : 0,
+            ]);
 
             return $decoded;
         } catch (\Exception $e) {
