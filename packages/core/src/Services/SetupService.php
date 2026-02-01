@@ -115,7 +115,7 @@ class SetupService
 
         // Check if services array exists and has running containers
         // Note: CLI output wraps everything in 'data' key, but sometimes it might be direct
-        $services = $data['data']['services'] ?? $data['services'] ?? [];
+        $services = $data['data']['services'] ?? [];
         if (empty($services)) {
             return false;
         }
