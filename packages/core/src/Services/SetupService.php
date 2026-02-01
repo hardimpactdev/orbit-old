@@ -16,8 +16,8 @@ class SetupService
         'check_prerequisites' => 'Checking prerequisites',
         'download_cli' => 'Downloading Orbit CLI',
         'install_cli' => 'Installing CLI',
-        'init_services' => 'Initializing services',
-        'configure_tld' => 'Configuring TLD',
+        'init_services' => 'Installing & configuring services',
+        'configure_tld' => 'Finalizing TLD',
         'create_environment' => 'Creating local environment',
     ];
 
@@ -177,9 +177,9 @@ class SetupService
             return;
         }
 
-        // Step 4: Initialize services
+        // Step 4: Initialize services (includes TLD configuration)
         $currentStep++;
-        $initResult = $this->initServices();
+        $initResult = $this->initServices($tld);
         yield 'init_services' => [
             'step' => $currentStep,
             'total' => $totalSteps,
@@ -218,30 +218,23 @@ class SetupService
     /**
      * Initialize orbit services via CLI.
      */
-    protected function initServices(): array
+    protected function initServices(string $tld = 'test'): array
     {
         $cliPath = $this->cliUpdate->getPharPath();
         $phpBinary = PHP_BINARY;
 
-        // Run orbit init to set up Docker network and pull images
-        $result = Process::timeout(300)
-            ->run("{$phpBinary} {$cliPath} init --json 2>&1");
+        // Run orbit install to set up services (platform-aware: Homebrew on Mac, Docker on Linux)
+        // The install command handles TLD configuration, so we pass it here
+        // Note: install command doesn't support --json, so we capture all output
+        $result = Process::timeout(600)
+            ->run("{$phpBinary} {$cliPath} install --tld={$tld} --yes 2>&1");
 
         if (! $result->successful()) {
+            $output = $result->output().$result->errorOutput();
+
             return [
                 'success' => false,
-                'error' => 'Failed to initialize services: '.$result->errorOutput(),
-            ];
-        }
-
-        // Start services
-        $startResult = Process::timeout(120)
-            ->run("{$phpBinary} {$cliPath} start --json 2>&1");
-
-        if (! $startResult->successful()) {
-            return [
-                'success' => false,
-                'error' => 'Failed to start services: '.$startResult->errorOutput(),
+                'error' => 'Failed to initialize services: '.($output ?: 'Unknown error'),
             ];
         }
 
