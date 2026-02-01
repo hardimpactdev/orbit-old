@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace HardImpact\Orbit\Core\Services;
 
 use HardImpact\Orbit\Core\Models\Environment;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Service to detect and run first-run setup.
@@ -218,10 +221,50 @@ class SetupService
     }
 
     /**
+     * Ensure the database is ready (file exists, migrations run).
+     * This is critical for the Desktop App flow where the app owns the database.
+     */
+    protected function ensureDatabaseReady(): array
+    {
+        try {
+            // Ensure the config directory exists
+            $configPath = config('orbit.config_path', getenv('HOME') . '/.config/orbit');
+            if (! File::isDirectory($configPath)) {
+                File::makeDirectory($configPath, 0755, true);
+            }
+
+            // Ensure database file exists
+            $dbPath = config('database.connections.sqlite.database');
+            if ($dbPath && ! File::exists($dbPath)) {
+                File::put($dbPath, '');
+            }
+
+            // Check if migrations have run by checking for a core table
+            if (! Schema::hasTable('environments')) {
+                // Run migrations
+                Artisan::call('migrate', ['--force' => true]);
+            }
+
+            return ['success' => true];
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'error' => 'Failed to initialize database: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Initialize orbit services via CLI.
      */
     protected function initServices(string $tld = 'test'): array
     {
+        // First ensure database is ready (Desktop App owns the database)
+        $dbResult = $this->ensureDatabaseReady();
+        if (! $dbResult['success']) {
+            return $dbResult;
+        }
+
         $cliPath = $this->cliUpdate->getPharPath();
         $phpBinary = PHP_BINARY;
 
