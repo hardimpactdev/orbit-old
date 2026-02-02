@@ -65,9 +65,17 @@ class AppServiceProvider extends ServiceProvider
 
         Inertia::share([
             'multi_environment' => fn () => config('orbit.multi_environment'),
-            'currentEnvironment' => fn () => config('orbit.multi_environment')
-                ? null
-                : Environment::where('is_local', true)->first(),
+            'currentEnvironment' => function () {
+                if (! config('orbit.multi_environment')) {
+                    // Single environment mode: use local environment
+                    return Environment::where('is_local', true)->first();
+                }
+
+                // Multi-environment mode: get active environment or first available
+                $activeEnvironment = Environment::where('is_active', true)->first();
+
+                return $activeEnvironment ?? Environment::first();
+            },
             'cli' => fn () => [
                 'installed' => app(\App\Services\CliInstallService::class)->isInstalled(),
             ],
