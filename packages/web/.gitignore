@@ -45,6 +45,9 @@ Thumbs.db
 /coverage
 .phpunit.cache
 
+# Build artifacts (PHPStan, JUnit)
+/build
+
 # Composer
 composer.lock
 auth.json
