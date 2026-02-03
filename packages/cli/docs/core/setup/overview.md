@@ -23,5 +23,5 @@ Key integrations
 
 - MacSetup/LinuxSetup for platform-specific configuration
 - ConfigManager, DockerManager, CaddyManager
-- PhpManager, HorizonManager
+- PhpManager
 - PlatformService for OS detection

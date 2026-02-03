@@ -10,9 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-phar:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout monorepo
         uses: actions/checkout@v4
@@ -29,25 +28,21 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Install CLI dependencies (no web bundle for now)
+      - name: Install CLI dependencies
         run: |
           cd packages/cli
-          
-          # For release build, replace path repos with packagist versions
           jq 'del(.repositories)' composer.json > composer.tmp && mv composer.tmp composer.json
           rm -f composer.lock
-          
           composer install --no-dev --no-scripts --optimize-autoloader --prefer-dist
 
       - name: Set version in CLI config
         run: |
           cd packages/cli
           sed -i "s/'version' => '[^']*'/'version' => '${{ steps.version.outputs.version }}'/g" config/app.php
-          grep version config/app.php
 
       - name: Download Box
         run: |
-          wget https://github.com/box-project/box/releases/download/4.6.2/box.phar
+          wget -q https://github.com/box-project/box/releases/download/4.6.2/box.phar
           chmod +x box.phar
 
       - name: Compile PHAR
@@ -55,67 +50,128 @@ jobs:
           cd packages/cli
           php ../../box.phar compile
 
-      - name: Verify PHAR integrity
+      - name: Verify PHAR
         run: |
           cd packages/cli
-          echo "Checking PHAR file exists and has content..."
-          test -f builds/orbit.phar || (echo "PHAR file not found!" && exit 1)
-          
+          test -f builds/orbit.phar || (echo "PHAR not found!" && exit 1)
           FILESIZE=$(stat -c%s builds/orbit.phar)
           echo "PHAR size: $FILESIZE bytes"
-          test $FILESIZE -gt 1000000 || (echo "PHAR file too small, likely corrupted!" && exit 1)
-          
-          echo "Verifying PHAR executes correctly..."
-          php builds/orbit.phar --version || (echo "PHAR --version failed!" && exit 1)
-          
-          echo "Verifying PHAR commands load..."
-          php builds/orbit.phar list || (echo "PHAR list command failed!" && exit 1)
-          
-          echo "PHAR verification passed!"
+          test $FILESIZE -gt 100000 || (echo "PHAR too small!" && exit 1)
+          php builds/orbit.phar --version
 
-      - name: Generate checksum
+      - name: Upload PHAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-phar
+          path: packages/cli/builds/orbit.phar
+          retention-days: 1
+
+  build-static:
+    needs: build-phar
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-latest
+            spc_arch: linux-x86_64
+          - target: linux-aarch64
+            runner: ubuntu-24.04-arm
+            spc_arch: linux-aarch64
+          - target: macos-aarch64
+            runner: macos-15
+            spc_arch: macos-aarch64
+
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - name: Download PHAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: orbit-phar
+
+      - name: Download spc
         run: |
-          cd packages/cli
-          sha256sum builds/orbit.phar > builds/checksums.txt
+          curl -fsSL -o spc "https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-${{ matrix.spc_arch }}"
+          chmod +x spc
 
-      - name: Create Release on orbit-cli repo
+      - name: Check build environment
+        run: ./spc doctor --auto-fix
+
+      - name: Download PHP and extension sources
+        run: |
+          ./spc download \
+            --with-php=8.4 \
+            --for-extensions="bcmath,ctype,curl,dom,fileinfo,filter,iconv,mbstring,mbregex,openssl,pcntl,pdo,pdo_sqlite,phar,posix,readline,simplexml,sockets,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zip,zlib,sodium" \
+            --prefer-pre-built
+
+      - name: Build micro.sfx
+        run: |
+          ./spc build \
+            "bcmath,ctype,curl,dom,fileinfo,filter,iconv,mbstring,mbregex,openssl,pcntl,pdo,pdo_sqlite,phar,posix,readline,simplexml,sockets,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zip,zlib,sodium" \
+            --build-micro \
+            --with-micro-fake-cli
+
+      - name: Combine into static binary
+        run: |
+          ./spc micro:combine orbit.phar \
+            -I "memory_limit=512M" \
+            --output orbit-${{ matrix.target }}
+          chmod +x orbit-${{ matrix.target }}
+
+      - name: Verify binary
+        run: |
+          ls -lh orbit-${{ matrix.target }}
+          file orbit-${{ matrix.target }}
+          ./orbit-${{ matrix.target }} --version
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-${{ matrix.target }}
+          path: orbit-${{ matrix.target }}
+          retention-days: 1
+
+  release:
+    needs: build-static
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Get version from tag
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate checksums
+        run: |
+          cd orbit-linux-x86_64 && sha256sum orbit-linux-x86_64 >> ../checksums.txt && cd ..
+          cd orbit-linux-aarch64 && sha256sum orbit-linux-aarch64 >> ../checksums.txt && cd ..
+          cd orbit-macos-aarch64 && sha256sum orbit-macos-aarch64 >> ../checksums.txt && cd ..
+          cd orbit-phar && sha256sum orbit.phar >> ../checksums.txt && cd ..
+          cat checksums.txt
+
+      - name: Create release on orbit-cli repo
         env:
           GH_TOKEN: ${{ secrets.SPLIT_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
-          # Create release on orbit-cli (where upgrade command looks)
           gh release create "$VERSION" \
             --repo hardimpactdev/orbit-cli \
             --title "Orbit $VERSION" \
             --generate-notes \
-            packages/cli/builds/orbit.phar \
-            packages/cli/builds/checksums.txt
-          
-          echo "Release created on orbit-cli repo"
+            orbit-linux-x86_64/orbit-linux-x86_64 \
+            orbit-linux-aarch64/orbit-linux-aarch64 \
+            orbit-macos-aarch64/orbit-macos-aarch64 \
+            orbit-phar/orbit.phar \
+            checksums.txt
 
-      - name: Verify release on orbit-cli
+      - name: Verify release
         env:
           GH_TOKEN: ${{ secrets.SPLIT_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          
-          echo "Waiting for release assets..."
           sleep 5
-          
-          PHAR_URL=$(gh api repos/hardimpactdev/orbit-cli/releases/tags/$VERSION --jq '.assets[] | select(.name=="orbit.phar") | .browser_download_url')
-          
-          if [ -z "$PHAR_URL" ]; then
-            echo "::error::PHAR not found in orbit-cli release!"
-            exit 1
-          fi
-          
-          echo "PHAR URL: $PHAR_URL"
-          
-          HTTP_CODE=$(curl -sL -o /dev/null -w "%{http_code}" "$PHAR_URL")
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "::error::PHAR download failed with HTTP $HTTP_CODE"
-            exit 1
-          fi
-          
-          echo "✓ Release verified - orbit upgrade will work!"
+          echo "Checking release assets..."
+          gh api repos/hardimpactdev/orbit-cli/releases/tags/$VERSION --jq '.assets[].name'

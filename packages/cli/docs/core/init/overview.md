@@ -5,7 +5,6 @@ First-time setup command that creates config directory, pulls Docker images, set
 - Checks and optionally installs prerequisites (PHP, Docker, Composer, dig)
 - Creates directory structure under ~/.config/orbit
 - Copies stub configuration files
-- Installs companion web app with SQLite database
 - Generates Caddyfile and dnsmasq configuration
 - Initializes services.yaml and generates docker-compose.yaml
 - Creates Docker network, configures /etc/hosts and DNS

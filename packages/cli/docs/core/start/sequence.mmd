@@ -5,7 +5,6 @@ sequenceDiagram
     participant PHP as PhpManager
     participant CaddyMgr as CaddyManager
     participant Service as ServiceManager
-    participant Horizon as HorizonManager
 
     User->>CLI: orbit start
     CLI->>CLI: detect architecture
@@ -17,9 +16,5 @@ sequenceDiagram
     end
 
     CLI->>Service: startAll Docker services
-
-    alt PHP-FPM architecture
-        CLI->>Horizon: start
-    end
 
     CLI-->>User: results with service status

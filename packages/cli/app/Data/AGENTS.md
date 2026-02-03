@@ -6,6 +6,8 @@ DTOs and data structures for passing state between components.
 
 ```
 Data/
+├── Install/
+│   └── InstallContext.php     # Installation context (tld, phpVersions, template, etc.)
 └── ServiceTemplate.php        # Docker service config
 ```
 

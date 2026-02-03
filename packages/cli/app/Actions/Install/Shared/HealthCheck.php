@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Actions\Install\Shared;
 
 use App\Data\Install\InstallContext;
-use App\Services\ConfigManager;
 use App\Services\DockerManager;
 use App\Services\Install\InstallLogger;
 use App\Services\PhpManager;
@@ -13,12 +12,10 @@ use App\Services\ServiceManager;
 use HardImpact\Orbit\Core\Data\StepResult;
 use HardImpact\Orbit\Core\Models\Environment;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Process;
 
 final readonly class HealthCheck
 {
     public function __construct(
-        private ConfigManager $configManager,
         private ServiceManager $serviceManager,
         private PhpManager $phpManager,
         private DockerManager $dockerManager,
@@ -38,17 +35,12 @@ final readonly class HealthCheck
             return StepResult::failed('Local environment record not found');
         }
 
-        // Check web app accessibility
-        if (! $this->checkWebAppAccess($logger)) {
-            return StepResult::failed('Web app not accessible');
-        }
-
         // Check PHP-FPM services
         if (! $this->checkPhpFpmServices($logger)) {
             return StepResult::failed('PHP-FPM services not running');
         }
 
-        // Check Docker services (Horizon and Reverb)
+        // Check Docker services
         if (! $this->checkDockerServices($logger)) {
             return StepResult::failed('Required Docker services not running');
         }
@@ -98,37 +90,6 @@ final readonly class HealthCheck
         }
     }
 
-    private function checkWebAppAccess(InstallLogger $logger): bool
-    {
-        $tld = $this->configManager->getTld();
-        $webUrl = "https://orbit.{$tld}";
-
-        try {
-            $result = Process::run("curl -s -o /dev/null -w '%{http_code}' --max-time 10 --insecure {$webUrl}");
-
-            if ($result->successful()) {
-                $statusCode = trim($result->output());
-                if ($statusCode === '200') {
-                    $logger->info("Web app accessible at {$webUrl}");
-
-                    return true;
-                }
-
-                $logger->error("Web app returned status {$statusCode} at {$webUrl}");
-
-                return false;
-            }
-
-            $logger->error("Web app check failed: {$result->errorOutput()}");
-
-            return false;
-        } catch (\Exception $e) {
-            $logger->error("Web app check failed: {$e->getMessage()}");
-
-            return false;
-        }
-    }
-
     private function checkPhpFpmServices(InstallLogger $logger): bool
     {
         $installedVersions = $this->phpManager->getInstalledVersions();
@@ -160,14 +121,6 @@ final readonly class HealthCheck
         $enabledServices = $this->serviceManager->getEnabled();
         $allRunning = true;
 
-        // Check if Horizon is enabled (it's part of the web app, not a Docker service)
-        if ($this->isHorizonRunning()) {
-            $logger->info('Horizon queue worker is running');
-        } else {
-            $logger->error('Horizon queue worker is not running');
-            $allRunning = false;
-        }
-
         // Check core Docker services
         foreach ($coreServices as $service) {
             if (! isset($enabledServices[$service])) {
@@ -195,15 +148,4 @@ final readonly class HealthCheck
         return $allRunning;
     }
 
-    private function isHorizonRunning(): bool
-    {
-        try {
-            // Check if Horizon is running by looking for the process
-            $result = Process::run('pgrep -f "artisan horizon"');
-
-            return $result->successful() && ! empty(trim($result->output()));
-        } catch (\Exception) {
-            return false;
-        }
-    }
 }

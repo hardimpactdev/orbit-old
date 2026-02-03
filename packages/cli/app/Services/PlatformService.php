@@ -522,48 +522,6 @@ final class PlatformService
     }
 
     // ===========================================
-    // Supervisor Detection & Installation
-    // ===========================================
-
-    public function hasSupervisor(): bool
-    {
-        return $this->commandExists('supervisorctl');
-    }
-
-    public function isSupervisorRunning(): bool
-    {
-        if (! $this->hasSupervisor()) {
-            return false;
-        }
-
-        $result = Process::run('sudo supervisorctl status 2>/dev/null');
-
-        // supervisorctl returns 0 if running, even with no programs
-        return $result->successful() || str_contains($result->output(), 'no such file');
-    }
-
-    public function installSupervisor(): bool
-    {
-        $pm = $this->getPackageManager();
-
-        if ($pm === 'apt') {
-            $result = Process::timeout(120)->run(
-                'sudo apt update && sudo apt install -y supervisor && sudo systemctl enable --now supervisor'
-            );
-
-            return $result->successful();
-        }
-
-        if ($pm === 'brew') {
-            $result = Process::timeout(120)->run('brew install supervisor');
-
-            return $result->successful();
-        }
-
-        return false;
-    }
-
-    // ===========================================
     // Prerequisite Summary
     // ===========================================
 
@@ -609,16 +567,6 @@ final class PlatformService
             'required' => 'Optional (DNS debugging)',
             'installable' => true,
             'optional' => true,
-        ];
-
-        // Supervisor (for Horizon)
-        $checks['supervisor'] = [
-            'name' => 'Supervisor',
-            'installed' => $this->hasSupervisor(),
-            'version' => null,
-            'required' => 'For Horizon queue worker (optional - orbit uses Docker)',
-            'optional' => true,
-            'installable' => $this->getPackageManager() !== null,
         ];
 
         return $checks;

@@ -82,7 +82,6 @@ final class InitCommand extends Command
                 "{$configPath}/redis",
                 "{$configPath}/redis/data",
                 "{$configPath}/mailpit",
-                "{$configPath}/horizon",
                 "{$configPath}/reverb",
                 "{$configPath}/logs",
             ];
@@ -105,7 +104,6 @@ final class InitCommand extends Command
             $this->copyStubDirectory("{$stubsPath}/postgres", "{$configPath}/postgres");
             $this->copyStubDirectory("{$stubsPath}/redis", "{$configPath}/redis");
             $this->copyStubDirectory("{$stubsPath}/mailpit", "{$configPath}/mailpit");
-            $this->copyStubDirectory("{$stubsPath}/horizon", "{$configPath}/horizon");
             $this->copyStubDirectory("{$stubsPath}/reverb", "{$configPath}/reverb");
 
             // Copy config.json if it doesn't exist
@@ -119,10 +117,7 @@ final class InitCommand extends Command
             return true;
         });
 
-        // 3. Install companion web app
-        $this->task('Installing companion web app', fn () => $this->installWebApp($configManager));
-
-        // 4. Generate initial Caddyfile
+        // 3. Generate initial Caddyfile
         $this->task('Generating Caddyfile', function () use ($caddyfileGenerator) {
             $caddyfileGenerator->generate();
 
@@ -409,180 +404,6 @@ final class InitCommand extends Command
             }
             File::copy($file->getPathname(), $destPath);
         }
-    }
-
-    protected function installWebApp(ConfigManager $configManager): bool
-    {
-        $sourcePath = base_path('web');
-        $destPath = $configManager->getWebAppPath();
-
-        // Check if source exists (in development or phar)
-        if (! File::isDirectory($sourcePath)) {
-            // Source not found - this might be a minimal CLI installation
-            return true;
-        }
-
-        // Copy web app files (excluding vendor, node_modules, .env)
-        $this->copyWebAppDirectory($sourcePath, $destPath);
-
-        // Generate .env file
-        $this->generateWebAppEnv($configManager);
-
-        // Run composer install
-        $result = Process::timeout(300)
-            ->path($destPath)
-            ->run('composer install --no-dev --no-interaction --optimize-autoloader');
-
-        if (! $result->successful()) {
-            return false;
-        }
-
-        // Run migrations
-        $migrateResult = Process::timeout(60)
-            ->path($destPath)
-            ->run('php artisan migrate --force');
-
-        if (! $migrateResult->successful()) {
-            return false;
-        }
-
-        // Ensure SQLite database exists before seeding
-        $dbPath = "{$destPath}/database.sqlite";
-        if (! File::exists($dbPath)) {
-            File::put($dbPath, '');
-        }
-
-        // Seed local environment using the orbit:init command
-        // Use --name with hostname to avoid interactive prompt
-        $hostname = gethostname() ?: 'Local';
-        $seedResult = Process::timeout(60)
-            ->path($destPath)
-            ->run("php artisan orbit:init --name=\"{$hostname}\"");
-
-        return $seedResult->successful();
-    }
-
-    protected function copyWebAppDirectory(string $source, string $destination): void
-    {
-        $excludeDirs = ['vendor', 'node_modules', '.git', 'storage/logs', 'storage/framework/cache', 'storage/framework/sessions', 'storage/framework/views'];
-        $excludeFiles = ['.env'];
-
-        File::ensureDirectoryExists($destination);
-
-        // Copy files recursively, excluding specified paths
-        $this->recursiveCopy($source, $destination, $excludeDirs, $excludeFiles);
-
-        // Ensure storage directories exist with proper permissions
-        $storageDirs = [
-            "{$destination}/storage/app",
-            "{$destination}/storage/framework/cache",
-            "{$destination}/storage/framework/sessions",
-            "{$destination}/storage/framework/views",
-            "{$destination}/storage/logs",
-            "{$destination}/bootstrap/cache",
-        ];
-
-        foreach ($storageDirs as $dir) {
-            File::ensureDirectoryExists($dir);
-            chmod($dir, 0775);
-        }
-    }
-
-    /**
-     * @param  array<int, string>  $excludeDirs
-     * @param  array<int, string>  $excludeFiles
-     */
-    protected function recursiveCopy(string $source, string $destination, array $excludeDirs, array $excludeFiles, string $relativePath = ''): void
-    {
-        $items = File::files($source);
-        $directories = File::directories($source);
-
-        // Copy files
-        foreach ($items as $file) {
-            $filename = $file->getFilename();
-            if (in_array($filename, $excludeFiles)) {
-                continue;
-            }
-            File::copy($file->getPathname(), "{$destination}/{$filename}");
-        }
-
-        // Copy directories recursively
-        foreach ($directories as $dir) {
-            $dirname = basename((string) $dir);
-            $newRelativePath = $relativePath ? "{$relativePath}/{$dirname}" : $dirname;
-
-            // Skip excluded directories
-            $skip = false;
-            foreach ($excludeDirs as $excludeDir) {
-                if ($dirname === $excludeDir || str_starts_with($newRelativePath, (string) $excludeDir)) {
-                    $skip = true;
-                    break;
-                }
-            }
-
-            if ($skip) {
-                continue;
-            }
-
-            $newDest = "{$destination}/{$dirname}";
-            File::ensureDirectoryExists($newDest);
-            $this->recursiveCopy($dir, $newDest, $excludeDirs, $excludeFiles, $newRelativePath);
-        }
-    }
-
-    protected function generateWebAppEnv(ConfigManager $configManager): void
-    {
-        $webAppPath = $configManager->getWebAppPath();
-        $tld = $configManager->getTld();
-        $reverbConfig = $configManager->getReverbConfig();
-
-        // Generate a random app key
-        $appKey = 'base64:'.base64_encode(random_bytes(32));
-
-        $env = <<<ENV
-APP_NAME=Orbit
-APP_ENV=production
-APP_KEY={$appKey}
-APP_DEBUG=false
-APP_URL=https://orbit.{$tld}
-ORBIT_MODE=web
-
-LOG_CHANNEL=single
-LOG_LEVEL=error
-
-# Database for environments/sites
-DB_CONNECTION=sqlite
-DB_DATABASE={$webAppPath}/database.sqlite
-
-# Redis for everything
-REDIS_CLIENT=phpredis
-REDIS_HOST=orbit-redis
-REDIS_PASSWORD=null
-REDIS_PORT=6379
-
-# Queue via Redis
-QUEUE_CONNECTION=redis
-
-# Let Horizon track failed jobs in Redis
-QUEUE_FAILED_DRIVER=null
-
-# Cache and sessions via Redis
-CACHE_STORE=redis
-SESSION_DRIVER=redis
-SESSION_LIFETIME=120
-
-# Broadcasting via Reverb
-BROADCAST_CONNECTION=reverb
-
-REVERB_APP_ID={$reverbConfig['app_id']}
-REVERB_APP_KEY={$reverbConfig['app_key']}
-REVERB_APP_SECRET={$reverbConfig['app_secret']}
-REVERB_HOST={$reverbConfig['host']}
-REVERB_PORT={$reverbConfig['port']}
-REVERB_SCHEME=https
-ENV;
-
-        File::put("{$webAppPath}/.env", $env);
     }
 
     protected function configureHosts(): bool

@@ -8,7 +8,6 @@ use App\Concerns\WithJsonOutput;
 use App\Services\CaddyManager;
 use App\Services\ConfigManager;
 use App\Services\DockerManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use App\Services\ProjectScanner;
 use App\Services\ServiceManager;
@@ -29,7 +28,6 @@ final class StatusCommand extends Command
         ProjectScanner $projectScanner,
         PhpManager $phpManager,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager
     ): int {
         // Detect architecture
         $isUsingFpm = $this->isUsingFpm($phpManager);
@@ -82,18 +80,6 @@ final class StatusCommand extends Command
                 $healthyCount++;
             }
 
-            // Check Horizon service
-            $horizonRunning = $horizonManager->isRunning();
-            $services['horizon'] = [
-                'status' => $horizonRunning ? 'running' : 'stopped',
-                'health' => $horizonRunning ? 'healthy' : null,
-                'container' => null,
-                'type' => 'systemd',
-            ];
-            if ($horizonRunning) {
-                $runningCount++;
-                $healthyCount++;
-            }
         }
 
         // Get Docker service statuses from ServiceManager

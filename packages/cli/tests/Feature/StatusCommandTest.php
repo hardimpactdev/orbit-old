@@ -3,7 +3,6 @@
 use App\Services\CaddyManager;
 use App\Services\ConfigManager;
 use App\Services\DockerManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use App\Services\ProjectScanner;
 use App\Services\ServiceManager;
@@ -15,15 +14,12 @@ beforeEach(function () {
     $this->phpManager = Mockery::mock(PhpManager::class);
     $this->serviceManager = Mockery::mock(ServiceManager::class);
     $this->caddyManager = Mockery::mock(CaddyManager::class);
-    $this->horizonManager = Mockery::mock(HorizonManager::class);
-
     $this->app->instance(ConfigManager::class, $this->configManager);
     $this->app->instance(DockerManager::class, $this->dockerManager);
     $this->app->instance(ProjectScanner::class, $this->projectScanner);
     $this->app->instance(PhpManager::class, $this->phpManager);
     $this->app->instance(ServiceManager::class, $this->serviceManager);
     $this->app->instance(CaddyManager::class, $this->caddyManager);
-    $this->app->instance(HorizonManager::class, $this->horizonManager);
 });
 
 it('shows status with all services running', function () {

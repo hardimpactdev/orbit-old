@@ -9,10 +9,12 @@ app/
 ├── Actions/         # Single-purpose action classes (provisioning)
 ├── Commands/        # Artisan CLI commands
 ├── Concerns/        # Shared traits
+├── Contracts/       # Interfaces (Template, etc.)
 ├── Data/            # DTOs and data structures
 ├── Enums/           # PHP enums
 ├── Mcp/             # Model Context Protocol integration
 ├── Providers/       # Service providers
+├── Templates/       # Installation templates (DevelopmentTemplate, etc.)
 └── Services/        # Business logic services
 ```
 

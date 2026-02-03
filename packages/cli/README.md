@@ -12,20 +12,30 @@ A local PHP development environment with host PHP-FPM and Caddy. Orbit provides 
 
 ## Installation
 
-Download the latest release:
+Download the latest release for your platform:
 
 ```bash
-curl -L -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit.phar
+# Linux (x86_64)
+curl -L -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-linux-x86_64
+
+# Linux (ARM64)
+curl -L -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-linux-aarch64
+
+# macOS (Apple Silicon)
+curl -L -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-macos-aarch64
+
 chmod +x ~/.local/bin/orbit
 ```
+
+No PHP installation required - the binary is self-contained.
 
 Make sure `~/.local/bin` is in your PATH.
 
 ## Quick Start
 
-1. Initialize Orbit (first time only):
+1. Install Orbit (first time only):
    ```bash
-   orbit init
+   orbit install
    ```
 
 2. Start the services:
@@ -45,32 +55,11 @@ Make sure `~/.local/bin` is in your PATH.
 
 5. Visit https://myapp.test in your browser!
 
-## Companion Web Dashboard
-
-Orbit includes a unified web dashboard (powered by `orbit-web`) that provides a visual interface for managing your local development environment.
-
-### Installation
-
-The web app is bundled with the CLI and can be installed using:
-
-```bash
-orbit web:install
-```
-
-Once installed, it will be available at `https://orbit.test` (or your configured TLD).
-
-### Features
-
-- **Visual Project Management** - Create, delete, and monitor projects.
-- **Service Control** - Start, stop, and configure services (PostgreSQL, Redis, etc.).
-- **PHP Configuration** - Visual editor for PHP settings and versions.
-- **Log Viewer** - Tail logs for all services and projects.
-- **Real-time Updates** - Powered by Reverb for instant status updates.
-
 ## Commands
 
 | Command | Description |
 |---------|-------------|
+| `orbit install` | Install Orbit with a template (`--template=development`) |
 | `orbit init` | First-time setup: creates config, pulls images, sets up DNS |
 | `orbit start` | Start all Orbit services |
 | `orbit stop` | Stop all Orbit services |
@@ -138,8 +127,6 @@ Add to your MCP configuration:
 ### Prompts
 
 - `configure-laravel-env` - Guide for Laravel .env configuration
-- `setup-horizon` - Laravel Horizon setup guide
-
 ## Services & Ports
 
 ## Service Management
@@ -285,7 +272,6 @@ Worktrees are served from `<worktree-name>.<project>.test`.
 | PHP >= 8.2 | `php.new` or Homebrew | `php.new` or apt |
 | Docker | OrbStack (recommended) or Docker Desktop | docker.io |
 | Composer | Homebrew | apt |
-| Supervisor | Homebrew | apt (for Horizon queue worker) |
 
 ### Optional
 

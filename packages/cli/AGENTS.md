@@ -53,6 +53,18 @@ orbit upgrade                                  # Update local installation
 
 **Note:** Use `v` prefix for git tags (convention), but omit it in composer.json versions.
 
+### Static Binary Build
+
+The CLI is distributed as a self-contained static binary (PHP 8.4 embedded via phpmicro). No PHP installation required on the target machine.
+
+Build targets: `orbit-linux-x86_64`, `orbit-linux-aarch64`, `orbit-macos-aarch64`
+
+The build workflow (`.github/workflows/build-cli.yml`):
+1. Compiles PHAR via Box
+2. Builds static PHP micro.sfx via static-php-cli (per platform)
+3. Combines micro.sfx + PHAR into a single native binary
+4. Releases per-platform binaries to hardimpactdev/orbit-cli
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -95,10 +107,12 @@ app/
 ├── Actions/Install/     # Orbit installation steps
 ├── Commands/            # Artisan CLI commands
 ├── Concerns/            # Shared traits
+├── Contracts/           # Interfaces (Template, etc.)
 ├── Data/                # DTOs and value objects
 ├── Enums/               # PHP enums
 ├── Mcp/                 # Model Context Protocol
 ├── Providers/           # Service providers
+├── Templates/           # Installation templates (DevelopmentTemplate, etc.)
 └── Services/            # Business logic
     └── Platform/        # OS-specific adapters
 ```
@@ -110,6 +124,7 @@ app/
 | Pattern | Location | Purpose |
 |---------|----------|---------|
 | Commands | `app/Commands/` | User-facing CLI interface |
+| Templates | `app/Templates/` | Installation templates defining platform-specific steps |
 | Actions | `app/Actions/Install/` | Orbit installation steps |
 | Services | `app/Services/` | Shared business logic |
 | Platform Adapters | `app/Services/Platform/` | Cross-platform abstraction |
@@ -214,35 +229,6 @@ use HardImpact\Orbit\Core\Contracts\ProvisionLoggerContract;
 
 **Important**: Always use `HardImpact\Orbit\Core\` namespace, never `HardImpact\Orbit\`
 
-## Web Dashboard Integration
-
-The CLI integrates with `orbit-web` (bundled dashboard):
-
-- Bundle: `stubs/orbit-web-bundle.tar.gz`
-- Install: `orbit web:install`
-- Location: `~/.config/orbit/web/`
-
-### How orbit-web Calls the CLI
-
-The web dashboard calls the CLI directly via `ORBIT_CLI_PATH` env var:
-
-```
-orbit-web.ccc/api/workspaces
-    → CommandService::executeLocalCommand('workspaces --json')
-    → Process::run('/path/to/orbit workspaces --json')
-```
-
-The `web:install` command generates `.env` with `ORBIT_CLI_PATH=~/.local/bin/orbit`.
-
-For development, orbit-web uses `ORBIT_CLI_PATH=/home/user/projects/orbit-cli/orbit` to call the dev CLI directly (changes take effect immediately without rebuilding).
-
-### Web Context Rules
-
-When called from orbit-web:
-- Use `--json` flag for clean JSON output
-- **Never restart PHP-FPM** (causes 502)
-- Use `CI=1` for package manager commands
-
 ## Quality Gates
 
 **IMPORTANT:** Every fix must have a test.
@@ -301,14 +287,6 @@ orbit caddy:reload               # Regenerate Caddyfile AND reload Caddy
 Config location: `~/.config/orbit/caddy/Caddyfile` (imported by `/etc/caddy/Caddyfile`)
 
 **Note:** The `caddy:reload` command is the preferred way to update Caddy config after adding new sites. It regenerates the Caddyfile from all detected sites and reloads Caddy in one step. This is called automatically by `CreateSiteJob` during site provisioning.
-
-### Horizon Queue Worker (Linux)
-
-```bash
-sudo systemctl status orbit-horizon
-sudo systemctl restart orbit-horizon
-sudo journalctl -u orbit-horizon -f
-```
 
 ### Reverb WebSocket
 

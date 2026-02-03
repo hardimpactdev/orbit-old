@@ -3,7 +3,6 @@
 Stops all Orbit services in reverse order of start.
 
 - Detects PHP-FPM sockets on the host
-- Stops Horizon first
 - Stops host Caddy
 - Stops all Docker services (dns, reverb, postgres, redis, mailpit)
 - Note: Does NOT stop PHP-FPM pools (keeps them for other projects)
@@ -21,5 +20,4 @@ Key integrations
 
 - ServiceManager for Docker services
 - CaddyManager for reverse proxy
-- HorizonManager for queue processing
 - PhpManager for architecture detection

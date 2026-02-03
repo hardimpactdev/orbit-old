@@ -56,7 +56,7 @@ final readonly class MyAction
 
 ## Install Actions
 
-Install actions are orchestrated by `InstallLinuxPipeline` or `InstallMacPipeline`.
+Install actions are orchestrated by `InstallPipeline` using steps defined in a `Template` (e.g., `DevelopmentTemplate`). Each template provides platform-specific steps via `installSteps(osFamily)`.
 
 ### Linux Install Actions
 
@@ -98,7 +98,6 @@ Install actions are orchestrated by `InstallLinuxPipeline` or `InstallMacPipelin
 | `StartServices` | Start all services |
 | `ConfigureHostsFile` | Add entries to /etc/hosts |
 | `InstallComposerLink` | Link Composer globally |
-| `InstallWebApp` | Install orbit-web bundle |
 
 ## StepResult
 

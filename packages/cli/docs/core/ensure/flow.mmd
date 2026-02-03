@@ -4,12 +4,8 @@ flowchart TD
     checkDocker -->|yes| getStatuses[Get all container statuses]
     getStatuses --> checkRequired{All required running?}
     checkRequired -->|no| callStart[Call start command]
-    checkRequired -->|yes| checkHorizon
+    checkRequired -->|yes| allGood[All services running]
     callStart --> clearCache[Clear status cache]
-    clearCache --> checkHorizon{Horizon running?}
-    checkHorizon -->|yes| allGood[All services running]
-    checkHorizon -->|no| startHorizon[Start Horizon]
-    startHorizon --> waitCheck[Wait and check]
-    waitCheck --> output[Output results]
-    allGood --> output
+    clearCache --> allGood
+    allGood --> output[Output results]
     skipDocker --> output

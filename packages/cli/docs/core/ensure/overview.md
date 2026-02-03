@@ -5,7 +5,6 @@ Ensures all required Orbit services are running, starting any that are stopped.
 - Checks Docker is running
 - Verifies required containers (dns, caddy, redis, reverb)
 - Calls start if any containers are not running
-- Verifies Horizon container separately
 
 Failure and recovery paths
 

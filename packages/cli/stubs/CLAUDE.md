@@ -13,28 +13,6 @@ orbit sites         # List all sites
 orbit php <site> <version>  # Set PHP version
 ```
 
-## Horizon (Queue Worker)
-
-Orbit includes a web app with Horizon for background job processing. Horizon runs on the host as a system service.
-
-```bash
-# Check Horizon status
-orbit horizon:status
-docker ps | grep orbit-horizon
-
-# Start/Stop Horizon
-orbit horizon:start
-orbit horizon:stop
-
-# View logs
-sudo journalctl -u orbit-horizon -f
-
-# Access dashboard (when running)
-open https://orbit.{tld}/horizon
-```
-
-Systemd unit name: `orbit-horizon`.
-
 ## Direct Docker Access
 
 ```bash
@@ -90,8 +68,6 @@ Then restart: `orbit restart`
 - Caddy: ~/.config/orbit/caddy/Caddyfile (host service, reload with `sudo systemctl reload caddy`)
 - Sites: ~/.config/orbit/config.json
 - DNS: ~/.config/orbit/dns/Dockerfile
-- Horizon: system service (systemd/launchd)
-- Web app: ~/.config/orbit/web/
 
 ## Troubleshooting
 
@@ -99,18 +75,10 @@ Then restart: `orbit restart`
 # Check all services
 orbit status --json | jq .
 
-# Check Horizon specifically
-orbit horizon:status
-sudo journalctl -u orbit-horizon --tail 50
-
 # Check Caddy (runs on host, not Docker)
 sudo systemctl status caddy
 sudo journalctl -u caddy --tail 50
 
 # Restart everything
 orbit restart
-
-# Clear config cache in Horizon service
-php ~/.config/orbit/web/artisan config:clear
-sudo systemctl restart orbit-horizon
 ```

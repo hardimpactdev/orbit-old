@@ -1,25 +1,25 @@
 # upgrade overview
 
-Upgrades Orbit CLI to the latest version from GitHub releases and runs all necessary post-upgrade tasks automatically.
+Upgrades Orbit CLI to the latest version from GitHub releases with platform-aware binary detection.
 
 - Fetches latest release info from GitHub API
 - Compares versions to check if update available
-- Downloads new PHAR binary using Laravel Zero's phar-updater
-- Validates and replaces current binary
-- Launches new binary with post-upgrade tasks
+- Detects platform (linux-x86_64, linux-aarch64, macos-aarch64)
+- Downloads platform-specific static binary (or PHAR fallback)
+- Validates binary format (ELF/Mach-O/PHAR)
+- Replaces current binary
 
 Post-upgrade tasks (run automatically)
 
 - Database migrations (`db:migrate`)
-- Web dashboard update (`web:install --force`)
 - Service configuration regeneration (docker-compose.yml)
 - Service restart
 
 Failure and recovery paths
 
-- Only works when running as compiled PHAR
 - Creates backup before replacement
 - Restores backup if replacement fails
+- Falls back to orbit.phar asset if no platform binary available
 - Uses `pcntl_exec` to launch new binary for post-upgrade tasks
 
 Inputs and options
@@ -31,6 +31,4 @@ Inputs and options
 Key integrations
 
 - GitHub API for release info
-- Laravel Zero phar-updater for binary replacement
 - ServiceManager for docker-compose regeneration
-- web:install for dashboard updates

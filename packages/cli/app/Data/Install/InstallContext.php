@@ -17,12 +17,13 @@ final readonly class InstallContext
         public bool $nonInteractive = false,
         public string $configDir = '',
         public string $homeDir = '',
+        public string $template = 'development',
     ) {}
 
     /**
      * @param  array<string, mixed>  $options
      */
-    public static function fromOptions(array $options): self
+    public static function fromOptions(array $options, string $template = 'development'): self
     {
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
 
@@ -39,6 +40,7 @@ final readonly class InstallContext
             nonInteractive: (bool) ($options['yes'] ?? false),
             configDir: "{$home}/.config/orbit",
             homeDir: $home,
+            template: $template,
         );
     }
 

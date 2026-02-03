@@ -7,7 +7,6 @@ namespace App\Commands;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\CaddyManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use App\Services\ServiceManager;
 use LaravelZero\Framework\Commands\Command;
@@ -24,17 +23,10 @@ final class StopCommand extends Command
         ServiceManager $serviceManager,
         PhpManager $phpManager,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager
     ): int {
         $results = [];
         $usingFpm = $this->isUsingFpm($phpManager);
         $architecture = $usingFpm ? 'php-fpm' : 'php-fpm-missing';
-
-        // Stop Horizon first
-        if ($usingFpm) {
-            $result = $this->runStep('horizon', 'Stopping horizon', fn () => $horizonManager->stop());
-            $results['horizon'] = $result;
-        }
 
         if ($usingFpm) {
             // Stop host Caddy

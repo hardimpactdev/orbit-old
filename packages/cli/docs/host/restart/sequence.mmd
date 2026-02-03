@@ -3,12 +3,11 @@ sequenceDiagram
     participant CLI as HostRestart
     participant CM as CaddyManager
     participant PM as PhpManager
-    participant HM as HorizonManager
     participant OS as System Service
 
     User->>CLI: orbit host restart service
     CLI->>CLI: Parse service argument
-    
+
     alt service is caddy
         CLI->>CM: restart
         CM->>OS: Restart Caddy service
@@ -20,13 +19,8 @@ sequenceDiagram
         PM->>OS: Restart PHP-FPM service
         OS-->>PM: result
         PM-->>CLI: success boolean
-    else service is horizon
-        CLI->>HM: restart
-        HM->>OS: Restart Horizon service
-        OS-->>HM: result
-        HM-->>CLI: success boolean
     else unknown service
         CLI-->>User: Error - Unknown host service
     end
-    
+
     CLI-->>User: Restarted or error message

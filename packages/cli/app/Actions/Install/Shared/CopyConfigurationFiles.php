@@ -23,7 +23,7 @@ final readonly class CopyConfigurationFiles
         }
 
         // Copy all stub directories
-        $directories = ['php', 'caddy', 'dns', 'postgres', 'redis', 'mailpit', 'horizon', 'reverb'];
+        $directories = ['php', 'caddy', 'dns', 'postgres', 'redis', 'mailpit', 'reverb'];
 
         foreach ($directories as $dir) {
             $sourcePath = "{$stubsPath}/{$dir}";

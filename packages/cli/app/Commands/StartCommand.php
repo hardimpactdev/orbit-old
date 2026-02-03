@@ -8,7 +8,6 @@ use App\Concerns\WithJsonOutput;
 use App\Contracts\CaddyfileGeneratorInterface;
 use App\Enums\ExitCode;
 use App\Services\CaddyManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use App\Services\ServiceManager;
 use LaravelZero\Framework\Commands\Command;
@@ -26,7 +25,6 @@ final class StartCommand extends Command
         CaddyfileGeneratorInterface $caddyfileGenerator,
         PhpManager $phpManager,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager
     ): int {
         $results = [];
         $usingFpm = $this->isUsingFpm($phpManager);
@@ -65,13 +63,6 @@ final class StartCommand extends Command
         $serviceResult = $this->runStep('services', 'Starting Docker services', fn () => $serviceManager->startAll());
         $results['docker_services'] = $serviceResult;
         $allSuccess = $allSuccess && $serviceResult;
-
-        // Start Horizon
-        if ($usingFpm) {
-            $result = $this->runStep('horizon', 'Starting horizon', fn () => $horizonManager->start());
-            $results['horizon'] = $result;
-            $allSuccess = $allSuccess && $result;
-        }
 
         if ($this->wantsJson()) {
             return $this->outputJson([

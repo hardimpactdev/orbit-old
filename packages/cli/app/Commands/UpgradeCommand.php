@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
-use App\Actions\Upgrade\UpdateWebApp;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\DockerManager;
@@ -23,7 +22,6 @@ final class UpgradeCommand extends Command
     private const GITHUB_API_URL = 'https://api.github.com/repos/hardimpactdev/orbit-cli/releases/latest';
 
     public function __construct(
-        private UpdateWebApp $updateWebApp,
         private DockerManager $dockerManager
     ) {
         parent::__construct();
@@ -32,17 +30,15 @@ final class UpgradeCommand extends Command
     public function handle(): int
     {
         $currentVersion = config('app.version');
-        $pharPath = \Phar::running(false);
+        $binaryPath = $this->getRunningBinaryPath();
 
-        // Check if running as PHAR
-        if (empty($pharPath) && ! $this->option('check')) {
+        if ($binaryPath === null && ! $this->option('check')) {
             return $this->handleError(
-                'Upgrade is only available when running as a compiled PHAR binary.',
+                'Upgrade is only available when running as a compiled binary.',
                 ExitCode::GeneralError
             );
         }
 
-        // Fetch latest release info
         $release = $this->fetchLatestRelease();
         if ($release === null) {
             return $this->handleError(
@@ -54,12 +50,10 @@ final class UpgradeCommand extends Command
         $latestVersion = $release['tag_name'];
         $isUpToDate = $this->isUpToDate($currentVersion, $latestVersion);
 
-        // Check-only mode
         if ($this->option('check')) {
             return $this->handleCheckResult($currentVersion, $latestVersion, $isUpToDate);
         }
 
-        // Already up to date
         if ($isUpToDate) {
             if ($this->wantsJson()) {
                 return $this->outputJsonSuccess([
@@ -76,16 +70,14 @@ final class UpgradeCommand extends Command
             return self::SUCCESS;
         }
 
-        // Find the PHAR download URL
-        $downloadUrl = $this->findPharDownloadUrl($release);
+        $downloadUrl = $this->findBinaryDownloadUrl($release);
         if ($downloadUrl === null) {
             return $this->handleError(
-                'Could not find PHAR download URL in the release.',
+                'Could not find binary download URL for your platform.',
                 ExitCode::GeneralError
             );
         }
 
-        // Download and install
         if (! $this->wantsJson()) {
             $this->info("Upgrading from {$currentVersion} to {$latestVersion}...");
         }
@@ -99,7 +91,6 @@ final class UpgradeCommand extends Command
         }
 
         try {
-            // Download the new version
             if (! $this->downloadFile($downloadUrl, $tempFile)) {
                 return $this->handleError(
                     'Failed to download the new version.',
@@ -107,71 +98,42 @@ final class UpgradeCommand extends Command
                 );
             }
 
-            // Verify it's a valid PHAR
-            if (! $this->isValidPhar($tempFile)) {
+            if (! $this->isValidBinary($tempFile)) {
                 return $this->handleError(
-                    'Downloaded file is not a valid PHAR.',
+                    'Downloaded file is not a valid binary.',
                     ExitCode::GeneralError
                 );
             }
 
-            // CRITICAL: We cannot replace the PHAR while this process is running.
-            // PHP's shutdown handlers will try to autoload classes from the NEW phar
-            // using OLD memory offsets, causing garbage output.
-            //
-            // Solution: Write a self-deleting shell script that replaces the PHAR
-            // after we exit. This avoids "Killed" messages on Linux.
-
-            // Make the new file executable before the move
             @chmod($tempFile, 0755);
+            @copy($binaryPath, $binaryPath.'.bak');
 
-            // Create backup
-            @copy($pharPath, $pharPath.'.bak');
-
-            // Create a self-deleting upgrade script
             $upgradeScript = sys_get_temp_dir().'/orbit-upgrade-'.getmypid().'.sh';
             $scriptContent = sprintf(
-                "#!/bin/sh\n".
-                "sleep 0.2\n".
-                "mv %s %s\n".
-                "rm -f %s\n".
-                "rm -f \$0\n",  // Self-delete
+                "#!/bin/sh\nsleep 0.2\nmv %s %s\nrm -f %s\nrm -f \$0\n",
                 escapeshellarg($tempFile),
-                escapeshellarg($pharPath),
-                escapeshellarg($pharPath.'.bak')
+                escapeshellarg($binaryPath),
+                escapeshellarg($binaryPath.'.bak')
             );
 
             file_put_contents($upgradeScript, $scriptContent);
             chmod($upgradeScript, 0755);
 
-            // Use different approaches for Linux vs macOS
             if (PHP_OS_FAMILY === 'Darwin') {
-                // macOS: current approach works fine
                 exec(sprintf('nohup %s > /dev/null 2>&1 &', escapeshellarg($upgradeScript)));
             } else {
-                // Linux: use setsid to fully detach from terminal
                 exec(sprintf('setsid %s > /dev/null 2>&1 < /dev/null &', escapeshellarg($upgradeScript)));
             }
 
-            // After upgrade, update web app and restart services
             if (! $this->wantsJson()) {
                 $this->info("Successfully upgraded to {$latestVersion}!");
                 $this->newLine();
 
-                // Update companion web app
-                $this->info('Updating companion web app...');
-                if (! $this->updateWebApp->handle()) {
-                    $this->warn('Failed to update web app. You may need to run `orbit install` manually.');
-                } else {
-                    $this->info('✓ Web app updated');
-                }
-
-                // Restart services
                 $this->info('Restarting services...');
                 try {
                     $this->dockerManager->stopAll();
                     $this->dockerManager->startAll();
-                    $this->info('✓ Services restarted');
+                    $this->info('Services restarted.');
                 } catch (\Exception) {
                     $this->warn('Failed to restart some services. Run `orbit restart` to try again.');
                 }
@@ -191,12 +153,40 @@ final class UpgradeCommand extends Command
 
             return self::SUCCESS;
         } catch (\Throwable $e) {
-            // Clean up temp file on error
             if (file_exists($tempFile)) {
                 @unlink($tempFile);
             }
             throw $e;
         }
+    }
+
+    private function getRunningBinaryPath(): ?string
+    {
+        $pharPath = \Phar::running(false);
+        if (! empty($pharPath)) {
+            return $pharPath;
+        }
+
+        $argv0 = $_SERVER['argv'][0] ?? null;
+        if ($argv0 !== null && file_exists($argv0) && is_executable($argv0)) {
+            return realpath($argv0) ?: $argv0;
+        }
+
+        return null;
+    }
+
+    private function getPlatformAssetName(): string
+    {
+        $os = PHP_OS_FAMILY === 'Darwin' ? 'macos' : 'linux';
+        $arch = php_uname('m');
+
+        $archMap = match ($arch) {
+            'x86_64', 'amd64' => 'x86_64',
+            'aarch64', 'arm64' => 'aarch64',
+            default => $arch,
+        };
+
+        return "orbit-{$os}-{$archMap}";
     }
 
     /**
@@ -224,11 +214,9 @@ final class UpgradeCommand extends Command
 
     private function isUpToDate(string $currentVersion, string $latestVersion): bool
     {
-        // Remove 'v' prefix for comparison
         $current = ltrim($currentVersion, 'v');
         $latest = ltrim($latestVersion, 'v');
 
-        // Handle @version@ placeholder (development mode)
         if ($current === '@version@') {
             return false;
         }
@@ -239,11 +227,20 @@ final class UpgradeCommand extends Command
     /**
      * @param  array<string, mixed>  $release
      */
-    private function findPharDownloadUrl(array $release): ?string
+    private function findBinaryDownloadUrl(array $release): ?string
     {
         /** @var array<int, array<string, mixed>> $assets */
         $assets = $release['assets'] ?? [];
+        $expectedName = $this->getPlatformAssetName();
 
+        foreach ($assets as $asset) {
+            $name = $asset['name'] ?? '';
+            if ($name === $expectedName) {
+                return $asset['browser_download_url'] ?? null;
+            }
+        }
+
+        // Fallback: try orbit.phar for backwards compatibility
         foreach ($assets as $asset) {
             $name = $asset['name'] ?? '';
             if ($name === 'orbit.phar') {
@@ -256,7 +253,6 @@ final class UpgradeCommand extends Command
 
     private function downloadFile(string $url, string $destination): bool
     {
-        // Use curl to stream directly to file (avoids memory exhaustion with large PHARs)
         $command = sprintf(
             'curl -fSL --max-time 300 -o %s %s 2>/dev/null',
             escapeshellarg($destination),
@@ -270,27 +266,39 @@ final class UpgradeCommand extends Command
         return $result === 0 && file_exists($destination) && filesize($destination) > 0;
     }
 
-    private function isValidPhar(string $path): bool
+    private function isValidBinary(string $path): bool
     {
-        // Read the first 1KB to check for phar signature
+        $size = @filesize($path);
+        if ($size === false || $size < 100000) {
+            return false;
+        }
+
+        if (is_executable($path)) {
+            return true;
+        }
+
         $content = @file_get_contents($path, false, null, 0, 1024);
         if ($content === false) {
             return false;
         }
 
-        // Check for PHP shebang and phar indicators
-        if (! str_contains($content, '<?php')) {
-            return false;
+        // ELF binary (Linux)
+        if (str_starts_with($content, "\x7fELF")) {
+            return true;
         }
 
-        // Check for __HALT_COMPILER which is required in all phars
-        // We need to check the full file for this
-        $fullContent = @file_get_contents($path);
-        if ($fullContent === false) {
-            return false;
+        // Mach-O binary (macOS) - both 64-bit and universal
+        $magic = unpack('N', substr($content, 0, 4));
+        if ($magic && in_array($magic[1], [0xFEEDFACF, 0xCAFEBABE, 0xBEBAFECA], true)) {
+            return true;
         }
 
-        return str_contains($fullContent, '__HALT_COMPILER()');
+        // PHAR fallback
+        if (str_contains($content, '<?php')) {
+            return true;
+        }
+
+        return false;
     }
 
     private function handleCheckResult(string $currentVersion, string $latestVersion, bool $isUpToDate): int

@@ -8,7 +8,6 @@ use App\Concerns\WithJsonOutput;
 use App\Contracts\CaddyfileGeneratorInterface;
 use App\Services\CaddyManager;
 use App\Services\DockerManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use LaravelZero\Framework\Commands\Command;
 
@@ -27,7 +26,6 @@ final class MigrateToFpmCommand extends Command
         PhpManager $phpManager,
         CaddyManager $caddyManager,
         CaddyfileGeneratorInterface $caddyfileGenerator,
-        HorizonManager $horizonManager,
         DockerManager $dockerManager
     ): int {
         // Detect current setup
@@ -86,13 +84,10 @@ final class MigrateToFpmCommand extends Command
         // 6. Reload Caddy with new config
         $this->task('Reloading Caddy', fn () => $caddyManager->reload());
 
-        // 7. Setup Horizon service
-        $this->task('Installing Horizon service', fn () => $horizonManager->install());
-
-        // 8. Remove old containers (unless --keep-containers)
+        // 7. Remove old containers (unless --keep-containers)
         if (! $this->option('keep-containers')) {
             $this->task('Removing old PHP containers', function () use ($dockerManager) {
-                $containers = ['orbit-php-82', 'orbit-php-83', 'orbit-php-84', 'orbit-php-85', 'orbit-caddy', 'orbit-horizon'];
+                $containers = ['orbit-php-82', 'orbit-php-83', 'orbit-php-84', 'orbit-php-85', 'orbit-caddy'];
                 foreach ($containers as $container) {
                     if ($dockerManager->containerExists($container)) {
                         if ($dockerManager->isRunning($container)) {
@@ -106,7 +101,7 @@ final class MigrateToFpmCommand extends Command
             });
         }
 
-        // 9. Start new services
+        // 8. Start new services
         $this->task('Starting services', fn () => $this->call('start') === 0);
 
         return $this->outputResult([
@@ -114,7 +109,6 @@ final class MigrateToFpmCommand extends Command
             'message' => 'Migration complete',
             'data' => [
                 'php_fpm_active' => $this->isUsingFpm($phpManager),
-                'horizon_active' => $horizonManager->isRunning(),
                 'caddy_active' => $caddyManager->isRunning(),
             ],
         ]);

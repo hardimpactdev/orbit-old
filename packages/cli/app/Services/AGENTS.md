@@ -10,9 +10,10 @@ Services/
 │   ├── PlatformAdapter.php   # Interface
 │   ├── LinuxAdapter.php      # Linux implementation
 │   └── MacAdapter.php        # macOS implementation
-├── Install/            # Installation pipelines
-│   ├── InstallLinuxPipeline.php
-│   └── InstallMacPipeline.php
+├── Install/            # Installation pipeline
+│   ├── InstallPipeline.php    # Runs template steps sequentially
+│   └── InstallLogger.php      # Console output formatting
+├── TemplateRegistry.php  # Template discovery and lookup
 └── *.php               # Core services
 ```
 
@@ -20,6 +21,7 @@ Services/
 
 | Service | Responsibility |
 |---------|----------------|
+| `TemplateRegistry` | Register and resolve installation templates |
 | `ConfigManager` | Read/write Orbit configuration |
 | `PlatformService` | OS detection and adapter factory |
 | `GitHubService` | GitHub identity and URL parsing |
@@ -30,23 +32,20 @@ Services/
 | `DockerManager` | Docker container lifecycle |
 | `ComposeGenerator` | Generate docker-compose.yml |
 | `ServiceManager` | Service container orchestration |
-| `HorizonManager` | Horizon queue worker management |
 | `DeletionLogger` | Site deletion logging |
 
 ## Provisioning Architecture
 
-**Note:** Site provisioning logic has been moved to `orbit-core`. The CLI now dispatches `CreateSiteJob` to Horizon, which uses orbit-core's `ProvisionPipeline` and native Laravel broadcasting.
+**Note:** Site provisioning logic lives in `orbit-core`. The CLI runs `ProvisionPipeline` synchronously with real-time output and Reverb broadcasting.
 
 ```
 CLI site:create command
     ↓
 Creates Site record in database
     ↓
-Dispatches CreateSiteJob to Horizon
+Runs ProvisionPipeline synchronously
     ↓
-orbit-core ProvisionPipeline runs
-    ↓
-Native Laravel Events → Reverb
+ProvisionLogger broadcasts to Reverb
 ```
 
 See `orbit-core/src/Services/Provision/` for provisioning implementation.

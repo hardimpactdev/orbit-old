@@ -8,7 +8,6 @@ use App\Contracts\CaddyfileGeneratorInterface;
 use App\Services\CaddyManager;
 use App\Services\ConfigManager;
 use App\Services\DockerManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use App\Services\PlatformService;
 use Illuminate\Support\Facades\File;
@@ -35,7 +34,6 @@ final class MacSetup
         DockerManager $dockerManager,
         CaddyfileGeneratorInterface $caddyfileGenerator,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager,
         PhpManager $phpManager,
         PlatformService $platformService
     ): bool {
@@ -143,13 +141,6 @@ final class MacSetup
                 $this->progressInfo('Docker services skipped');
             }
             $this->stepComplete('Initializing Docker services');
-
-            // Step 15: Install Horizon
-            $this->stepStart('Installing Horizon');
-            if (! $this->installHorizon($horizonManager, $configManager)) {
-                return false;
-            }
-            $this->stepComplete('Installing Horizon');
 
             $this->setupComplete();
 
@@ -345,7 +336,6 @@ final class MacSetup
             "{$configPath}/redis",
             "{$configPath}/redis/data",
             "{$configPath}/mailpit",
-            "{$configPath}/horizon",
             "{$configPath}/logs",
             $projectsPath,
         ];
@@ -487,44 +477,4 @@ final class MacSetup
         }
     }
 
-    protected function installHorizon(HorizonManager $horizonManager, ConfigManager $configManager): bool
-    {
-        // Check if web app is installed
-        $webPath = $configManager->getWebAppPath();
-        if (! File::isDirectory($webPath)) {
-            $this->progressInfo('Web app not installed - skipping Horizon');
-
-            return true;
-        }
-
-        // Check if already installed
-        if ($horizonManager->isInstalled()) {
-            $this->progressInfo('Horizon already installed');
-
-            return true;
-        }
-
-        try {
-            $this->progressInfo('Installing Horizon service...');
-
-            if (! $horizonManager->install()) {
-                $this->stepError('Installing Horizon', 'Failed to install Horizon service');
-
-                return false;
-            }
-
-            // Start the service
-            if ($horizonManager->start()) {
-                $this->progressInfo('Horizon service started');
-            } else {
-                $this->progressInfo('Warning: Horizon installed but failed to start');
-            }
-
-            return true;
-        } catch (\Exception $e) {
-            $this->stepError('Installing Horizon', $e->getMessage());
-
-            return false;
-        }
-    }
 }

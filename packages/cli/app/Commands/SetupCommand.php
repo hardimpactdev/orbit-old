@@ -10,7 +10,6 @@ use App\Services\CaddyfileGenerator;
 use App\Services\CaddyManager;
 use App\Services\ConfigManager;
 use App\Services\DockerManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use App\Services\PlatformService;
 use LaravelZero\Framework\Commands\Command;
@@ -30,7 +29,7 @@ final class SetupCommand extends Command
         DockerManager $dockerManager,
         CaddyfileGenerator $caddyfileGenerator,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager,
+
         PhpManager $phpManager,
         PlatformService $platformService
     ): int {
@@ -59,7 +58,7 @@ final class SetupCommand extends Command
                 $dockerManager,
                 $caddyfileGenerator,
                 $caddyManager,
-                $horizonManager,
+
                 $phpManager,
                 $platformService
             );
@@ -73,7 +72,7 @@ final class SetupCommand extends Command
                 $dockerManager,
                 $caddyfileGenerator,
                 $caddyManager,
-                $horizonManager,
+
                 $phpManager,
                 $platformService
             );
@@ -101,7 +100,7 @@ final class SetupCommand extends Command
         DockerManager $dockerManager,
         CaddyfileGenerator $caddyfileGenerator,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager,
+
         PhpManager $phpManager,
         PlatformService $platformService
     ): int {
@@ -117,7 +116,7 @@ final class SetupCommand extends Command
             $dockerManager,
             $caddyfileGenerator,
             $caddyManager,
-            $horizonManager,
+
             $phpManager,
             $platformService
         );
@@ -134,7 +133,7 @@ final class SetupCommand extends Command
         DockerManager $dockerManager,
         CaddyfileGenerator $caddyfileGenerator,
         CaddyManager $caddyManager,
-        HorizonManager $horizonManager,
+
         PhpManager $phpManager,
         PlatformService $platformService
     ): int {
@@ -150,7 +149,7 @@ final class SetupCommand extends Command
             $dockerManager,
             $caddyfileGenerator,
             $caddyManager,
-            $horizonManager,
+
             $phpManager,
             $platformService
         );

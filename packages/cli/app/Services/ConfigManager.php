@@ -55,6 +55,16 @@ class ConfigManager
         $this->save();
     }
 
+    public function getTemplate(): string
+    {
+        return $this->get('template', 'development');
+    }
+
+    public function setTemplate(string $template): void
+    {
+        $this->set('template', $template);
+    }
+
     public function getPaths(): array
     {
         return $this->get('paths', []);

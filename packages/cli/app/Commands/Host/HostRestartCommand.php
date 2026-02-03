@@ -7,7 +7,6 @@ namespace App\Commands\Host;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\CaddyManager;
-use App\Services\HorizonManager;
 use App\Services\PhpManager;
 use LaravelZero\Framework\Commands\Command;
 
@@ -22,7 +21,6 @@ final class HostRestartCommand extends Command
     public function handle(
         CaddyManager $caddy,
         PhpManager $php,
-        HorizonManager $horizon
     ): int {
         $service = $this->argument('service');
 
@@ -32,8 +30,6 @@ final class HostRestartCommand extends Command
             } elseif (str_starts_with($service, 'php')) {
                 $version = str_replace('php-', '', $service);
                 $success = $php->restart($version);
-            } elseif ($service === 'horizon') {
-                $success = $horizon->restart();
             } else {
                 if ($this->wantsJson()) {
                     return $this->outputJsonError("Unknown host service: {$service}", ExitCode::InvalidArguments->value);

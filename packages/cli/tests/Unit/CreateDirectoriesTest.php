@@ -39,7 +39,6 @@ it('creates all required directories', function () {
     expect(is_dir("{$this->testDir}/postgres"))->toBeTrue();
     expect(is_dir("{$this->testDir}/redis"))->toBeTrue();
     expect(is_dir("{$this->testDir}/mailpit"))->toBeTrue();
-    expect(is_dir("{$this->testDir}/horizon"))->toBeTrue();
     expect(is_dir("{$this->testDir}/logs"))->toBeTrue();
     expect(is_dir("{$this->testDir}/logs/provision"))->toBeTrue();
 });

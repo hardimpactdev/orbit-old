@@ -16,11 +16,8 @@ final class EnsureCommand extends Command
 
     protected $signature = 'ensure {--json : Output as JSON}';
 
-    protected $description = 'Ensure all Orbit services are running (containers + Horizon)';
+    protected $description = 'Ensure all Orbit services are running';
 
-    /**
-     * Required containers mapped to their service keys in DockerManager.
-     */
     protected array $requiredServices = [
         'dns',
         'caddy',
@@ -35,10 +32,8 @@ final class EnsureCommand extends Command
         $results = [
             'docker' => false,
             'containers' => false,
-            'horizon' => false,
         ];
 
-        // 1. Check if Docker is running
         if (! $this->isDockerRunning()) {
             $this->logOrOutput('Docker is not running, skipping...', 'warn');
 
@@ -46,7 +41,6 @@ final class EnsureCommand extends Command
         }
         $results['docker'] = true;
 
-        // 2. Ensure containers are running - single batched query
         $allStatuses = $dockerManager->getAllStatuses();
         $allRunning = true;
 
@@ -60,24 +54,9 @@ final class EnsureCommand extends Command
         if (! $allRunning) {
             $this->logOrOutput('Starting containers...', 'info');
             $this->call('start');
-            $dockerManager->clearStatusCache(); // Clear cache after starting
+            $dockerManager->clearStatusCache();
         }
         $results['containers'] = true;
-
-        // 3. Verify Horizon container is running
-        // Check fresh status after potential start
-        $freshStatuses = $dockerManager->getAllStatuses();
-
-        // Horizon is not in the standard CONTAINERS list, check directly
-        if ($dockerManager->isRunning('orbit-horizon')) {
-            $results['horizon'] = true;
-        } else {
-            $this->logOrOutput('Horizon container not running, attempting to start...', 'warn');
-            if ($dockerManager->start('horizon')) {
-                sleep(3);
-                $results['horizon'] = $dockerManager->isRunning('orbit-horizon');
-            }
-        }
 
         return $this->outputResult($results);
     }
@@ -109,12 +88,11 @@ final class EnsureCommand extends Command
             return $this->outputJsonSuccess([
                 'docker' => $results['docker'],
                 'containers' => $results['containers'],
-                'horizon' => $results['horizon'],
-                'all_running' => $results['docker'] && $results['containers'] && $results['horizon'],
+                'all_running' => $results['docker'] && $results['containers'],
             ]);
         }
 
-        if ($results['docker'] && $results['containers'] && $results['horizon']) {
+        if ($results['docker'] && $results['containers']) {
             $this->info('All services are running.');
 
             return self::SUCCESS;

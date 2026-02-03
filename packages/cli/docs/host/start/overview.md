@@ -12,7 +12,7 @@ Starts a host-level service (services running on the host machine, not in Docker
 
 | Argument | Description |
 |----------|-------------|
-| `service` | Service to start: `caddy`, `php-{version}`, or `horizon` |
+| `service` | Service to start: `caddy` or `php-{version}` |
 
 ## Options
 
@@ -25,15 +25,13 @@ Starts a host-level service (services running on the host machine, not in Docker
 | Service | Manager | Description |
 |---------|---------|-------------|
 | `caddy` | CaddyManager | Web server/reverse proxy |
-| `php-8.1`, `php-8.2`, etc. | PhpManager | PHP-FPM for specific version |
-| `horizon` | HorizonManager | Laravel queue worker |
+| `php-8.3`, `php-8.4`, etc. | PhpManager | PHP-FPM for specific version |
 
 ## Examples
 
 ```bash
 orbit host:start caddy
 orbit host:start php-8.3
-orbit host:start horizon
 ```
 
 ## Related Commands

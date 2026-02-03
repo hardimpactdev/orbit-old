@@ -68,7 +68,8 @@ final class MyCommand extends Command
 
 | Command | Description |
 |---------|-------------|
-| `site:create` | Create new site (dispatches job to Horizon) |
+| `install` | Install Orbit using a template (`--template=development`) |
+| `site:create` | Create new site via ProvisionPipeline |
 | `site:delete` | Remove site and cleanup resources |
 | `start`/`stop`/`restart` | Host + Docker service lifecycle |
 | `status` | Show running services |
@@ -77,26 +78,22 @@ final class MyCommand extends Command
 
 ## Site Creation Architecture
 
-The `site:create` command now dispatches a job to Horizon instead of doing provisioning locally:
+The `site:create` command runs provisioning synchronously with real-time output:
 
 ```php
 // Create Site record in database
 $site = Site::create([...]);
 
-// Dispatch job to Horizon queue
-CreateSiteJob::dispatch($site->id, $projectOptions);
-
-// Optional: wait for completion with --wait flag
-if ($this->option('wait')) {
-    return $this->waitForCompletion($site);
-}
+// Run ProvisionPipeline synchronously
+$pipeline = app(ProvisionPipeline::class);
+$pipeline->run($context);
 ```
 
-Provisioning is handled by `orbit-core`'s `ProvisionPipeline` with native Laravel broadcasting for status updates.
+Provisioning is handled by `orbit-core`'s `ProvisionPipeline` with real-time console output.
 
 ## Gotcha: JSON Output Must Be Clean
 
-When `--json` flag is used, orbit-web parses stdout as JSON. Any non-JSON output corrupts parsing.
+When `--json` flag is used, callers parse stdout as JSON. Any non-JSON output corrupts parsing.
 
 ```php
 // Only output to console when not in JSON mode

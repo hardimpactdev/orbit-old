@@ -1,4 +1,5 @@
 {
+    "template": "development",
     "paths": [
         "~/Projects",
         "~/Clients"

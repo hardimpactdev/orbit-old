@@ -3,7 +3,6 @@ sequenceDiagram
     participant CLI as Status
     participant PHP as PhpManager
     participant Caddy as CaddyManager
-    participant Horizon as HorizonManager
     participant Service as ServiceManager
     participant Docker as DockerManager
     participant Scanner as SiteScanner
@@ -15,7 +14,6 @@ sequenceDiagram
     alt PHP-FPM
         CLI->>PHP: check each version running
         CLI->>Caddy: isRunning
-        CLI->>Horizon: isRunning
     end
 
     CLI->>Service: getEnabled
