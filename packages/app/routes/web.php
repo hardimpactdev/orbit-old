@@ -77,7 +77,7 @@ Route::post('projects/{project}/php/reset', [\HardImpact\Orbit\App\Http\Controll
 
 // API routes for environment data
 Route::prefix('api/environments')->group(function (): void {
-    Route::get('tlds', [EnvironmentController::class, 'getAllTlds'])->name('api.environments.tlds');
+    Route::get('tlds', [\HardImpact\Orbit\App\Http\Controllers\EnvironmentConfigController::class, 'getAllTlds'])->name('api.environments.tlds');
 });
 
 // Redirect global settings to environment configuration
