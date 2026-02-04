@@ -476,5 +476,4 @@ final class MacSetup
             return false;
         }
     }
-
 }

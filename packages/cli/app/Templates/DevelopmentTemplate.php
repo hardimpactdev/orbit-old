@@ -7,10 +7,22 @@ namespace App\Templates;
 use App\Actions\Install\Linux;
 use App\Actions\Install\Mac;
 use App\Actions\Install\Shared;
+use App\Components\CaddyComponent;
+use App\Components\DnsComponent;
+use App\Components\DockerComponent;
+use App\Components\PhpComponent;
+use App\Contracts\Component;
 use App\Contracts\Template;
 
 final readonly class DevelopmentTemplate implements Template
 {
+    public function __construct(
+        private DockerComponent $docker,
+        private PhpComponent $php,
+        private CaddyComponent $caddy,
+        private DnsComponent $dns,
+    ) {}
+
     public function name(): string
     {
         return 'development';
@@ -113,5 +125,39 @@ final readonly class DevelopmentTemplate implements Template
 
             ['action' => Shared\HealthCheck::class, 'name' => 'Running health checks'],
         ];
+    }
+
+    /**
+     * @return array<Component>
+     */
+    public function components(string $osFamily): array
+    {
+        return array_filter(
+            [$this->docker, $this->php, $this->caddy, $this->dns],
+            fn (Component $c) => $c->supportsPlatform($osFamily),
+        );
+    }
+
+    /**
+     * @return array<array{action: class-string, name: string}>
+     */
+    public function prepareSteps(string $osFamily): array
+    {
+        $steps = [];
+
+        foreach ($this->components($osFamily) as $component) {
+            $prepareClass = $component->prepare($osFamily);
+
+            if ($prepareClass === null) {
+                continue;
+            }
+
+            $steps[] = [
+                'action' => $prepareClass,
+                'name' => "Checking {$component->label()}",
+            ];
+        }
+
+        return $steps;
     }
 }

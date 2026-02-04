@@ -1,0 +1,28 @@
+{
+    "disabled": [],
+    "hooks": {
+        "pre-commit": [
+            "cd packages/core && ./vendor/bin/pint --dirty",
+            "cd packages/cli && ./vendor/bin/pint --dirty",
+            "cd packages/cli && composer rector",
+            "cd packages/web && ./vendor/bin/pint --dirty",
+            "cd packages/app && ./vendor/bin/pint --dirty",
+            "cd packages/desktop && ./vendor/bin/pint --dirty",
+            "cd packages/desktop && composer rector",
+            "cd packages/desktop && bun run format resources/"
+        ],
+        "pre-push": [
+            "cd packages/core && composer test",
+            "cd packages/core && composer analyse",
+            "cd packages/cli && composer test",
+            "cd packages/cli && composer analyse",
+            "cd packages/web && composer test",
+            "cd packages/web && composer analyse",
+            "cd packages/app && composer test",
+            "cd packages/app && composer analyse",
+            "cd packages/desktop && composer test",
+            "cd packages/desktop && composer analyse",
+            "cd packages/desktop && bun run lint --fix"
+        ]
+    }
+}

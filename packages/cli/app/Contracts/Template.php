@@ -23,4 +23,14 @@ interface Template
      * @return array<array{action: class-string, name: string}>
      */
     public function installSteps(string $osFamily): array;
+
+    /**
+     * @return array<Component>
+     */
+    public function components(string $osFamily): array;
+
+    /**
+     * @return array<array{action: class-string, name: string}>
+     */
+    public function prepareSteps(string $osFamily): array;
 }

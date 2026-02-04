@@ -14,7 +14,7 @@ final class TemplateRegistry
 
     public function __construct()
     {
-        $this->register(new DevelopmentTemplate);
+        $this->register(app(DevelopmentTemplate::class));
     }
 
     public function register(Template $template): void

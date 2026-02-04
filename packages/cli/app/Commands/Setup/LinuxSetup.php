@@ -400,5 +400,4 @@ final class LinuxSetup
 
         return true;
     }
-
 }

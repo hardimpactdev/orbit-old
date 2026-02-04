@@ -147,5 +147,4 @@ final readonly class HealthCheck
 
         return $allRunning;
     }
-
 }
