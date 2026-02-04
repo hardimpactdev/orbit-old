@@ -10,7 +10,6 @@ use App\Services\ConfigManager;
 use App\Services\Install\InstallLogger;
 use App\Services\Install\InstallPipeline;
 use App\Services\TemplateRegistry;
-use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
 final class InstallCommand extends Command
@@ -25,8 +24,6 @@ final class InstallCommand extends Command
 
     protected $description = 'Install Orbit and configure your development environment';
 
-    private const MIN_PHP_VERSION = '8.4.0';
-
     public function __construct(
         private readonly TemplateRegistry $registry,
         private readonly InstallPipeline $pipeline,
@@ -37,10 +34,6 @@ final class InstallCommand extends Command
 
     public function handle(): int
     {
-        if (! $this->validatePrerequisites()) {
-            return self::FAILURE;
-        }
-
         $template = $this->resolveTemplate();
 
         if (! $template) {
@@ -126,29 +119,5 @@ final class InstallCommand extends Command
         $name = array_search($selected, $choices, true);
 
         return $this->registry->get($name);
-    }
-
-    private function validatePrerequisites(): bool
-    {
-        if (version_compare(PHP_VERSION, self::MIN_PHP_VERSION, '<')) {
-            $this->error('PHP '.self::MIN_PHP_VERSION.'+ is required. Current version: '.PHP_VERSION);
-            $this->line('');
-            $this->line('Run the bootstrap installer to install prerequisites:');
-            $this->info('  curl -fsSL https://raw.githubusercontent.com/hardimpactdev/orbit-cli/main/install.sh | bash');
-
-            return false;
-        }
-
-        $composerCheck = Process::run('composer --version');
-        if (! $composerCheck->successful()) {
-            $this->error('Composer is required but not found.');
-            $this->line('');
-            $this->line('Run the bootstrap installer to install prerequisites:');
-            $this->info('  curl -fsSL https://raw.githubusercontent.com/hardimpactdev/orbit-cli/main/install.sh | bash');
-
-            return false;
-        }
-
-        return true;
     }
 }
