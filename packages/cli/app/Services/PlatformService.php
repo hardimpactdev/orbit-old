@@ -70,6 +70,20 @@ final class PlatformService
         return $result->successful() ? trim($result->output()) : null;
     }
 
+    /**
+     * Check if a process is currently running.
+     */
+    public function isProcessRunning(string $processName): bool
+    {
+        if ($this->isMacOS()) {
+            $result = Process::run("pgrep -x '{$processName}' 2>/dev/null");
+        } else {
+            $result = Process::run("pgrep -x '{$processName}' 2>/dev/null || ps aux | grep -i '{$processName}' | grep -v grep");
+        }
+
+        return $result->successful() && trim($result->output()) !== '';
+    }
+
     // ===========================================
     // Container Runtime Detection
     // ===========================================

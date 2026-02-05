@@ -27,16 +27,6 @@ final readonly class PrepareDocker
         }
         $logger->success('Docker daemon accessible');
 
-        // Check required ports
-        $requiredPorts = [5432, 6379, 8025];
-        foreach ($requiredPorts as $port) {
-            $portCheck = Process::run("lsof -i :{$port} 2> /dev/null");
-            if ($portCheck->successful()) {
-                return StepResult::failed("Port {$port} is already in use. Please free this port before installing.");
-            }
-        }
-        $logger->success('Ports '.implode(', ', $requiredPorts).' available');
-
         // Check Docker socket
         $socketCheck = Process::run('test -S /var/run/docker.sock || test -S ~/.orbstack/run/docker.sock');
         if ($socketCheck->failed()) {

@@ -77,7 +77,10 @@ final class ServiceConfigValidator
 
             $mappedType = $typeMap[$actualType] ?? $actualType;
 
-            if ($mappedType !== $expectedType && ! ($expectedType === 'number' && in_array($mappedType, ['integer', 'number']))) {
+            // Special case: 'object' type in schema accepts arrays (PHP uses arrays for objects/maps)
+            $isObjectType = $expectedType === 'object' && $mappedType === 'array';
+
+            if ($mappedType !== $expectedType && ! $isObjectType && ! ($expectedType === 'number' && in_array($mappedType, ['integer', 'number']))) {
                 $errors[] = "Field '{$key}' must be of type {$expectedType}, got {$actualType}";
             }
         }

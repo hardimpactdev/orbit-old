@@ -16,12 +16,15 @@ final readonly class InstallPipeline
         $prepareSteps = $template->prepareSteps($osFamily);
 
         if (count($prepareSteps) > 0) {
-            $total = count($prepareSteps);
+            $logger->newLine();
+            $logger->info('Checking prerequisites...');
+            $logger->newLine();
 
-            foreach ($prepareSteps as $index => $step) {
-                $logger->progress($index + 1, $total, $step['name']);
-
-                $result = app($step['action'])->handle($context, $logger);
+            foreach ($prepareSteps as $step) {
+                $result = $logger->spinner(
+                    $step['name'],
+                    fn () => app($step['action'])->handle($context, $logger)
+                );
 
                 if ($result->isFailed()) {
                     return $result;
@@ -33,14 +36,18 @@ final readonly class InstallPipeline
             $logger->newLine();
         }
 
-        // Phase 2: Installation (existing logic, unchanged)
+        // Phase 2: Installation
         $steps = $template->installSteps($osFamily);
-        $total = count($steps);
 
-        foreach ($steps as $index => $step) {
-            $logger->progress($index + 1, $total, $step['name']);
+        $logger->newLine();
+        $logger->info('Installing components...');
+        $logger->newLine();
 
-            $result = app($step['action'])->handle($context, $logger);
+        foreach ($steps as $step) {
+            $result = $logger->spinner(
+                $step['name'],
+                fn () => app($step['action'])->handle($context, $logger)
+            );
 
             if ($result->isFailed()) {
                 return $result;

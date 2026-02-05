@@ -1,0 +1,203 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Commands;
+
+use App\Services\CaddyManager;
+use App\Services\ConfigManager;
+use Illuminate\Support\Facades\Process;
+use LaravelZero\Framework\Commands\Command;
+
+use function Laravel\Prompts\text;
+
+/**
+ * Generate SSL certificate for a local domain and create symlinks for Vite valetTls.
+ */
+final class SecureCommand extends Command
+{
+    protected $signature = 'secure
+                            {domain? : Domain name (e.g., myapp.test)}
+                            {--auto : Use project name automatically}
+                            {--trust : Trust the Caddy root CA in macOS keychain}';
+
+    protected $description = 'Generate SSL certificate for a local domain';
+
+    public function handle(CaddyManager $caddyManager, ConfigManager $configManager): int
+    {
+        $domain = $this->argument('domain');
+
+        if ($domain === null) {
+            $domain = $this->detectDomain($configManager);
+        }
+
+        // Ensure domain has TLD
+        if (! str_contains($domain, '.')) {
+            $tld = $configManager->getTld();
+            $domain .= '.'.$tld;
+        }
+
+        $this->info("Generating certificate for: {$domain}");
+        $this->newLine();
+
+        // Reload Caddy to generate certificate
+        $this->info('Reloading Caddy...');
+        $result = $caddyManager->reload();
+
+        if (! $result) {
+            $this->error('Failed to reload Caddy');
+
+            return self::FAILURE;
+        }
+
+        $this->info('✓ Caddy reloaded');
+        $this->newLine();
+
+        // Check if certificate was generated
+        $caddyCert = $this->findCaddyCertificate($domain);
+        if ($caddyCert === null) {
+            $this->warn('Certificate not yet generated');
+            $this->info("Visit https://{$domain} once to trigger certificate generation");
+            $this->info("Then run: orbit secure {$domain}");
+
+            return self::FAILURE;
+        }
+
+        $this->info('✓ Certificate ready');
+        $this->line('  Location: '.$caddyCert['cert']);
+        $this->newLine();
+
+        // Create symlinks for Vite valetTls
+        $this->createCertificateSymlinks($domain, $caddyCert);
+
+        $this->newLine();
+
+        // Trust Caddy root CA if requested
+        if ($this->option('trust')) {
+            $this->trustCaddyRootCa();
+        } else {
+            $this->warn('Caddy CA may not be trusted - run with --trust if you see certificate warnings');
+        }
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Detect domain from current directory.
+     */
+    private function detectDomain(ConfigManager $configManager): string
+    {
+        $cwd = getcwd();
+        $project = basename($cwd);
+        $tld = $configManager->getTld();
+
+        if ($this->option('auto')) {
+            return $project.'.'.$tld;
+        }
+
+        $suggested = $project;
+
+        $domain = text(
+            label: 'Domain name',
+            default: "{$suggested}.{$tld}",
+            validate: fn ($v) => $v === '' ? 'Domain is required' : null
+        );
+
+        return $domain;
+    }
+
+    /**
+     * Find Caddy certificate for domain.
+     *
+     * @return array{cert: string, key: string}|null
+     */
+    private function findCaddyCertificate(string $domain): ?array
+    {
+        $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
+        $basePath = $home.'/Library/Application Support/Caddy/certificates/local';
+
+        $paths = [
+            "{$basePath}/{$domain}/{$domain}.crt",
+            "{$basePath}/{$domain}.crt",
+        ];
+
+        foreach ($paths as $certPath) {
+            $keyPath = str_replace('.crt', '.key', $certPath);
+            if (file_exists($certPath) && file_exists($keyPath)) {
+                return ['cert' => $certPath, 'key' => $keyPath];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Create symlinks in Herd/Valet certificate directories.
+     */
+    private function createCertificateSymlinks(string $domain, array $caddyCert): void
+    {
+        $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
+
+        // Target directories (Herd and Valet)
+        $targets = [
+            'Herd' => $home.'/Library/Application Support/Herd/config/valet/Certificates',
+            'Valet' => $home.'/.config/valet/Certificates',
+        ];
+
+        foreach ($targets as $name => $targetDir) {
+            if (! is_dir($targetDir)) {
+                continue;
+            }
+
+            $this->line("Updating: {$targetDir}");
+
+            // Create symlinks
+            $certLink = "{$targetDir}/{$domain}.crt";
+            $keyLink = "{$targetDir}/{$domain}.key";
+
+            // Remove existing files/symlinks
+            if (file_exists($certLink) || is_link($certLink)) {
+                unlink($certLink);
+            }
+            if (file_exists($keyLink) || is_link($keyLink)) {
+                unlink($keyLink);
+            }
+
+            // Create symlinks
+            symlink($caddyCert['cert'], $certLink);
+            symlink($caddyCert['key'], $keyLink);
+            $this->line("  ✓ {$domain}.crt");
+            $this->line("  ✓ {$domain}.key");
+        }
+    }
+
+    /**
+     * Trust Caddy root CA in macOS keychain.
+     */
+    private function trustCaddyRootCa(): void
+    {
+        $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
+        $rootCaPath = $home.'/Library/Application Support/Caddy/pki/authorities/local/root.crt';
+
+        if (! file_exists($rootCaPath)) {
+            $this->warn('Caddy root CA not found - visit the site first to generate it');
+
+            return;
+        }
+
+        $this->info('Trusting Caddy root CA...');
+
+        // Use caddy trust command
+        $result = Process::timeout(60)->run('caddy trust');
+
+        if ($result->successful()) {
+            $this->info('✓ Caddy root CA trusted');
+            $this->info('You may need to restart your browser');
+        } elseif (str_contains($result->errorOutput(), 'already')) {
+            $this->info('✓ Caddy root CA already trusted');
+        } else {
+            $this->error('Failed to trust Caddy root CA');
+            $this->line($result->errorOutput());
+        }
+    }
+}

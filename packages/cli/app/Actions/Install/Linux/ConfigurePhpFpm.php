@@ -86,8 +86,10 @@ final readonly class ConfigurePhpFpm
     {
         $poolDir = "/etc/php/{$version}/fpm/pool.d";
         $poolConfigPath = "{$poolDir}/orbit.conf";
-        $socketPath = "{$context->configDir}/php/php{$version}.sock";
-        $logPath = "{$context->configDir}/logs/php{$version}-fpm.log";
+        // Use normalized version (no dot) for socket path and pool name consistency
+        $normalizedVersion = str_replace('.', '', $version);
+        $socketPath = "{$context->configDir}/php/php{$normalizedVersion}.sock";
+        $logPath = "{$context->configDir}/logs/php{$normalizedVersion}-fpm.log";
 
         // Ensure log directory exists
         $logDir = dirname($logPath);
@@ -109,7 +111,7 @@ final readonly class ConfigurePhpFpm
         $home = $context->homeDir;
         $envPath = trim(Process::run('echo $PATH')->output());
 
-        // Replace placeholders
+        // Replace placeholders - use normalized version for pool name to ensure consistency
         $config = str_replace([
             'ORBIT_PHP_VERSION',
             'ORBIT_USER',
@@ -119,7 +121,7 @@ final readonly class ConfigurePhpFpm
             'ORBIT_ENV_PATH',
             'ORBIT_HOME',
         ], [
-            $version,
+            $normalizedVersion,  // Use normalized version (84) not (8.4) for pool name
             $user,
             $group,
             $socketPath,

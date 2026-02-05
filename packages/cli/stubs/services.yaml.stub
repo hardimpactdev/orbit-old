@@ -1,6 +1,12 @@
 # Orbit Services Configuration
 # This file defines which Docker services are enabled and their configuration.
 # Run 'orbit service:regenerate' after making changes.
+#
+# NOTE: Only DNS is enabled by default. Enable other services as needed:
+#   orbit service:enable postgres
+#   orbit service:enable redis
+#   orbit service:enable mailpit
+#   orbit service:enable reverb
 
 services:
   dns:
@@ -9,7 +15,7 @@ services:
     port: 53
 
   postgres:
-    enabled: true
+    enabled: false
     version: "17"
     port: 5432
     environment:
@@ -18,20 +24,20 @@ services:
       POSTGRES_DB: orbit
 
   redis:
-    enabled: true
+    enabled: false
     version: "7.4"
     port: 6379
     maxmemory: 256mb
     persistence: true
 
   mailpit:
-    enabled: true
+    enabled: false
     version: latest
     smtp_port: 1025
     http_port: 8025
 
   reverb:
-    enabled: true
+    enabled: false
     version: latest
     port: 8080
     environment:

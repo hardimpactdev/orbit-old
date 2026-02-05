@@ -31,11 +31,12 @@ it('checks PHP-FPM services are running', function () {
     expect($sourceCode)->toContain('PHP-FPM');
 });
 
-it('checks Reverb service', function () {
+it('checks enabled Docker services dynamically', function () {
     $sourceCode = file_get_contents(__DIR__.'/../../../../app/Actions/Install/Shared/HealthCheck.php');
 
-    expect($sourceCode)->toContain('reverb');
-    expect($sourceCode)->toContain('"orbit-{$service}"');
+    expect($sourceCode)->toContain('getEnabled()');
+    expect($sourceCode)->toContain('"orbit-{$serviceName}"');
+    expect($sourceCode)->toContain('Docker service');
 });
 
 it('returns success when all checks pass', function () {

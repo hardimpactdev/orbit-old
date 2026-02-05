@@ -121,7 +121,7 @@ final readonly class ConfigurePhpFpm
         $home = $context->homeDir;
         $envPath = trim(Process::run('echo $PATH')->output());
 
-        // Replace placeholders
+        // Replace placeholders - use normalized version for pool name to ensure consistency
         $config = str_replace([
             'ORBIT_PHP_VERSION',
             'ORBIT_USER',
@@ -131,7 +131,7 @@ final readonly class ConfigurePhpFpm
             'ORBIT_ENV_PATH',
             'ORBIT_HOME',
         ], [
-            $version,
+            $normalizedVersion,  // Use normalized version (84) not (8.4) for pool name
             $user,
             $group,
             $socketPath,
@@ -158,7 +158,18 @@ final readonly class ConfigurePhpFpm
         $result = Process::run("{$fpmBinary} -t 2>&1");
 
         if (! $result->successful()) {
-            $logger->error('PHP-FPM configuration test failed: '.$result->errorOutput());
+            $output = $result->output();
+            $errorOutput = $result->errorOutput();
+            $logger->error('PHP-FPM configuration test failed:');
+            if ($output) {
+                $logger->error($output);
+            }
+            if ($errorOutput) {
+                $logger->error($errorOutput);
+            }
+            if (! $output && ! $errorOutput) {
+                $logger->error('No output from php-fpm -t (exit code: '.$result->exitCode().')');
+            }
 
             return false;
         }

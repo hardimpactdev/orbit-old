@@ -17,10 +17,24 @@ final readonly class PrepareDns
         $portCheck = Process::run('lsof -i :53 2> /dev/null');
         if ($portCheck->successful()) {
             $output = $portCheck->output();
-            if (! str_contains($output, 'dnsmasq')) {
+
+            // Check if it's our own orbit-dns container (via OrbStack/Docker)
+            if (str_contains($output, 'OrbStack') || str_contains($output, 'com.docke') || str_contains($output, 'docker')) {
+                // Likely our own container - check if orbit-dns is running
+                $dockerCheck = Process::run('docker ps --filter "name=orbit-dns" --filter "status=running" --format "{{.Names}}" 2>/dev/null');
+                if ($dockerCheck->successful() && trim($dockerCheck->output()) === 'orbit-dns') {
+                    $logger->success('Port 53 in use by orbit-dns (our DNS service)');
+
+                    return StepResult::success();
+                }
+            }
+
+            // Check for dnsmasq (expected)
+            if (str_contains($output, 'dnsmasq')) {
+                $logger->success('Port 53 in use by dnsmasq (expected)');
+            } else {
                 return StepResult::failed('Port 53 is in use by another process. DNS resolution may conflict.');
             }
-            $logger->success('Port 53 in use by dnsmasq (expected)');
         } else {
             $logger->success('Port 53 available');
         }

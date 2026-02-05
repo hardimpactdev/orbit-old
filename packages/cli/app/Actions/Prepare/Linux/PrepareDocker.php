@@ -31,16 +31,6 @@ final readonly class PrepareDocker
             }
         }
 
-        // Check required ports
-        $requiredPorts = [5432, 6379, 8025];
-        foreach ($requiredPorts as $port) {
-            $portCheck = Process::run("ss -tuln | grep -q :{$port}");
-            if ($portCheck->successful()) {
-                return StepResult::failed("Port {$port} is already in use. Please free this port before installing.");
-            }
-        }
-        $logger->success('Ports '.implode(', ', $requiredPorts).' available');
-
         return StepResult::success();
     }
 }

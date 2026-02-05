@@ -25,6 +25,12 @@ php_admin_flag[log_errors] = on
 catch_workers_output = yes
 decorate_workers_output = no
 
+; Resource limits
+php_admin_value[memory_limit] = 128M
+php_admin_value[upload_max_filesize] = 10M
+php_admin_value[post_max_size] = 10M
+php_admin_value[max_execution_time] = 60
+
 ; Environment variables (critical for CLI/Bun access)
 env[PATH] = ORBIT_ENV_PATH
 env[HOME] = ORBIT_HOME

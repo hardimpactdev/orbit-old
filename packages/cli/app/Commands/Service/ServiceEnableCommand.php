@@ -4,16 +4,22 @@ declare(strict_types=1);
 
 namespace App\Commands\Service;
 
+use App\Concerns\ValidatesPort;
 use App\Concerns\WithJsonOutput;
 use App\Services\ServiceManager;
 use LaravelZero\Framework\Commands\Command;
 use RuntimeException;
 
+use function Laravel\Prompts\password;
+use function Laravel\Prompts\select;
+use function Laravel\Prompts\text;
+
 final class ServiceEnableCommand extends Command
 {
+    use ValidatesPort;
     use WithJsonOutput;
 
-    protected $signature = 'service:enable 
+    protected $signature = 'service:enable
                             {service : Service name to enable}
                             {--json : Output as JSON}';
 
@@ -24,12 +30,21 @@ final class ServiceEnableCommand extends Command
         $serviceName = $this->argument('service');
 
         try {
+            // Prompt for service-specific configuration
+            $config = $this->promptForConfiguration($serviceName);
+
+            // Enable the service
             $success = $serviceManager->enable($serviceName);
 
             if (! $success) {
                 return $this->wantsJson()
                     ? $this->outputJsonError("Failed to enable service: {$serviceName}")
                     : $this->handleError("Failed to enable service: {$serviceName}");
+            }
+
+            // Apply any custom configuration
+            if ($config !== []) {
+                $serviceManager->configure($serviceName, $config);
             }
 
             // Regenerate docker-compose.yaml to reflect changes
@@ -42,13 +57,32 @@ final class ServiceEnableCommand extends Command
                 return $this->outputJsonSuccess([
                     'service' => $serviceName,
                     'enabled' => true,
+                    'config' => $config,
                     'message' => "Service {$serviceName} has been enabled",
                 ]);
             }
 
             $this->newLine();
             $this->info("  Service '{$serviceName}' has been enabled");
-            $this->line("  <fg=gray>Run 'orbit start {$serviceName}' to start the service</>");
+
+            // Auto-start the service
+            if (! $this->wantsJson()) {
+                $this->line("  Starting {$serviceName}...");
+                try {
+                    $success = $serviceManager->start($serviceName);
+                    if ($success) {
+                        $this->info("  ✓ {$serviceName} started");
+                    } else {
+                        $this->warn("  {$serviceName} failed to start");
+                        if ($serviceName === 'mysql') {
+                            $this->line('  <fg=gray>This may be due to version mismatch with existing data.</>');
+                            $this->line('  <fg=gray>To fix: rm -rf ~/.config/orbit/data/mysql and re-enable</>');
+                        }
+                    }
+                } catch (\Exception $e) {
+                    $this->warn("  Could not start {$serviceName}: {$e->getMessage()}");
+                }
+            }
             $this->newLine();
 
             return self::SUCCESS;
@@ -58,6 +92,130 @@ final class ServiceEnableCommand extends Command
                 ? $this->outputJsonError($e->getMessage())
                 : $this->handleError($e->getMessage());
         }
+    }
+
+    /**
+     * Prompt for service-specific configuration.
+     *
+     * @return array<string, mixed>
+     */
+    protected function promptForConfiguration(string $serviceName): array
+    {
+        if ($this->wantsJson()) {
+            return [];
+        }
+
+        return match ($serviceName) {
+            'mysql' => $this->promptForMysqlConfig(),
+            'postgres' => $this->promptForPostgresConfig(),
+            default => [],
+        };
+    }
+
+    /**
+     * Prompt for MySQL configuration.
+     *
+     * @return array<string, mixed>
+     */
+    protected function promptForMysqlConfig(): array
+    {
+        $this->newLine();
+        $this->info('  MySQL Configuration');
+        $this->line('  <fg=gray>Press Enter to accept defaults</>');
+        $this->newLine();
+
+        // Version selection - simplified to major versions
+        $version = select(
+            label: 'Version',
+            options: [
+                '9.1' => '9.* (latest)',
+                '8.4' => '8.* (LTS)',
+            ],
+            default: '9.1',
+        );
+
+        $port = text(
+            label: 'Port',
+            default: '3306',
+            validate: fn (string $value) => $this->validatePort($value),
+        );
+
+        $rootPassword = $this->promptPassword('Root password', 'secret');
+        $defaultDb = text(
+            label: 'Default database name',
+            default: 'orbit',
+            hint: 'Leave empty to skip creating a default database',
+        );
+
+        $environment = [
+            'MYSQL_ROOT_PASSWORD' => $rootPassword,
+        ];
+
+        if ($defaultDb !== '') {
+            $environment['MYSQL_DATABASE'] = $defaultDb;
+        }
+
+        $config = [
+            'version' => $version,
+            'port' => (int) $port,
+            'environment' => $environment,
+        ];
+
+        $this->newLine();
+
+        return $config;
+    }
+
+    /**
+     * Prompt for PostgreSQL configuration.
+     *
+     * @return array<string, mixed>
+     */
+    protected function promptForPostgresConfig(): array
+    {
+        $this->newLine();
+        $this->info('  PostgreSQL Configuration');
+        $this->line('  <fg=gray>Press Enter to accept defaults</>');
+        $this->newLine();
+
+        $port = text(
+            label: 'Port',
+            default: '5432',
+            validate: fn (string $value) => $this->validatePort($value),
+        );
+
+        $config = [
+            'port' => (int) $port,
+            'environment' => [
+                'POSTGRES_USER' => text(
+                    label: 'Username',
+                    default: 'orbit',
+                ),
+                'POSTGRES_PASSWORD' => $this->promptPassword('Password', 'secret'),
+                'POSTGRES_DB' => text(
+                    label: 'Default database',
+                    default: 'orbit',
+                ),
+            ],
+        ];
+
+        $this->newLine();
+
+        return $config;
+    }
+
+    /**
+     * Prompt for password with a default value.
+     */
+    protected function promptPassword(string $label, string $default): string
+    {
+        $value = password(
+            label: $label,
+            hint: "Default: {$default} (press Enter to use default)",
+        );
+
+        // If empty, use default
+        return $value !== '' ? $value : $default;
     }
 
     /**
@@ -119,7 +277,7 @@ SQL;
             }
 
             $this->newLine();
-            $this->warn('  ⚠ MySQL client not found on your system.');
+            $this->warn('  MySQL client not found on your system.');
             $this->line('  <fg=gray>Laravel needs the mysql CLI to load schema dumps.</>');
 
             if ($this->confirm('  Install mysql-client via Homebrew?', true)) {

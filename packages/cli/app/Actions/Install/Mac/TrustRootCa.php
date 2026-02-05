@@ -19,37 +19,35 @@ final readonly class TrustRootCa
             return StepResult::success();
         }
 
+        // Check if already trusted first
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
         $certPath = $home.'/Library/Application Support/Caddy/pki/authorities/local/root.crt';
+        $intermediatePath = $home.'/Library/Application Support/Caddy/pki/authorities/local/intermediate.crt';
 
-        if (! file_exists($certPath)) {
-            $logger->warn('Caddy root certificate not found - certificates may not be trusted');
-            $logger->info('Certificate expected at: '.$certPath);
-            $logger->info('Try running Caddy first to generate certificates');
+        if (file_exists($certPath)) {
+            $rootTrusted = Process::run('security find-certificate -c "Caddy Local Authority" /Library/Keychains/System.keychain 2>/dev/null')->successful();
+            $intermediateTrusted = Process::run('security find-certificate -c "Caddy Local Authority - ECC Intermediate" /Library/Keychains/System.keychain 2>/dev/null')->successful();
 
-            return StepResult::success();
-        }
-
-        $logger->step('Trusting Caddy root certificate (authorization required)...');
-        $logger->info('A system dialog may appear - please authorize to trust the certificate');
-
-        $trustResult = Process::timeout(60)->run('caddy trust');
-
-        if (! $trustResult->successful()) {
-            if (str_contains($trustResult->errorOutput(), 'already')) {
-                $logger->success('Certificate already trusted');
+            if ($rootTrusted && $intermediateTrusted) {
+                $logger->success('Caddy certificates already trusted');
 
                 return StepResult::success();
             }
+        }
 
-            $logger->warn('Could not automatically trust certificate');
-            $logger->info('Please manually trust the certificate:');
-            $logger->info('1. Open Keychain Access');
-            $logger->info('2. Select System keychain');
-            $logger->info('3. Find "Caddy Local Authority" certificate');
-            $logger->info('4. Double-click -> Trust -> Always Trust');
+        $logger->step('Trusting Caddy root certificate (authorization required)...');
+        $logger->warn('A system dialog may appear - please authorize to trust the certificate');
 
-            return StepResult::success();
+        // Trust root CA
+        $rootResult = Process::timeout(60)->run("sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain '{$certPath}'");
+
+        if (! $rootResult->successful()) {
+            $logger->warn('Could not automatically trust root certificate');
+        }
+
+        // Also trust intermediate CA (needed for site certificates)
+        if (file_exists($intermediatePath)) {
+            Process::timeout(60)->run("sudo security add-trusted-cert -d -r trustAsRoot -k /Library/Keychains/System.keychain '{$intermediatePath}'");
         }
 
         $logger->success('Certificate trusted');

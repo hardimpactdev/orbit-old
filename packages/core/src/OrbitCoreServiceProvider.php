@@ -57,6 +57,11 @@ class OrbitCoreServiceProvider extends ServiceProvider
 
     protected function registerRouteBindings(): void
     {
+        // Skip route bindings when router isn't available (e.g., Laravel Zero CLI)
+        if (! $this->app->bound('router')) {
+            return;
+        }
+
         // Explicit route model binding for Environment
         // Required because the model is in HardImpact\Orbit\Core\Models namespace
         // not App\Models, so Laravel can't auto-discover it

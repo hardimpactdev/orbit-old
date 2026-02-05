@@ -116,31 +116,30 @@ final readonly class HealthCheck
 
     private function checkDockerServices(InstallLogger $logger): bool
     {
-        // Core services that should be checked
-        $coreServices = ['postgres', 'redis', 'reverb'];
         $enabledServices = $this->serviceManager->getEnabled();
+
+        // Only check services that are actually enabled
         $allRunning = true;
 
-        // Check core Docker services
-        foreach ($coreServices as $service) {
-            if (! isset($enabledServices[$service])) {
-                $logger->warn("Service {$service} is not enabled");
-
+        foreach ($enabledServices as $serviceName => $config) {
+            // Skip non-Docker services (like DNS which is handled differently)
+            if ($serviceName === 'dns') {
                 continue;
             }
 
-            $containerName = "orbit-{$service}";
+            $containerName = "orbit-{$serviceName}";
+
             if ($this->dockerManager->isRunning($containerName)) {
                 $health = $this->dockerManager->getHealthStatus($containerName);
                 if ($health === 'healthy' || $health === null) {
-                    $logger->info("Docker service {$service} is running".($health ? " ({$health})" : ''));
+                    $logger->info("Docker service {$serviceName} is running".($health ? " ({$health})" : ''));
                 } elseif ($health === 'starting') {
-                    $logger->info("Docker service {$service} is starting");
+                    $logger->info("Docker service {$serviceName} is starting");
                 } else {
-                    $logger->warn("Docker service {$service} is running but {$health}");
+                    $logger->warn("Docker service {$serviceName} is running but {$health}");
                 }
             } else {
-                $logger->error("Docker service {$service} is not running");
+                $logger->error("Docker service {$serviceName} is not running");
                 $allRunning = false;
             }
         }

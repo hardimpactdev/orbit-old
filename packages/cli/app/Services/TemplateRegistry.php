@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Contracts\Template;
 use App\Templates\DevelopmentTemplate;
+use App\Templates\GatewayTemplate;
 
 final class TemplateRegistry
 {
@@ -15,6 +16,7 @@ final class TemplateRegistry
     public function __construct()
     {
         $this->register(app(DevelopmentTemplate::class));
+        $this->register(app(GatewayTemplate::class));
     }
 
     public function register(Template $template): void

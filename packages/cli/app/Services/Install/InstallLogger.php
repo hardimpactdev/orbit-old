@@ -6,14 +6,24 @@ namespace App\Services\Install;
 
 use LaravelZero\Framework\Commands\Command;
 
-final readonly class InstallLogger
+use function Laravel\Prompts\spin;
+
+final class InstallLogger
 {
+    /**
+     * @var array<int, array{0: string, 1: string}>
+     */
+    private array $buffer = [];
+
+    private bool $buffering = false;
+
     public function __construct(
         private Command $command,
     ) {}
 
     public function title(string $message): void
     {
+        $this->flushBuffer();
         $this->command->newLine();
         $this->command->line("<fg=blue;options=bold>{$message}</>");
         $this->command->newLine();
@@ -21,41 +31,136 @@ final readonly class InstallLogger
 
     public function step(string $message): void
     {
-        $this->command->line("  <fg=yellow>→</> {$message}");
+        if ($this->buffering) {
+            $this->buffer[] = ['step', $message];
+        } else {
+            $this->command->line("  <fg=yellow>→</> {$message}");
+        }
     }
 
     public function progress(int $current, int $total, string $message): void
     {
+        $this->flushBuffer();
         $this->command->line("<fg=gray>[{$current}/{$total}]</> {$message}");
+    }
+
+    /**
+     * Execute a callback with a spinner for visual feedback.
+     * Buffers log output during execution and displays after completion.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public function spinner(string $message, callable $callback): mixed
+    {
+        $this->buffering = true;
+        $this->buffer = [];
+
+        $result = spin(function () use ($callback) {
+            return $callback();
+        }, $message);
+
+        $this->buffering = false;
+
+        // Check if there were errors or warnings in the buffer
+        $hasErrors = $this->hasErrorsInBuffer();
+
+        if ($hasErrors) {
+            $this->flushBuffer();
+        } else {
+            $this->buffer = [];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Check if buffer contains errors or warnings.
+     */
+    private function hasErrorsInBuffer(): bool
+    {
+        foreach ($this->buffer as $entry) {
+            $type = $entry[0];
+            if ($type === 'error' || $type === 'warn') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Flush buffered messages to output.
+     */
+    private function flushBuffer(): void
+    {
+        foreach ($this->buffer as $entry) {
+            $type = $entry[0];
+            $message = $entry[1];
+            match ($type) {
+                'step' => $this->command->line("  <fg=yellow>→</> {$message}"),
+                'success' => $this->command->line("  <fg=green>✓</> {$message}"),
+                'skip' => $this->command->line("  <fg=gray>○</> {$message}"),
+                'error' => $this->command->line("  <fg=red>✗</> {$message}"),
+                'warn' => $this->command->line("  <fg=yellow>⚠</> {$message}"),
+                'info' => $this->command->line("  {$message}"),
+                default => $this->command->line("  {$message}"),
+            };
+        }
+        $this->buffer = [];
     }
 
     public function success(string $message): void
     {
-        $this->command->line("  <fg=green>✓</> {$message}");
+        if ($this->buffering) {
+            $this->buffer[] = ['success', $message];
+        } else {
+            $this->command->line("  <fg=green>✓</> {$message}");
+        }
     }
 
     public function skip(string $message): void
     {
-        $this->command->line("  <fg=gray>○</> {$message}");
+        if ($this->buffering) {
+            $this->buffer[] = ['skip', $message];
+        } else {
+            $this->command->line("  <fg=gray>○</> {$message}");
+        }
     }
 
     public function error(string $message): void
     {
-        $this->command->line("  <fg=red>✗</> {$message}");
+        if ($this->buffering) {
+            $this->buffer[] = ['error', $message];
+        } else {
+            $this->command->line("  <fg=red>✗</> {$message}");
+        }
     }
 
     public function info(string $message): void
     {
-        $this->command->line("  {$message}");
+        if ($this->buffering) {
+            $this->buffer[] = ['info', $message];
+        } else {
+            $this->command->line("  {$message}");
+        }
     }
 
     public function warn(string $message): void
     {
-        $this->command->line("  <fg=yellow>⚠</> {$message}");
+        if ($this->buffering) {
+            $this->buffer[] = ['warn', $message];
+        } else {
+            $this->command->line("  <fg=yellow>⚠</> {$message}");
+        }
     }
 
     public function newLine(): void
     {
-        $this->command->newLine();
+        if (! $this->buffering) {
+            $this->command->newLine();
+        }
     }
 }
