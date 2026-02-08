@@ -60,7 +60,7 @@ jobs:
           php builds/orbit.phar --version
 
       - name: Upload PHAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: orbit-phar
           path: packages/cli/builds/orbit.phar
@@ -127,7 +127,7 @@ jobs:
           ./orbit-${{ matrix.target }} --version
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: orbit-${{ matrix.target }}
           path: orbit-${{ matrix.target }}
