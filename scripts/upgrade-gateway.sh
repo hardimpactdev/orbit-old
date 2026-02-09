@@ -82,7 +82,7 @@ install_orbit_cli() {
 }
 
 install_php() {
-    log_info "Installing PHP 8.4 and 8.5..."
+    log_info "Installing PHP 8.5..."
 
     # Check if already installed
     if dpkg -l | grep -q "php8.5-fpm"; then
@@ -97,8 +97,8 @@ install_php() {
     sudo add-apt-repository -y ppa:ondrej/php &> /dev/null
     sudo apt-get update -qq
 
-    # Install PHP 8.5
-    log_info "Installing PHP 8.5..."
+    # Install PHP 8.5 (both CLI and FPM)
+    log_info "Installing PHP 8.5 CLI and FPM..."
     sudo apt-get install -y \
         php8.5-fpm \
         php8.5-cli \
@@ -107,29 +107,14 @@ install_php() {
         php8.5-mbstring \
         php8.5-xml \
         php8.5-curl \
-        php8.5-pgsql \
         php8.5-redis \
         php8.5-zip &> /dev/null
 
-    # Install PHP 8.4
-    log_info "Installing PHP 8.4..."
-    sudo apt-get install -y \
-        php8.4-fpm \
-        php8.4-cli \
-        php8.4-common \
-        php8.4-sqlite3 \
-        php8.4-mbstring \
-        php8.4-xml \
-        php8.4-curl \
-        php8.4-pgsql \
-        php8.4-redis \
-        php8.4-zip &> /dev/null
-
-    log_success "PHP installed"
+    log_success "PHP 8.5 installed (CLI + FPM)"
 }
 
 configure_php_fpm() {
-    log_info "Configuring PHP-FPM pools..."
+    log_info "Configuring PHP 8.5 FPM pool..."
 
     mkdir -p ~/.config/orbit/php
 
@@ -149,36 +134,19 @@ pm.min_spare_servers = 1
 pm.max_spare_servers = 3
 EOF
 
-    # PHP 8.4 pool
-    cat > ~/.config/orbit/php/php84-fpm.conf <<EOF
-[orbit-php84]
-user = $(whoami)
-group = $(whoami)
-listen = $HOME/.config/orbit/php/php84.sock
-listen.owner = $(whoami)
-listen.group = $(whoami)
-listen.mode = 0660
-pm = dynamic
-pm.max_children = 10
-pm.start_servers = 2
-pm.min_spare_servers = 1
-pm.max_spare_servers = 3
-EOF
-
-    # Link to system configs
+    # Link to system config
     sudo ln -sf ~/.config/orbit/php/php85-fpm.conf /etc/php/8.5/fpm/pool.d/orbit.conf
-    sudo ln -sf ~/.config/orbit/php/php84-fpm.conf /etc/php/8.4/fpm/pool.d/orbit.conf
 
     # Restart PHP-FPM
-    sudo systemctl restart php8.5-fpm php8.4-fpm
-    sudo systemctl enable php8.5-fpm php8.4-fpm &> /dev/null
+    sudo systemctl restart php8.5-fpm
+    sudo systemctl enable php8.5-fpm &> /dev/null
 
-    # Verify sockets were created
+    # Verify socket was created
     sleep 2
-    if [ -S ~/.config/orbit/php/php85.sock ] && [ -S ~/.config/orbit/php/php84.sock ]; then
-        log_success "PHP-FPM pools configured and running"
+    if [ -S ~/.config/orbit/php/php85.sock ]; then
+        log_success "PHP 8.5 FPM pool configured and running"
     else
-        log_error "PHP-FPM sockets not created"
+        log_error "PHP-FPM socket not created"
         exit 1
     fi
 }
@@ -290,19 +258,6 @@ networks:
     external: true
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: orbit-postgres
-    networks:
-      - orbit
-    environment:
-      POSTGRES_USER: orbit
-      POSTGRES_PASSWORD: orbit
-      POSTGRES_DB: orbit
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     container_name: orbit-redis
@@ -327,15 +282,12 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     restart: unless-stopped
-
-volumes:
-  postgres-data:
 EOF
 
     cd ~/.config/orbit
     docker compose -f docker-compose.services.yml up -d
 
-    log_success "Docker services deployed"
+    log_success "Docker services deployed (Redis, Mailpit, Reverb)"
 }
 
 run_health_checks() {
@@ -344,10 +296,19 @@ run_health_checks() {
     local failed=0
 
     # Check PHP-FPM
-    if systemctl is-active --quiet php8.5-fpm && systemctl is-active --quiet php8.4-fpm; then
-        log_success "PHP-FPM services running"
+    if systemctl is-active --quiet php8.5-fpm; then
+        log_success "PHP 8.5 FPM service running"
     else
-        log_error "PHP-FPM services not running"
+        log_error "PHP 8.5 FPM service not running"
+        failed=1
+    fi
+
+    # Check PHP CLI
+    if command -v php &> /dev/null; then
+        local php_version=$(php -v | head -1)
+        log_success "PHP CLI available: $php_version"
+    else
+        log_error "PHP CLI not available"
         failed=1
     fi
 
@@ -367,7 +328,7 @@ run_health_checks() {
     fi
 
     # Check Docker services
-    local expected_services=("orbit-postgres" "orbit-redis" "orbit-mailpit" "orbit-reverb" "dnsmasq" "wg-easy")
+    local expected_services=("orbit-redis" "orbit-mailpit" "orbit-reverb" "dnsmasq" "wg-easy")
     local running_services=$(docker ps --format '{{.Names}}')
 
     for service in "${expected_services[@]}"; do
@@ -402,10 +363,10 @@ print_summary() {
     echo ""
     echo "Installed Components:"
     echo "  ✓ Orbit CLI: $(orbit --version | head -1)"
-    echo "  ✓ PHP-FPM: 8.4, 8.5 (Unix sockets)"
+    echo "  ✓ PHP 8.5: CLI + FPM (Unix socket)"
     echo "  ✓ Caddy: Web server with auto-HTTPS"
     echo "  ✓ Horizon: Queue worker for async jobs"
-    echo "  ✓ Docker: orbit network + services"
+    echo "  ✓ Docker: Redis, Mailpit, Reverb"
     echo ""
     echo "Preserved Components:"
     echo "  ✓ DNS: dnsmasq (port 53)"
