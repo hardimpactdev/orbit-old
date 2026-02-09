@@ -3,15 +3,16 @@
 declare(strict_types=1);
 
 use HardImpact\Orbit\Core\Jobs\DeleteProjectJob;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 
 beforeEach(function () {
-    $environment = Environment::factory()->local()->create([
+    $node = Node::factory()->create([
+        'host' => '127.0.0.1',
         'tld' => 'test',
     ]);
     $project = Project::create([
-        'environment_id' => $environment->id,
+        'node_id' => $node->id,
         'name' => 'delete-test-project',
         'display_name' => 'Delete Test Project',
         'slug' => 'delete-test-project',
@@ -22,7 +23,7 @@ beforeEach(function () {
         'url' => 'delete-test-project.test',
     ]);
 
-    test()->environment = $environment;
+    test()->node = $node;
     test()->project = $project;
 });
 

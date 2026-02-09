@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
 
@@ -20,30 +20,30 @@ class DoctorService
     /**
      * Run all health checks for an environment.
      */
-    public function runChecks(Environment $environment): array
+    public function runChecks(Node $node): array
     {
         $checks = [];
 
         // 1. SSH Connectivity
-        $checks['ssh'] = $this->checkSshConnectivity($environment);
+        $checks['ssh'] = $this->checkSshConnectivity($node);
 
         // 2. CLI Installation
-        $checks['cli'] = $this->checkCliInstallation($environment);
+        $checks['cli'] = $this->checkCliInstallation($node);
 
         // 3. Docker Services
-        $checks['docker'] = $this->checkDockerServices($environment);
+        $checks['docker'] = $this->checkDockerServices($node);
 
         // 4. Orbit Web App (API)
-        $checks['api'] = $this->checkApiConnectivity($environment);
+        $checks['api'] = $this->checkApiConnectivity($node);
 
         // 5. Environment DNS (DNS working on the environment's server)
-        $checks['environment_dns'] = $this->checkEnvironmentDns($environment);
+        $checks['environment_dns'] = $this->checkEnvironmentDns($node);
 
         // 6. Local DNS (can the desktop app resolve domains via environment's DNS)
-        $checks['local_dns'] = $this->checkLocalDns($environment);
+        $checks['local_dns'] = $this->checkLocalDns($node);
 
         // 7. Config File
-        $checks['config'] = $this->checkConfigFile($environment);
+        $checks['config'] = $this->checkConfigFile($node);
 
         // Calculate overall status
         $allPassed = collect($checks)->every(fn ($check): bool => $check['status'] === 'ok');
@@ -60,21 +60,21 @@ class DoctorService
     /**
      * Check SSH connectivity to the environment.
      */
-    protected function checkSshConnectivity(Environment $environment): array
+    protected function checkSshConnectivity(Node $node): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return [
                 'status' => 'ok',
                 'message' => 'Local environment, SSH not required',
             ];
         }
 
-        $result = $this->ssh->execute($environment, 'echo "connected"', 10);
+        $result = $this->ssh->execute($node, 'echo "connected"', 10);
 
         if ($result['success'] && str_contains((string) ($result['output'] ?? ''), 'connected')) {
             return [
                 'status' => 'ok',
-                'message' => "SSH connection to {$environment->user}@{$environment->host} successful",
+                'message' => "SSH connection to {$node->user}@{$node->host} successful",
             ];
         }
 
@@ -82,9 +82,9 @@ class DoctorService
             'status' => 'error',
             'message' => 'SSH connection failed: '.($result['error'] ?? 'Unknown error'),
             'details' => [
-                'host' => $environment->host,
-                'user' => $environment->user,
-                'port' => $environment->port,
+                'host' => $node->host,
+                'user' => $node->user,
+                'port' => $node->port,
             ],
         ];
     }
@@ -92,9 +92,9 @@ class DoctorService
     /**
      * Check if the orbit CLI is installed and get its version.
      */
-    protected function checkCliInstallation(Environment $environment): array
+    protected function checkCliInstallation(Node $node): array
     {
-        $installation = $this->status->checkInstallation($environment);
+        $installation = $this->status->checkInstallation($node);
 
         if (! $installation['installed']) {
             return [
@@ -119,16 +119,16 @@ class DoctorService
     /**
      * Check Docker services status.
      */
-    protected function checkDockerServices(Environment $environment): array
+    protected function checkDockerServices(Node $node): array
     {
         // Get status which includes Docker service information
-        $status = $this->status->status($environment);
+        $status = $this->status->status($node);
 
         if (! $status['success']) {
             // If API fails, try SSH-based check
-            if (! $environment->is_local) {
+            if (! $node->isLocal()) {
                 $result = $this->ssh->execute(
-                    $environment,
+                    $node,
                     "sg docker -c 'docker ps --filter name=orbit- --format \"{{.Names}}: {{.Status}}\"'",
                     15
                 );
@@ -182,10 +182,10 @@ class DoctorService
     /**
      * Check API connectivity (orbit web app).
      */
-    protected function checkApiConnectivity(Environment $environment): array
+    protected function checkApiConnectivity(Node $node): array
     {
         // Try to get sites via API
-        $result = $this->status->projects($environment);
+        $result = $this->status->projects($node);
 
         if ($result['success']) {
             $projectCount = count($result['data']['projects'] ?? []);
@@ -194,7 +194,7 @@ class DoctorService
                 'status' => 'ok',
                 'message' => "API responding, {$projectCount} projects configured",
                 'details' => [
-                    'tld' => $environment->tld ?? 'unknown',
+                    'tld' => $node->tld ?? 'unknown',
                 ],
             ];
         }
@@ -223,11 +223,11 @@ class DoctorService
      * Check DNS resolution on the environment's server.
      * Verifies that dnsmasq is working on the environment.
      */
-    protected function checkEnvironmentDns(Environment $environment): array
+    protected function checkEnvironmentDns(Node $node): array
     {
-        $tld = $environment->tld ?? 'test';
+        $tld = $node->tld ?? 'test';
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             // For local environments, DNS is handled by orbit-dns Docker container
 
             // Check if orbit-dns container is running
@@ -278,7 +278,7 @@ class DoctorService
 
         // For remote, try to resolve orbit.{tld} via SSH
         $result = $this->ssh->execute(
-            $environment,
+            $node,
             "getent hosts orbit.{$tld} 2>/dev/null || host orbit.{$tld} 127.0.0.1 2>/dev/null | head -1",
             10
         );
@@ -295,7 +295,7 @@ class DoctorService
 
         // Check if dnsmasq container is running
         $dnsCheck = $this->ssh->execute(
-            $environment,
+            $node,
             "sg docker -c 'docker ps --filter name=orbit-dns --format \"{{.Status}}\"'",
             10
         );
@@ -323,13 +323,13 @@ class DoctorService
      * Check DNS resolution from the machine running the desktop app.
      * Verifies that .{tld} domains can be resolved via the environment's DNS server.
      */
-    protected function checkLocalDns(Environment $environment): array
+    protected function checkLocalDns(Node $node): array
     {
-        $tld = $environment->tld ?? 'test';
+        $tld = $node->tld ?? 'test';
         $testDomain = "orbit.{$tld}";
 
         // DNS server location: localhost for local env, remote host IP for remote env
-        $dnsServer = $environment->is_local ? '127.0.0.1' : $environment->host;
+        $dnsServer = $node->isLocal() ? '127.0.0.1' : $node->host;
 
         // Try to resolve the domain using dig against the correct DNS server
         $result = \Illuminate\Support\Facades\Process::run(
@@ -340,7 +340,7 @@ class DoctorService
         $resolvedIp = $resolved ? trim($result->output()) : null;
 
         // Expected resolution: 127.0.0.1 for local, remote host IP for remote
-        $expectedIp = $environment->is_local ? '127.0.0.1' : $environment->host;
+        $expectedIp = $node->isLocal() ? '127.0.0.1' : $node->host;
 
         if ($resolved && $resolvedIp === $expectedIp) {
             return [
@@ -369,7 +369,7 @@ class DoctorService
         }
 
         // Not resolving - provide appropriate guidance
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             // For local env, check if orbit-dns container is running
             $containerCheck = \Illuminate\Support\Facades\Process::run(
                 "docker ps --filter name=orbit-dns --format '{{.Status}}' 2>/dev/null"
@@ -405,9 +405,9 @@ class DoctorService
     /**
      * Check if config file exists and is valid.
      */
-    protected function checkConfigFile(Environment $environment): array
+    protected function checkConfigFile(Node $node): array
     {
-        $config = $this->config->getConfig($environment);
+        $config = $this->config->getConfig($node);
 
         if (! $config['success']) {
             return [
@@ -479,11 +479,11 @@ class DoctorService
     /**
      * Run a quick connectivity check (SSH + API only).
      */
-    public function quickCheck(Environment $environment): array
+    public function quickCheck(Node $node): array
     {
         $checks = [];
-        $checks['ssh'] = $this->checkSshConnectivity($environment);
-        $checks['api'] = $this->checkApiConnectivity($environment);
+        $checks['ssh'] = $this->checkSshConnectivity($node);
+        $checks['api'] = $this->checkApiConnectivity($node);
 
         $allOk = collect($checks)->every(fn ($c): bool => $c['status'] === 'ok');
 
@@ -499,10 +499,10 @@ class DoctorService
      *
      * @return array{success: bool, message: string}
      */
-    public function fixIssue(Environment $environment, string $checkName): array
+    public function fixIssue(Node $node, string $checkName): array
     {
         return match ($checkName) {
-            'local_dns' => $this->fixLocalDns($environment),
+            'local_dns' => $this->fixLocalDns($node),
             default => ['success' => false, 'message' => "No automatic fix available for '{$checkName}'"],
         };
     }
@@ -510,9 +510,9 @@ class DoctorService
     /**
      * Fix local DNS resolver - now guides to use orbit-dns container.
      */
-    protected function fixLocalDns(Environment $environment): array
+    protected function fixLocalDns(Node $node): array
     {
-        $tld = $environment->tld ?? 'test';
+        $tld = $node->tld ?? 'test';
 
         // Check if orbit-dns container exists and is running
         $containerCheck = \Illuminate\Support\Facades\Process::run(

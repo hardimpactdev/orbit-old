@@ -2,15 +2,16 @@
 
 declare(strict_types=1);
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Enums\NodeStatus;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\SetupService;
 
 beforeEach(function () {
     // Clean database before each test
-    Environment::query()->delete();
+    Node::query()->delete();
 
-    // Set desktop mode (multi_environment = true) for setup tests
-    config()->set('orbit.multi_environment', true);
+    // Set desktop mode (multi_node = true) for setup tests
+    config()->set('orbit.multi_node', true);
 });
 
 describe('setup page', function () {
@@ -22,7 +23,7 @@ describe('setup page', function () {
                 'needs_setup' => true,
                 'cli_installed' => false,
                 'cli_version' => null,
-                'has_local_environment' => false,
+                'has_node' => false,
                 'has_services' => false,
                 'has_tld' => false,
                 'steps' => [
@@ -31,7 +32,7 @@ describe('setup page', function () {
                     'install_cli' => 'Installing CLI',
                     'init_services' => 'Initializing services',
                     'configure_tld' => 'Configuring TLD',
-                    'create_environment' => 'Creating local environment',
+                    'create_node' => 'Creating local node',
                 ],
             ]);
         });
@@ -51,7 +52,7 @@ describe('setup page', function () {
                 'needs_setup' => true,
                 'cli_installed' => false,
                 'cli_version' => null,
-                'has_local_environment' => false,
+                'has_node' => false,
                 'has_services' => false,
                 'has_tld' => false,
                 'steps' => [],
@@ -81,7 +82,7 @@ describe('setup run', function () {
                         'install_cli' => ['step' => 3, 'total' => 6, 'message' => 'Installing CLI', 'success' => true],
                         'init_services' => ['step' => 4, 'total' => 6, 'message' => 'Initializing services', 'success' => true],
                         'configure_tld' => ['step' => 5, 'total' => 6, 'message' => 'Configuring TLD', 'success' => true],
-                        'create_environment' => ['step' => 6, 'total' => 6, 'message' => 'Creating local environment', 'success' => true],
+                        'create_node' => ['step' => 6, 'total' => 6, 'message' => 'Creating local node', 'success' => true],
                     ],
                     'error' => null,
                 ]);
@@ -149,11 +150,11 @@ describe('setup redirect middleware', function () {
     });
 
     it('does not redirect when setup is not needed', function () {
-        // Create a local environment
-        Environment::factory()->create([
-            'is_local' => true,
+        // Create a local node
+        Node::factory()->create([
+            'host' => '127.0.0.1',
             'is_default' => true,
-            'status' => Environment::STATUS_ACTIVE,
+            'status' => NodeStatus::Active,
         ]);
 
         $this->mock(SetupService::class, function ($mock) {
@@ -185,8 +186,8 @@ describe('setup redirect middleware', function () {
 
         $response = $this->get('/');
 
-        // Should redirect to environment show, not setup
-        $response->assertRedirectContains('environments');
+        // Should redirect to node show, not setup
+        $response->assertRedirectContains('nodes');
     });
 
     it('does not redirect setup routes', function () {
@@ -196,7 +197,7 @@ describe('setup redirect middleware', function () {
                 'needs_setup' => true,
                 'cli_installed' => false,
                 'cli_version' => null,
-                'has_local_environment' => false,
+                'has_node' => false,
                 'has_services' => false,
                 'has_tld' => false,
                 'steps' => [],

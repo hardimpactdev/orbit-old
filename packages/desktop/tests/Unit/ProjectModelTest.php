@@ -1,5 +1,6 @@
 <?php
 
+use HardImpact\Orbit\Core\Enums\ProjectStatus;
 use HardImpact\Orbit\Core\Models\Project;
 
 test('project can be created', function () {
@@ -36,14 +37,14 @@ test('project status helpers work correctly', function () {
         'name' => 'Test Project',
         'slug' => 'test-project',
         'path' => '/home/user/projects/test-project',
-        'status' => Project::STATUS_QUEUED,
+        'status' => ProjectStatus::Queued,
     ]);
 
     expect($project->isProvisioning())->toBeTrue()
         ->and($project->isReady())->toBeFalse()
         ->and($project->isFailed())->toBeFalse();
 
-    $project->update(['status' => Project::STATUS_READY]);
+    $project->update(['status' => ProjectStatus::Ready]);
     $project->refresh();
 
     expect($project->isProvisioning())->toBeFalse()

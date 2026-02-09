@@ -67,7 +67,7 @@ api.interceptors.response.use(
             // Request made but no response received
             toast.error('Connection Error', {
                 description:
-                    'Could not connect to the server. Please check if the environment is running.',
+                    'Could not connect to the server. Please check if the node is running.',
             });
         } else {
             // Request setup error

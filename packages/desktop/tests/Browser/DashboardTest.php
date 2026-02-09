@@ -1,9 +1,9 @@
 <?php
 
 describe('Dashboard', function () {
-    test('redirects to environment create when no environments exist', function () {
+    test('redirects to node create when no nodes exist', function () {
         $this->visit('/')
             ->wait(1)
-            ->assertPathIs('/environments/create');
+            ->assertPathIs('/nodes/create');
     });
 });

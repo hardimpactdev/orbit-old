@@ -14,11 +14,11 @@ class ExampleTest extends TestCase
      */
     public function test_the_application_returns_a_successful_response(): void
     {
-        // Create a default environment to satisfy ImplicitEnvironment middleware
-        \HardImpact\Orbit\Core\Models\Environment::forceCreate([
+        // Create a default node to satisfy ImplicitNode middleware
+        \HardImpact\Orbit\Core\Models\Node::forceCreate([
             'name' => 'Default',
             'host' => 'localhost',
-            'is_local' => true,
+            'is_default' => true,
         ]);
 
         $response = $this->get('/');

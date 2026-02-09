@@ -32,6 +32,10 @@ final class NodeProvisionCommand extends Command
         TemplateRegistry $templates,
         InstallPipeline $pipeline,
     ): int {
+        $this->warn('⚠️  DEPRECATED: This command will be removed in a future version.');
+        $this->warn('   Use `orbit setup` instead for a better provisioning experience.');
+        $this->newLine();
+
         $nodeId = (int) $this->argument('node_id');
 
         $node = Node::find($nodeId);
@@ -114,6 +118,9 @@ final class NodeProvisionCommand extends Command
             'php-versions' => implode(',', $phpVersions),
             'services' => implode(',', $services),
             'node-type' => $node->node_type->value,
+            'gateway-id' => $node->gateway_id,
+            'node-name' => $node->name,
+            'host-ip' => $node->host,
         ], $templateName);
 
         $this->newLine();
@@ -132,6 +139,17 @@ final class NodeProvisionCommand extends Command
             $this->error('Provisioning failed: ' . $result->error);
 
             return self::FAILURE;
+        }
+
+        if (isset($context->metadata['vpn_ip'])) {
+            $node->update([
+                'vpn_ip' => $context->metadata['vpn_ip'],
+                'gateway_id' => $context->gatewayId,
+                'vpn_registered_at' => $context->metadata['vpn_registered_at'],
+            ]);
+
+            $this->newLine();
+            $this->info("✓ VPN registered: {$context->metadata['vpn_ip']}");
         }
 
         $this->newLine();

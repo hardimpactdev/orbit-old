@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Workspace;
 
 /**
@@ -16,9 +16,9 @@ class WorkspaceDbService
     /**
      * List all workspaces for an environment.
      */
-    public function workspacesList(Environment $environment): array
+    public function workspacesList(Node $node): array
     {
-        $workspaces = Workspace::where('environment_id', $environment->id)->get();
+        $workspaces = Workspace::where('node_id', $node->id)->get();
 
         return [
             'success' => true,
@@ -31,10 +31,10 @@ class WorkspaceDbService
     /**
      * Create a new workspace.
      */
-    public function workspaceCreate(Environment $environment, string $name): array
+    public function workspaceCreate(Node $node, string $name): array
     {
         // Check if workspace already exists
-        $existing = Workspace::where('environment_id', $environment->id)
+        $existing = Workspace::where('node_id', $node->id)
             ->where('name', $name)
             ->first();
 
@@ -46,19 +46,19 @@ class WorkspaceDbService
         }
 
         // Determine workspace path
-        $config = $environment->metadata ?? [];
-        $basePath = $config['workspaces_path'] ?? ($environment->is_local ? $this->getDefaultWorkspacesPath() : null);
+        $config = $node->metadata ?? [];
+        $basePath = $config['workspaces_path'] ?? ($node->isLocal() ? $this->getDefaultWorkspacesPath() : null);
         $workspacePath = $basePath ? rtrim($basePath, '/').'/'.$name : null;
 
         $workspace = Workspace::create([
-            'environment_id' => $environment->id,
+            'node_id' => $node->id,
             'name' => $name,
             'path' => $workspacePath,
             'projects' => [],
         ]);
 
         // Create workspace directory if path is set and we're on local
-        if ($workspacePath && $environment->is_local) {
+        if ($workspacePath && $node->isLocal()) {
             $this->createWorkspaceDirectory($workspace);
         }
 
@@ -73,9 +73,9 @@ class WorkspaceDbService
     /**
      * Delete a workspace.
      */
-    public function workspaceDelete(Environment $environment, string $name): array
+    public function workspaceDelete(Node $node, string $name): array
     {
-        $workspace = Workspace::where('environment_id', $environment->id)
+        $workspace = Workspace::where('node_id', $node->id)
             ->where('name', $name)
             ->first();
 
@@ -97,9 +97,9 @@ class WorkspaceDbService
     /**
      * Add a project to a workspace.
      */
-    public function workspaceAddProject(Environment $environment, string $workspaceName, string $projectName): array
+    public function workspaceAddProject(Node $node, string $workspaceName, string $projectName): array
     {
-        $workspace = Workspace::where('environment_id', $environment->id)
+        $workspace = Workspace::where('node_id', $node->id)
             ->where('name', $workspaceName)
             ->first();
 
@@ -113,7 +113,7 @@ class WorkspaceDbService
         $workspace->addProject($projectName);
 
         // Update .code-workspace file if path exists
-        if ($workspace->path && $environment->is_local) {
+        if ($workspace->path && $node->isLocal()) {
             $this->updateWorkspaceFile($workspace);
         }
 
@@ -128,9 +128,9 @@ class WorkspaceDbService
     /**
      * Remove a project from a workspace.
      */
-    public function workspaceRemoveProject(Environment $environment, string $workspaceName, string $projectName): array
+    public function workspaceRemoveProject(Node $node, string $workspaceName, string $projectName): array
     {
-        $workspace = Workspace::where('environment_id', $environment->id)
+        $workspace = Workspace::where('node_id', $node->id)
             ->where('name', $workspaceName)
             ->first();
 
@@ -144,7 +144,7 @@ class WorkspaceDbService
         $workspace->removeProject($projectName);
 
         // Update .code-workspace file if path exists
-        if ($workspace->path && $environment->is_local) {
+        if ($workspace->path && $node->isLocal()) {
             $this->updateWorkspaceFile($workspace);
         }
 

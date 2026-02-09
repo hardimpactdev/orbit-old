@@ -28,9 +28,7 @@ class OrbitAppServiceProvider extends ServiceProvider
 
     protected function registerRouteBindings(): void
     {
-        // Route model binding for Environment must be registered in boot()
-        // because Route::model() needs the router to be available
-        Route::model('environment', \HardImpact\Orbit\Core\Models\Environment::class);
+        Route::model('node', \HardImpact\Orbit\Core\Models\Node::class);
     }
 
     protected function registerMiddleware(): void
@@ -55,13 +53,13 @@ class OrbitAppServiceProvider extends ServiceProvider
         }
 
         // Register setup check middleware (only in desktop mode)
-        if (config('orbit.multi_environment') && class_exists(\HardImpact\Orbit\App\Http\Middleware\RedirectIfNeedsSetup::class)) {
+        if (config('orbit.multi_node') && class_exists(\HardImpact\Orbit\App\Http\Middleware\RedirectIfNeedsSetup::class)) {
             $kernel->appendMiddlewareToGroup('web', \HardImpact\Orbit\App\Http\Middleware\RedirectIfNeedsSetup::class);
         }
 
         // Register alias for route usage
-        if (class_exists(\HardImpact\Orbit\App\Http\Middleware\ImplicitEnvironment::class)) {
-            $this->app['router']->aliasMiddleware('implicit.environment', \HardImpact\Orbit\App\Http\Middleware\ImplicitEnvironment::class);
+        if (class_exists(\HardImpact\Orbit\App\Http\Middleware\ImplicitNode::class)) {
+            $this->app['router']->aliasMiddleware('implicit.node', \HardImpact\Orbit\App\Http\Middleware\ImplicitNode::class);
         }
     }
 

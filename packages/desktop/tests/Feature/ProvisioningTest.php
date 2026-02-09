@@ -1,19 +1,19 @@
 <?php
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ProjectCliService;
 
 beforeEach(function () {
-    createEnvironment();
+    createNode();
 });
 
 test('provision status endpoint returns not found for unknown project', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $this->mock(ProjectCliService::class, function ($mock) {
         $mock->shouldReceive('provisionStatus')
-            ->with(Mockery::type(Environment::class), 'unknown-project')
+            ->with(Mockery::type(Node::class), 'unknown-project')
             ->andReturn([
                 'success' => true,
                 'data' => [
@@ -23,7 +23,7 @@ test('provision status endpoint returns not found for unknown project', function
             ]);
     });
 
-    $response = $this->get("/environments/{$environment->id}/projects/unknown-project/provision-status");
+    $response = $this->get("/nodes/{$node->id}/projects/unknown-project/provision-status");
 
     $response->assertStatus(200);
     $response->assertJson([
@@ -35,11 +35,11 @@ test('provision status endpoint returns not found for unknown project', function
 });
 
 test('provision status endpoint returns provisioning status', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $this->mock(ProjectCliService::class, function ($mock) {
         $mock->shouldReceive('provisionStatus')
-            ->with(Mockery::type(Environment::class), 'my-project')
+            ->with(Mockery::type(Node::class), 'my-project')
             ->andReturn([
                 'success' => true,
                 'data' => [
@@ -49,7 +49,7 @@ test('provision status endpoint returns provisioning status', function () {
             ]);
     });
 
-    $response = $this->get("/environments/{$environment->id}/projects/my-project/provision-status");
+    $response = $this->get("/nodes/{$node->id}/projects/my-project/provision-status");
 
     $response->assertStatus(200);
     $response->assertJson([
@@ -61,11 +61,11 @@ test('provision status endpoint returns provisioning status', function () {
 });
 
 test('provision status endpoint returns ready when complete', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $this->mock(ProjectCliService::class, function ($mock) {
         $mock->shouldReceive('provisionStatus')
-            ->with(Mockery::type(Environment::class), 'my-project')
+            ->with(Mockery::type(Node::class), 'my-project')
             ->andReturn([
                 'success' => true,
                 'data' => [
@@ -75,7 +75,7 @@ test('provision status endpoint returns ready when complete', function () {
             ]);
     });
 
-    $response = $this->get("/environments/{$environment->id}/projects/my-project/provision-status");
+    $response = $this->get("/nodes/{$node->id}/projects/my-project/provision-status");
 
     $response->assertStatus(200);
     $response->assertJson([
@@ -87,11 +87,11 @@ test('provision status endpoint returns ready when complete', function () {
 });
 
 test('provision status endpoint returns failed with error', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $this->mock(ProjectCliService::class, function ($mock) {
         $mock->shouldReceive('provisionStatus')
-            ->with(Mockery::type(Environment::class), 'my-project')
+            ->with(Mockery::type(Node::class), 'my-project')
             ->andReturn([
                 'success' => true,
                 'data' => [
@@ -101,7 +101,7 @@ test('provision status endpoint returns failed with error', function () {
             ]);
     });
 
-    $response = $this->get("/environments/{$environment->id}/projects/my-project/provision-status");
+    $response = $this->get("/nodes/{$node->id}/projects/my-project/provision-status");
 
     $response->assertStatus(200);
     $response->assertJson([
@@ -114,11 +114,11 @@ test('provision status endpoint returns failed with error', function () {
 });
 
 test('reverb config endpoint returns config when enabled', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $this->mock(ConfigurationService::class, function ($mock) {
         $mock->shouldReceive('getReverbConfig')
-            ->with(Mockery::type(Environment::class))
+            ->with(Mockery::type(Node::class))
             ->andReturn([
                 'success' => true,
                 'data' => [
@@ -131,7 +131,7 @@ test('reverb config endpoint returns config when enabled', function () {
             ]);
     });
 
-    $response = $this->get("/environments/{$environment->id}/reverb-config");
+    $response = $this->get("/nodes/{$node->id}/reverb-config");
 
     $response->assertStatus(200);
     $response->assertJson([
@@ -145,11 +145,11 @@ test('reverb config endpoint returns config when enabled', function () {
 });
 
 test('reverb config endpoint returns disabled when not configured', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $this->mock(ConfigurationService::class, function ($mock) {
         $mock->shouldReceive('getReverbConfig')
-            ->with(Mockery::type(Environment::class))
+            ->with(Mockery::type(Node::class))
             ->andReturn([
                 'success' => true,
                 'data' => [
@@ -158,7 +158,7 @@ test('reverb config endpoint returns disabled when not configured', function () 
             ]);
     });
 
-    $response = $this->get("/environments/{$environment->id}/reverb-config");
+    $response = $this->get("/nodes/{$node->id}/reverb-config");
 
     $response->assertStatus(200);
     $response->assertJson([
@@ -170,29 +170,29 @@ test('reverb config endpoint returns disabled when not configured', function () 
 });
 
 test('create project page loads', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
-    $response = $this->get("/environments/{$environment->id}/projects/create");
+    $response = $this->get("/nodes/{$node->id}/projects/create");
 
     $response->assertStatus(200);
-    $response->assertInertia(fn ($page) => $page->component('environments/projects/ProjectCreate'));
+    $response->assertInertia(fn ($page) => $page->component('nodes/projects/ProjectCreate'));
 });
 
 test('projects page loads', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
-    $response = $this->get("/environments/{$environment->id}/projects");
+    $response = $this->get("/nodes/{$node->id}/projects");
 
     $response->assertStatus(200);
-    $response->assertInertia(fn ($page) => $page->component('environments/Projects'));
+    $response->assertInertia(fn ($page) => $page->component('nodes/Projects'));
 });
 
 test('projects page includes provisioning slug from flash', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     $response = $this->withSession(['flash' => ['provisioning' => 'my-new-project']])
-        ->get("/environments/{$environment->id}/projects");
+        ->get("/nodes/{$node->id}/projects");
 
     $response->assertStatus(200);
-    $response->assertInertia(fn ($page) => $page->component('environments/Projects'));
+    $response->assertInertia(fn ($page) => $page->component('nodes/Projects'));
 });

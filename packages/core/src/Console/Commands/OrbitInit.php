@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Console\Commands;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Enums\NodeStatus;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 
@@ -15,22 +16,22 @@ class OrbitInit extends Command
      *
      * @var string
      */
-    protected $signature = 'orbit:init {--name= : Display name for this environment}';
+    protected $signature = 'orbit:init {--name= : Display name for this node}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Initialize local environment for web mode';
+    protected $description = 'Initialize local node for web mode';
 
     /**
      * Execute the console command.
      */
     public function handle(): int
     {
-        if (Environment::where('is_local', true)->exists()) {
-            $this->info('Local environment already exists. Skipping.');
+        if (Node::where('is_default', true)->exists()) {
+            $this->info('Node already exists. Skipping.');
 
             return Command::SUCCESS;
         }
@@ -50,24 +51,23 @@ class OrbitInit extends Command
             $user = exec('whoami');
         }
 
-        // Get environment name: option > prompt > hostname
+        // Get node name: option > prompt > hostname
         $name = $this->option('name');
         if (! $name) {
             $hostname = gethostname() ?: 'Local';
-            $name = $this->ask('Environment display name', $hostname);
+            $name = $this->ask('Node display name', $hostname);
         }
 
-        Environment::create([
+        Node::create([
             'name' => $name,
             'host' => 'localhost',
             'user' => $user,
-            'is_local' => true,
             'is_default' => true,
             'tld' => $tld,
-            'status' => Environment::STATUS_ACTIVE,
+            'status' => NodeStatus::Active,
         ]);
 
-        $this->info("Local environment '{$name}' initialized with TLD: {$tld}");
+        $this->info("Node '{$name}' initialized with TLD: {$tld}");
 
         return Command::SUCCESS;
     }

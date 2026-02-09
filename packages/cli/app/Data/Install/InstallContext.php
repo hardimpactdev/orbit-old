@@ -12,6 +12,7 @@ final readonly class InstallContext
      * @param  array<int, string>  $phpVersions
      * @param  array<int, string>  $services
      * @param  array<int, string>  $nodePackageManagers
+     * @param  array<string, mixed>  $metadata
      */
     public function __construct(
         public string $tld = 'test',
@@ -26,6 +27,10 @@ final readonly class InstallContext
         public array $nodePackageManagers = [],
         public NodeType $nodeType = NodeType::Local,
         public bool $skipOrbitCli = false,
+        public ?int $gatewayId = null,
+        public ?string $nodeName = null,
+        public ?string $hostIp = null,
+        public array $metadata = [],
     ) {}
 
     public function needsNode(): bool
@@ -77,6 +82,9 @@ final readonly class InstallContext
             nodePackageManagers: $nodePackageManagers,
             nodeType: $nodeType,
             skipOrbitCli: (bool) ($options['skip-cli'] ?? false),
+            gatewayId: isset($options['gateway-id']) ? (int) $options['gateway-id'] : null,
+            nodeName: isset($options['node-name']) ? (string) $options['node-name'] : null,
+            hostIp: isset($options['host-ip']) ? (string) $options['host-ip'] : null,
         );
     }
 

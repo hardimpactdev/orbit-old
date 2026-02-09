@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use HardImpact\Orbit\Core\Data\DeletionContext;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Deletion\Actions\DeleteProjectFiles;
 use HardImpact\Orbit\Core\Services\Deletion\Actions\DropPostgresDatabase;
@@ -12,16 +12,17 @@ use HardImpact\Orbit\Core\Services\Deletion\DeletionLogger;
 use HardImpact\Orbit\Core\Services\Deletion\DeletionPipeline;
 
 beforeEach(function () {
-    $environment = Environment::factory()->local()->create([
+    $node = Node::factory()->create([
+        'host' => '127.0.0.1',
         'tld' => 'test',
     ]);
-    test()->environment = $environment;
+    test()->node = $node;
 });
 
 describe('DeletionContext', function () {
     it('creates context from project model', function () {
         $project = Project::create([
-            'environment_id' => test()->environment->id,
+            'node_id' => test()->node->id,
             'name' => 'delete-test',
             'display_name' => 'Delete Test',
             'slug' => 'delete-test',
@@ -44,7 +45,7 @@ describe('DeletionContext', function () {
 
     it('respects keepDatabase flag', function () {
         $project = Project::create([
-            'environment_id' => test()->environment->id,
+            'node_id' => test()->node->id,
             'name' => 'keep-db-test',
             'slug' => 'keep-db-test',
             'path' => '/tmp/keep-db-test',

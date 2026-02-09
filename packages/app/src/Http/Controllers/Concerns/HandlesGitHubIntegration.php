@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers\Concerns;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\SshService;
 
 trait HandlesGitHubIntegration
@@ -12,10 +12,10 @@ trait HandlesGitHubIntegration
     /**
      * Get repository info from GitHub via gh CLI over SSH.
      */
-    protected function getRepoInfoViaGh(Environment $environment, string $repo): ?array
+    protected function getRepoInfoViaGh(Node $node, string $repo): ?array
     {
         $command = "gh api repos/{$repo} --jq '{is_template, default_branch, name, full_name, private, clone_url}' 2>/dev/null";
-        $result = $this->getSshService()->execute($environment, $command);
+        $result = $this->getSshService()->execute($node, $command);
 
         if (! $result['success'] || empty($result['output'])) {
             return null;
@@ -29,10 +29,10 @@ trait HandlesGitHubIntegration
     /**
      * Fetch a file from GitHub via gh CLI over SSH.
      */
-    protected function fetchFileViaGh(Environment $environment, string $repo, string $path): ?string
+    protected function fetchFileViaGh(Node $node, string $repo, string $path): ?string
     {
         $command = "gh api repos/{$repo}/contents/{$path} --jq .content 2>/dev/null | base64 -d 2>/dev/null";
-        $result = $this->getSshService()->execute($environment, $command);
+        $result = $this->getSshService()->execute($node, $command);
 
         if (! $result['success'] || empty($result['output'])) {
             return null;
@@ -136,14 +136,12 @@ trait HandlesGitHubIntegration
         $availableVersions = ['8.5', '8.4', '8.3'];
 
         // Check for explicit upper bound that excludes versions
-        // Patterns like: <8.5, <=8.4, <8.5.0
         if (preg_match('/<\s*(\d+)\.(\d+)/', $constraint, $matches)) {
             $maxMajor = (int) $matches[1];
             $maxMinor = (int) $matches[2];
 
             foreach ($availableVersions as $version) {
                 [$major, $minor] = explode('.', $version);
-                // Version must be strictly less than the upper bound
                 if ((int) $major < $maxMajor || ((int) $major === $maxMajor && (int) $minor < $maxMinor)) {
                     return $version;
                 }
@@ -151,7 +149,6 @@ trait HandlesGitHubIntegration
         }
 
         // Check for tilde constraint ~8.x.y which locks to 8.x.*
-        // ~8.3.0 means >=8.3.0 <8.4.0
         if (preg_match('/~\s*(\d+)\.(\d+)\./', $constraint, $matches)) {
             return $matches[1].'.'.$matches[2];
         }
@@ -163,8 +160,6 @@ trait HandlesGitHubIntegration
 
         // For caret (^), greater-than (>=, >), or simple version constraints,
         // the latest version is compatible
-        // ^8.3 means >=8.3.0 <9.0.0, so 8.5 is fine
-        // >=8.3 means 8.3 or higher, so 8.5 is fine
         return '8.5';
     }
 

@@ -9,8 +9,8 @@ return [
     | Default PHP Versions
     |--------------------------------------------------------------------------
     |
-    | Default PHP versions to use when provisioning environments.
-    | These are used as fallback when environment-specific versions
+    | Default PHP versions to use when provisioning nodes.
+    | These are used as fallback when node-specific versions
     | cannot be retrieved.
     |
     */
@@ -38,7 +38,7 @@ return [
     | Provisioning Configuration
     |--------------------------------------------------------------------------
     |
-    | Configuration for environment provisioning process.
+    | Configuration for node provisioning process.
     |
     */
     'provisioning' => [

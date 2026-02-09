@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\MacPhpFpmConfigService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\App\Http\Controllers\Concerns\ProvidesRemoteApiUrl;
@@ -22,7 +22,7 @@ class PhpConfigController extends Controller
     /**
      * Change PHP version for a project.
      */
-    public function changePhp(Request $request, Environment $environment, ?string $project = null)
+    public function changePhp(Request $request, Node $node, ?string $project = null)
     {
         $validated = $request->validate([
             'version' => 'required|string',
@@ -38,7 +38,7 @@ class PhpConfigController extends Controller
             ], 422);
         }
 
-        $result = $this->config->php($environment, $projectName, $validated['version']);
+        $result = $this->config->php($node, $projectName, $validated['version']);
 
         return response()->json($result);
     }
@@ -46,7 +46,7 @@ class PhpConfigController extends Controller
     /**
      * Reset PHP version for a project to default.
      */
-    public function resetPhp(Request $request, Environment $environment, ?string $project = null)
+    public function resetPhp(Request $request, Node $node, ?string $project = null)
     {
         $validated = $request->validate([
             'project' => $project ? 'nullable|string' : 'required|string',
@@ -61,7 +61,7 @@ class PhpConfigController extends Controller
             ], 422);
         }
 
-        $result = $this->config->phpReset($environment, $projectName);
+        $result = $this->config->phpReset($node, $projectName);
 
         return response()->json($result);
     }
@@ -69,27 +69,27 @@ class PhpConfigController extends Controller
     /**
      * Get PHP configuration settings.
      */
-    public function getConfig(Environment $environment, ?string $version = null)
+    public function getConfig(Node $node, ?string $version = null)
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->getLocalConfig($version);
         }
 
-        // For remote environments, proxy to the remote API
-        return $this->proxyToRemoteApi($environment, 'GET', '/php/config/'.($version ?? ''));
+        // For remote nodes, proxy to the remote API
+        return $this->proxyToRemoteApi($node, 'GET', '/php/config/'.($version ?? ''));
     }
 
     /**
      * Set PHP configuration settings.
      */
-    public function setConfig(Request $request, Environment $environment, ?string $version = null)
+    public function setConfig(Request $request, Node $node, ?string $version = null)
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->setLocalConfig($request, $version);
         }
 
-        // For remote environments, proxy to the remote API
-        return $this->proxyToRemoteApi($environment, 'POST', '/php/config/'.($version ?? ''), $request->all());
+        // For remote nodes, proxy to the remote API
+        return $this->proxyToRemoteApi($node, 'POST', '/php/config/'.($version ?? ''), $request->all());
     }
 
     /**
@@ -129,7 +129,6 @@ class PhpConfigController extends Controller
             'post_max_size' => $this->getIniValue($phpIniPath, 'post_max_size', '8M'),
             'memory_limit' => $this->getIniValue($phpIniPath, 'memory_limit', '128M'),
             'max_execution_time' => $this->getIniValue($phpIniPath, 'max_execution_time', '30'),
-            // FPM pool settings - not directly configurable on macOS Homebrew
             'max_children' => '5',
             'start_servers' => '2',
             'min_spare_servers' => '1',
@@ -199,8 +198,6 @@ class PhpConfigController extends Controller
             return response()->json(['success' => false, 'error' => 'Failed to write config file']);
         }
 
-        // PHP-FPM will auto-restart due to file watcher (LaunchAgent)
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -230,9 +227,9 @@ class PhpConfigController extends Controller
     /**
      * Proxy a request to the remote API.
      */
-    protected function proxyToRemoteApi(Environment $environment, string $method, string $path, array $data = [])
+    protected function proxyToRemoteApi(Node $node, string $method, string $path, array $data = [])
     {
-        $remoteApiUrl = $this->getRemoteApiUrl($environment);
+        $remoteApiUrl = $this->getRemoteApiUrl($node);
         if (! $remoteApiUrl) {
             return response()->json(['success' => false, 'error' => 'Remote API URL not available']);
         }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\SshService;
 use Illuminate\Support\Facades\Config;
@@ -15,8 +15,8 @@ beforeEach(function () {
 
 describe('CommandService', function () {
     describe('executeCommand', function () {
-        it('routes to executeLocalCommand for local environments', function () {
-            $environment = Environment::factory()->local()->create();
+        it('routes to executeLocalCommand for local nodes', function () {
+            $node = Node::factory()->create(['host' => '127.0.0.1']);
 
             // Set a fake CLI path that exists
             $tempPath = sys_get_temp_dir().'/orbit-test-'.uniqid();
@@ -28,24 +28,24 @@ describe('CommandService', function () {
                 '*' => Process::result(output: '{"success": true, "data": {"key": "value"}}'),
             ]);
 
-            $result = $this->commandService->executeCommand($environment, 'status --json');
+            $result = $this->commandService->executeCommand($node, 'status --json');
 
             expect($result)->toHaveKey('success');
 
             unlink($tempPath);
         });
 
-        it('routes to executeRemoteCommand for remote environments', function () {
-            $environment = Environment::factory()->create(['is_local' => false]);
+        it('routes to executeRemoteCommand for remote nodes', function () {
+            $node = Node::factory()->create(['host' => '192.168.1.1']);
 
             $this->sshService->shouldReceive('executeJson')
                 ->once()
-                ->withArgs(function ($env, $cmd) use ($environment) {
-                    return $env->id === $environment->id && str_contains($cmd, 'status --json');
+                ->withArgs(function ($env, $cmd) use ($node) {
+                    return $env->id === $node->id && str_contains($cmd, 'status --json');
                 })
                 ->andReturn(['success' => true, 'data' => ['success' => true, 'data' => []]]);
 
-            $result = $this->commandService->executeCommand($environment, 'status --json');
+            $result = $this->commandService->executeCommand($node, 'status --json');
 
             expect($result)->toHaveKey('success');
         });
@@ -223,8 +223,8 @@ describe('CommandService', function () {
 
     describe('executeRemoteCommand', function () {
         it('uses configured cli_path when available', function () {
-            $environment = Environment::factory()->create([
-                'is_local' => false,
+            $node = Node::factory()->create([
+                'host' => '192.168.1.1',
                 'cli_path' => '/custom/orbit',
             ]);
 
@@ -235,12 +235,12 @@ describe('CommandService', function () {
                 })
                 ->andReturn(['success' => true, 'data' => ['success' => true]]);
 
-            $this->commandService->executeRemoteCommand($environment, 'status --json');
+            $this->commandService->executeRemoteCommand($node, 'status --json');
         });
 
         it('uses default path when cli_path is not configured', function () {
-            $environment = Environment::factory()->create([
-                'is_local' => false,
+            $node = Node::factory()->create([
+                'host' => '192.168.1.1',
                 'cli_path' => null,
             ]);
 
@@ -251,11 +251,11 @@ describe('CommandService', function () {
                 })
                 ->andReturn(['success' => true, 'data' => ['success' => true]]);
 
-            $this->commandService->executeRemoteCommand($environment, 'status --json');
+            $this->commandService->executeRemoteCommand($node, 'status --json');
         });
 
         it('returns error on SSH failure', function () {
-            $environment = Environment::factory()->create(['is_local' => false]);
+            $node = Node::factory()->create(['host' => '192.168.1.1']);
 
             $this->sshService->shouldReceive('executeJson')
                 ->once()
@@ -265,7 +265,7 @@ describe('CommandService', function () {
                     'exit_code' => 255,
                 ]);
 
-            $result = $this->commandService->executeRemoteCommand($environment, 'status --json');
+            $result = $this->commandService->executeRemoteCommand($node, 'status --json');
 
             expect($result['success'])->toBeFalse();
             expect($result['error'])->toBe('Connection refused');
@@ -273,7 +273,7 @@ describe('CommandService', function () {
         });
 
         it('returns data from successful SSH execution', function () {
-            $environment = Environment::factory()->create(['is_local' => false]);
+            $node = Node::factory()->create(['host' => '192.168.1.1']);
 
             $this->sshService->shouldReceive('executeJson')
                 ->once()
@@ -285,7 +285,7 @@ describe('CommandService', function () {
                     ],
                 ]);
 
-            $result = $this->commandService->executeRemoteCommand($environment, 'status --json');
+            $result = $this->commandService->executeRemoteCommand($node, 'status --json');
 
             expect($result)->toBe(['success' => true, 'data' => ['status' => 'running']]);
         });
@@ -293,7 +293,7 @@ describe('CommandService', function () {
 
     describe('findBinary', function () {
         it('returns path when binary is found', function () {
-            $environment = Environment::factory()->create(['is_local' => false]);
+            $node = Node::factory()->create(['host' => '192.168.1.1']);
 
             $this->sshService->shouldReceive('execute')
                 ->once()
@@ -302,13 +302,13 @@ describe('CommandService', function () {
                     'output' => '/home/user/.local/bin/orbit',
                 ]);
 
-            $result = $this->commandService->findBinary($environment);
+            $result = $this->commandService->findBinary($node);
 
             expect($result)->toBe('/home/user/.local/bin/orbit');
         });
 
         it('returns null when binary is not found', function () {
-            $environment = Environment::factory()->create(['is_local' => false]);
+            $node = Node::factory()->create(['host' => '192.168.1.1']);
 
             $this->sshService->shouldReceive('execute')
                 ->once()
@@ -317,13 +317,13 @@ describe('CommandService', function () {
                     'output' => '',
                 ]);
 
-            $result = $this->commandService->findBinary($environment);
+            $result = $this->commandService->findBinary($node);
 
             expect($result)->toBeNull();
         });
 
         it('trims whitespace from path', function () {
-            $environment = Environment::factory()->create(['is_local' => false]);
+            $node = Node::factory()->create(['host' => '192.168.1.1']);
 
             $this->sshService->shouldReceive('execute')
                 ->once()
@@ -332,7 +332,7 @@ describe('CommandService', function () {
                     'output' => "  /path/to/orbit\n  ",
                 ]);
 
-            $result = $this->commandService->findBinary($environment);
+            $result = $this->commandService->findBinary($node);
 
             expect($result)->toBe('/path/to/orbit');
         });
@@ -402,9 +402,9 @@ describe('CommandService', function () {
     });
 
     describe('executeRawCommand', function () {
-        describe('local environment', function () {
+        describe('local node', function () {
             it('returns error or succeeds based on CLI availability', function () {
-                $environment = Environment::factory()->local()->create();
+                $node = Node::factory()->create(['host' => '127.0.0.1']);
 
                 Config::set('orbit.cli_path', null);
 
@@ -413,7 +413,7 @@ describe('CommandService', function () {
                 $cliPath = $this->commandService->getLocalCliPath();
 
                 if ($cliPath === null) {
-                    $result = $this->commandService->executeRawCommand($environment, 'logs php');
+                    $result = $this->commandService->executeRawCommand($node, 'logs php');
                     expect($result['success'])->toBeFalse();
                     expect($result['error'])->toBe('Orbit CLI not found. Set ORBIT_CLI_PATH in .env');
                 } else {
@@ -423,7 +423,7 @@ describe('CommandService', function () {
             });
 
             it('returns output on success', function () {
-                $environment = Environment::factory()->local()->create();
+                $node = Node::factory()->create(['host' => '127.0.0.1']);
 
                 $tempPath = sys_get_temp_dir().'/orbit-test-'.uniqid();
                 file_put_contents($tempPath, '<?php echo "{}";');
@@ -434,7 +434,7 @@ describe('CommandService', function () {
                     '*' => Process::result(output: 'PHP container logs here'),
                 ]);
 
-                $result = $this->commandService->executeRawCommand($environment, 'logs php');
+                $result = $this->commandService->executeRawCommand($node, 'logs php');
 
                 expect($result['success'])->toBeTrue();
                 expect($result['output'])->toContain('PHP container logs here');
@@ -444,7 +444,7 @@ describe('CommandService', function () {
             });
 
             it('returns error on failure', function () {
-                $environment = Environment::factory()->local()->create();
+                $node = Node::factory()->create(['host' => '127.0.0.1']);
 
                 $tempPath = sys_get_temp_dir().'/orbit-test-'.uniqid();
                 file_put_contents($tempPath, '<?php echo "{}";');
@@ -459,7 +459,7 @@ describe('CommandService', function () {
                     ),
                 ]);
 
-                $result = $this->commandService->executeRawCommand($environment, 'logs nonexistent');
+                $result = $this->commandService->executeRawCommand($node, 'logs nonexistent');
 
                 expect($result['success'])->toBeFalse();
                 expect($result['error'])->toContain('Container not found');
@@ -468,22 +468,22 @@ describe('CommandService', function () {
             });
         });
 
-        describe('remote environment', function () {
+        describe('remote node', function () {
             it('returns error when CLI is not found on remote', function () {
-                $environment = Environment::factory()->create(['is_local' => false]);
+                $node = Node::factory()->create(['host' => '192.168.1.1']);
 
                 $this->sshService->shouldReceive('execute')
                     ->once()
                     ->andReturn(['success' => false, 'output' => '']);
 
-                $result = $this->commandService->executeRawCommand($environment, 'logs php');
+                $result = $this->commandService->executeRawCommand($node, 'logs php');
 
                 expect($result['success'])->toBeFalse();
                 expect($result['error'])->toBe('Orbit CLI not found on remote server');
             });
 
             it('executes command via SSH when CLI is found', function () {
-                $environment = Environment::factory()->create(['is_local' => false]);
+                $node = Node::factory()->create(['host' => '192.168.1.1']);
 
                 // First call finds binary
                 $this->sshService->shouldReceive('execute')
@@ -498,7 +498,7 @@ describe('CommandService', function () {
                     })
                     ->andReturn(['success' => true, 'output' => 'Remote logs']);
 
-                $result = $this->commandService->executeRawCommand($environment, 'logs php');
+                $result = $this->commandService->executeRawCommand($node, 'logs php');
 
                 expect($result['success'])->toBeTrue();
                 expect($result['output'])->toBe('Remote logs');

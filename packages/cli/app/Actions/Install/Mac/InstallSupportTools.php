@@ -18,20 +18,6 @@ final readonly class InstallSupportTools
 
     public function handle(InstallContext $context, InstallLogger $logger): StepResult
     {
-        // Install Bun if missing
-        if (! $this->platformService->commandExists('bun')) {
-            $logger->step('Installing Bun...');
-            $result = Process::timeout(300)->run('brew install oven-sh/bun/bun');
-            if (! $result->successful()) {
-                $logger->warn('Failed to install Bun - you may need to install it manually');
-            } else {
-                $logger->success('Bun installed');
-            }
-        } else {
-            $logger->skip('Bun already installed');
-        }
-
-        // Install Composer if missing
         if (! $this->platformService->commandExists('composer')) {
             $logger->step('Installing Composer...');
             $result = Process::timeout(300)->run('brew install composer');

@@ -209,7 +209,7 @@ orbit-cli depends on **orbit-core** for shared business logic (Models, Services,
 ```php
 // Import models from orbit-core
 use HardImpact\Orbit\Core\Models\Project;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 
 // Import services
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
@@ -250,6 +250,21 @@ Run before every commit:
 | Platform-specific commands | `app/Services/AGENTS.md` |
 | PHP-FPM restart kills web requests | `app/Services/AGENTS.md` |
 | JSON output must be clean | `app/Commands/AGENTS.md` |
+| `encrypt()`/`decrypt()` unavailable | Root (below) |
+| Gateway commands need deploy | Root (below) |
+
+### No encrypt()/decrypt() in Laravel Zero
+
+Laravel Zero doesn't register `EncryptionServiceProvider` or configure an `APP_KEY`. Calling `encrypt()` throws `Target class [encrypter] does not exist`. Store secrets in plain text in the SQLite DB (user-owned, server-local).
+
+### Gateway Commands Need Build+Deploy
+
+Commands that run ON the gateway (e.g., `gateway:clients`, `gateway:set-password`) must be built into a phar and deployed before testing. The gateway runs its own binary at `~/.local/bin/orbit`:
+
+```bash
+~/.composer/vendor/bin/box compile
+scp builds/orbit.phar gateway@188.245.156.201:~/.local/bin/orbit
+```
 
 ### NEVER Use Path Repositories
 

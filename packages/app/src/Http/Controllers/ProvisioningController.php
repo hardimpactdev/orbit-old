@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Enums\NodeStatus;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Setting;
 use HardImpact\Orbit\Core\Models\SshKey;
 use HardImpact\Orbit\Core\Services\CliUpdateService;
@@ -21,7 +22,7 @@ class ProvisioningController extends Controller
     public function create(): \Inertia\Response
     {
         $sshKeys = SshKey::orderBy('is_default', 'desc')->orderBy('name')->get();
-        $availableSshKeys = Setting::getAvailableSshKeys();
+        $availableSshKeys = SshKey::getAvailableLocalKeys();
 
         return \Inertia\Inertia::render('provisioning/Create', [
             'sshKeys' => $sshKeys,
@@ -43,35 +44,33 @@ class ProvisioningController extends Controller
             Setting::setSshPublicKey($validated['ssh_public_key']);
         }
 
-        // Create the environment record immediately with provisioning status
-        $environment = Environment::create([
+        // Create the node record immediately with provisioning status
+        $node = Node::create([
             'name' => $validated['name'],
             'host' => $validated['host'],
             'user' => $validated['user'],
             'port' => config('orbit-ui.ports.ssh', 22),
-            'is_local' => false,
-            'status' => Environment::STATUS_PROVISIONING,
+            'status' => NodeStatus::Provisioning,
         ]);
 
-        // Redirect to the environment show page immediately - provisioning runs in background
-        return redirect()->route('environments.show', $environment);
+        // Redirect to the node show page immediately - provisioning runs in background
+        return redirect()->route('nodes.show', $node);
     }
 
-    public function run(Request $request, Environment $environment)
+    public function run(Request $request, Node $node)
     {
         $validated = $request->validate([
             'ssh_public_key' => 'required|string',
         ]);
 
-        // Handle local environment provisioning
-        if ($environment->is_local) {
-            return $this->runLocalProvisioning($environment);
+        // Handle local node provisioning
+        if ($node->isLocal()) {
+            return $this->runLocalProvisioning($node);
         }
 
-        // Handle remote environment provisioning
+        // Handle remote node provisioning
         // Clear old SSH host keys BEFORE starting provisioning
-        // This must happen synchronously before the background process starts
-        Process::run(sprintf('ssh-keygen -R %s 2>/dev/null', escapeshellarg($environment->host)));
+        Process::run(sprintf('ssh-keygen -R %s 2>/dev/null', escapeshellarg($node->host)));
 
         // Run provisioning in the background so the HTTP request returns immediately
         $sshKey = $validated['ssh_public_key'];
@@ -81,7 +80,7 @@ class ProvisioningController extends Controller
         $command = sprintf(
             'php %s environment:provision %d %s > /dev/null 2>&1 &',
             escapeshellarg($artisanPath),
-            $environment->id,
+            $node->id,
             escapeshellarg((string) $sshKey)
         );
 
@@ -94,10 +93,10 @@ class ProvisioningController extends Controller
         ]);
     }
 
-    protected function runLocalProvisioning(Environment $environment): \Illuminate\Http\JsonResponse
+    protected function runLocalProvisioning(Node $node): \Illuminate\Http\JsonResponse
     {
-        $tld = $environment->tld ?? 'test';
-        $logPath = storage_path("logs/provision-{$environment->id}.log");
+        $tld = $node->tld ?? 'test';
+        $logPath = storage_path("logs/provision-{$node->id}.log");
 
         // Ensure the CLI is installed
         $cliUpdate = $this->cliUpdateService;
@@ -132,26 +131,26 @@ class ProvisioningController extends Controller
         ]);
     }
 
-    public function status(Environment $environment)
+    public function status(Node $node)
     {
-        // For local environments, parse progress from CLI log file
-        if ($environment->is_local && $environment->status === Environment::STATUS_PROVISIONING) {
-            $this->parseCliProgress($environment);
-            $environment->refresh();
+        // For local nodes, parse progress from CLI log file
+        if ($node->isLocal() && $node->status === NodeStatus::Provisioning) {
+            $this->parseCliProgress($node);
+            $node->refresh();
         }
 
         return response()->json([
-            'status' => $environment->status,
-            'provisioning_step' => $environment->provisioning_step,
-            'provisioning_total_steps' => $environment->provisioning_total_steps,
-            'provisioning_log' => $environment->provisioning_log,
-            'provisioning_error' => $environment->provisioning_error,
+            'status' => $node->status,
+            'provisioning_step' => $node->provisioning_step,
+            'provisioning_total_steps' => $node->provisioning_total_steps,
+            'provisioning_log' => $node->provisioning_log,
+            'provisioning_error' => $node->provisioning_error,
         ]);
     }
 
-    protected function parseCliProgress(Environment $environment): void
+    protected function parseCliProgress(Node $node): void
     {
-        $logPath = storage_path("logs/provision-{$environment->id}.log");
+        $logPath = storage_path("logs/provision-{$node->id}.log");
 
         if (! file_exists($logPath)) {
             return;
@@ -179,7 +178,6 @@ class ProvisioningController extends Controller
             $decoded = json_decode($line, true);
 
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                // It's a valid JSON line from the CLI
                 if (isset($decoded['type'])) {
                     if ($decoded['type'] === 'step' && isset($decoded['message'])) {
                         $log[] = ['step' => $decoded['message']];
@@ -192,9 +190,8 @@ class ProvisioningController extends Controller
                         $hasError = true;
                         $errorMessage = $decoded['message'];
                     } elseif ($decoded['type'] === 'success' && isset($decoded['message'])) {
-                        // Setup completed successfully
-                        $environment->update([
-                            'status' => Environment::STATUS_ACTIVE,
+                        $node->update([
+                            'status' => NodeStatus::Active,
                             'provisioning_step' => $totalSteps,
                             'provisioning_total_steps' => $totalSteps,
                             'provisioning_log' => $log,
@@ -204,7 +201,6 @@ class ProvisioningController extends Controller
                     }
                 }
             } elseif (stripos($line, 'error') !== false || stripos($line, 'failed') !== false) {
-                // Not JSON, treat as raw output (might be error or debug)
                 $log[] = ['error' => $line];
                 $hasError = true;
                 $errorMessage ??= $line;
@@ -213,7 +209,6 @@ class ProvisioningController extends Controller
             }
         }
 
-        // Update environment with current progress
         $updateData = [
             'provisioning_step' => $currentStep,
             'provisioning_total_steps' => $totalSteps,
@@ -221,11 +216,11 @@ class ProvisioningController extends Controller
         ];
 
         if ($hasError) {
-            $updateData['status'] = Environment::STATUS_ERROR;
+            $updateData['status'] = NodeStatus::Error;
             $updateData['provisioning_error'] = $errorMessage;
         }
 
-        $environment->update($updateData);
+        $node->update($updateData);
     }
 
     public function checkServer(Request $request)

@@ -148,14 +148,14 @@ stateDiagram-v2
 
 **Note:** The CLI's `project:create` command runs `ProvisionPipeline` synchronously with real-time console output, while web UI uses `CreateProjectJob` via Horizon. Both paths share the same provisioning logic.
 
-## Active Environment Rules
+## Active Node Rules
 
-Orbit web/desktop rely on a single active environment in the database.
+Orbit web/desktop rely on a single active node in the database.
 
-- `EnvironmentManager::current()` resolves the active environment for requests.
-- `POST /environments/{environment}/switch` updates the active environment.
-- `/` renders the active environment dashboard in web mode via `EnvironmentController@show`.
-- `/projects` uses the active environment and does not require an ID in the URL.
+- `NodeManager::current()` resolves the active node for requests.
+- `POST /nodes/{node}/set-default` updates the active node.
+- `/` renders the active node dashboard in web mode via `NodeController@show`.
+- `/projects` uses the active node and does not require an ID in the URL.
 
 ## API Contract
 
@@ -179,7 +179,7 @@ Content-Type: application/json
 
 ### Response (Web Request)
 ```
-302 Redirect to /environments/{active_id}/projects
+302 Redirect to /nodes/{active_id}/projects
 Session: {provisioning: "my-project", success: "Project is being created..."}
 ```
 
@@ -218,12 +218,12 @@ managed by the composables and automatically cleaned up when components unmount.
 Key files:
 - `resources/js/app.ts` configures Echo from the `reverb` page prop
 - `resources/js/composables/useProjectProvisioning.ts` subscribes via `useEchoPublic`
-- `resources/js/pages/environments/Services.vue` listens for service status updates
+- `resources/js/pages/nodes/Services.vue` listens for service status updates
 
 ## What NOT to Do (Web/Desktop Consumers)
 
 1. **Never call CLI synchronously from controllers** - always dispatch a job
-2. **Never branch** on `$environment->is_local` for the dispatch flow
+2. **Never branch** on `$node->isLocal()` for the dispatch flow
 3. **Never skip** the job queue for "faster" local execution
 4. **Never return** from controller before dispatching the job
 
@@ -242,9 +242,9 @@ Jobs exist specifically to move long-running operations off the request thread. 
 ## Related Files
 
 ### orbit-core
-- `src/Http/Controllers/EnvironmentController.php:685` - `storeProject()` method
+- `src/Http/Controllers/NodeController.php` - `storeProject()` method
 - `src/Http/Controllers/ProjectController.php` - Web entry point (`POST /projects`)
-- `src/Services/EnvironmentManager.php` - Active environment resolution
+- `src/Services/NodeManager.php` - Active node resolution
 - `src/Jobs/CreateProjectJob.php` - Async job, runs ProvisionPipeline
 - `src/Contracts/ProvisionLoggerContract.php` - Interface for logger implementations
 - `src/Services/Provision/ProvisionPipeline.php` - Main provisioning orchestrator
@@ -318,5 +318,5 @@ Test coverage:
 | 2026-01-22 | CLI `project:create` runs ProvisionPipeline synchronously with real-time output |
 | 2026-01-22 | Added `ProvisionLoggerContract` interface for CLI/web logger implementations |
 | 2026-01-22 | CLI broadcasts to Reverb via Pusher SDK for web UI updates during sync execution |
-| 2026-01-22 | Active environment manager + switch route for web/desktop project creation |
+| 2026-01-22 | Active node manager + set-default route for web/desktop project creation |
 | 2026-01-23 | Renamed from site to project throughout |

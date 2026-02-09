@@ -96,6 +96,23 @@ Development and production use **separate databases** to avoid conflicts:
 **Why separate databases?**
 Sites created via dev CLI won't appear in production, and vice versa. This prevents confusion during development.
 
+## Persistence: config.json vs Database
+
+Two persistence layers with distinct responsibilities — do NOT merge them:
+
+| Layer | Location | Purpose | Consumers |
+|-------|----------|---------|-----------|
+| `config.json` | `~/.config/orbit/config.json` | Declarative system config (tld, paths, services, dns_mappings, site overrides) | ConfigManager, dnsmasq generator, Caddyfile generator, human editors |
+| SQLite database | `~/.config/orbit/database.sqlite` | App state tracking (installed_template, installed_at, sites, projects) | Setting model, Eloquent models |
+
+**config.json stays as a file** because:
+- Human-readable and editable with any text editor
+- Source for derived configs (dnsmasq.conf, Caddyfile)
+- Standard pattern for CLI tools
+- Inspectable for debugging (`cat ~/.config/orbit/config.json`)
+
+**When renaming stored values**, use lazy migration on read (see `docs/solutions/refactoring/lazy-migration-pattern-template-rename-20260208.md`).
+
 ## Project Architecture
 
 **Orbit CLI** - Local PHP dev environment with host PHP-FPM/Caddy and Docker-backed services.
@@ -212,7 +229,7 @@ orbit-cli depends on **orbit-core** for shared business logic (Models, Services,
 ```php
 // Import models from orbit-core
 use HardImpact\Orbit\Core\Models\Project;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 
 // Import services
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;

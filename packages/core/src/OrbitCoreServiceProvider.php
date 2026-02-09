@@ -6,7 +6,7 @@ use HardImpact\Orbit\Core\Console\Commands\OrbitInit;
 use HardImpact\Orbit\Core\Services\CliUpdateService;
 use HardImpact\Orbit\Core\Services\DnsResolverService;
 use HardImpact\Orbit\Core\Services\DoctorService;
-use HardImpact\Orbit\Core\Services\EnvironmentManager;
+use HardImpact\Orbit\Core\Services\NodeManager;
 use HardImpact\Orbit\Core\Services\HorizonService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\PackageService;
@@ -28,7 +28,7 @@ class OrbitCoreServiceProvider extends ServiceProvider
 
         // Register stateless services as singletons to avoid repeated instantiation
         // This improves performance, especially in long-running processes like Horizon
-        $this->app->singleton(EnvironmentManager::class);
+        $this->app->singleton(NodeManager::class);
         $this->app->singleton(SshService::class);
         $this->app->singleton(DoctorService::class);
         $this->app->singleton(HorizonService::class);
@@ -62,10 +62,10 @@ class OrbitCoreServiceProvider extends ServiceProvider
             return;
         }
 
-        // Explicit route model binding for Environment
+        // Explicit route model binding for Node
         // Required because the model is in HardImpact\Orbit\Core\Models namespace
         // not App\Models, so Laravel can't auto-discover it
-        \Illuminate\Support\Facades\Route::model('environment', \HardImpact\Orbit\Core\Models\Environment::class);
+        \Illuminate\Support\Facades\Route::model('node', \HardImpact\Orbit\Core\Models\Node::class);
     }
 
     protected function registerCommands(): void
@@ -98,7 +98,7 @@ class OrbitCoreServiceProvider extends ServiceProvider
     {
         return [
             OrbitInit::class,
-            EnvironmentManager::class,
+            NodeManager::class,
             SshService::class,
             DoctorService::class,
             HorizonService::class,

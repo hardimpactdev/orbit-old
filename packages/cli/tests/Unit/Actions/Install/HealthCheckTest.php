@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-it('checks for environments table in database', function () {
+it('checks for nodes table in database', function () {
     $sourceCode = file_get_contents(__DIR__.'/../../../../app/Actions/Install/Shared/HealthCheck.php');
 
-    expect($sourceCode)->toContain('environments');
-    expect($sourceCode)->toContain('DB::table(\'environments\')->count()');
+    expect($sourceCode)->toContain('nodes');
+    expect($sourceCode)->toContain('DB::table(\'nodes\')->count()');
 });
 
 it('checks for projects table in database', function () {
@@ -16,11 +16,11 @@ it('checks for projects table in database', function () {
     expect($sourceCode)->toContain('DB::table(\'projects\')->count()');
 });
 
-it('checks for local environment record', function () {
+it('checks for node record', function () {
     $sourceCode = file_get_contents(__DIR__.'/../../../../app/Actions/Install/Shared/HealthCheck.php');
 
-    expect($sourceCode)->toContain('Environment::getLocal()');
-    expect($sourceCode)->toContain('Local environment record not found');
+    expect($sourceCode)->toContain('Node::getSelf()');
+    expect($sourceCode)->toContain('Node record not found');
 });
 
 it('checks PHP-FPM services are running', function () {
@@ -50,7 +50,7 @@ it('returns failure with specific error messages', function () {
     $sourceCode = file_get_contents(__DIR__.'/../../../../app/Actions/Install/Shared/HealthCheck.php');
 
     expect($sourceCode)->toContain('Database tables not found');
-    expect($sourceCode)->toContain('Local environment record not found');
+    expect($sourceCode)->toContain('Node record not found');
     expect($sourceCode)->toContain('PHP-FPM services not running');
     expect($sourceCode)->toContain('Required Docker services not running');
 });

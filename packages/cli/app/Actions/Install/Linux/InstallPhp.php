@@ -52,9 +52,25 @@ final readonly class InstallPhp
             }
 
             $logger->success("PHP {$version} installed");
+
+            // Configure CLI memory limit to 256M
+            $this->configureCliMemoryLimit($version, $logger);
         }
 
         return StepResult::success();
+    }
+
+    private function configureCliMemoryLimit(string $version, InstallLogger $logger): void
+    {
+        $phpIniPath = "/etc/php/{$version}/cli/php.ini";
+
+        $result = Process::run(
+            "sudo sed -i 's/^memory_limit = .*/memory_limit = 256M/' {$phpIniPath}"
+        );
+
+        if ($result->successful()) {
+            $logger->info("Set PHP {$version} CLI memory limit to 256M");
+        }
     }
 
     private function addPhpPpa(InstallLogger $logger): bool

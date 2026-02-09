@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -12,44 +12,43 @@ class DashboardController extends Controller
 {
     public function index(Request $request): RedirectResponse
     {
-        // Web mode: redirect to environment show page (injected by ImplicitEnvironment middleware)
-        if (! config('orbit.multi_environment')) {
-            $environment = $request->route('environment');
+        // Web mode: redirect to node show page (injected by ImplicitNode middleware)
+        if (! config('orbit.multi_node')) {
+            $node = $request->route('node');
 
-            if ($environment instanceof Environment) {
-                return redirect()->route('environments.show', $environment);
+            if ($node instanceof Node) {
+                return redirect()->route('nodes.show', $node);
             }
 
-            // Fallback: find local environment
-            $environment = Environment::where('is_local', true)->first()
-                ?? Environment::first();
+            // Fallback: find default node
+            $node = Node::where('is_default', true)->first()
+                ?? Node::first();
 
-            if ($environment) {
-                return redirect()->route('environments.show', $environment);
+            if ($node) {
+                return redirect()->route('nodes.show', $node);
             }
 
-            // No environment exists - redirect to sites page (will show empty state)
-            return redirect()->route('environments.sites');
+            // No node exists - redirect to sites page (will show empty state)
+            return redirect()->route('nodes.sites');
         }
 
-        // Desktop mode: redirect to default environment
-        $defaultEnvironment = Environment::getDefault();
+        // Desktop mode: redirect to default node
+        $defaultNode = Node::getDefault();
 
-        if ($defaultEnvironment instanceof Environment) {
-            return redirect()->route('environments.show', $defaultEnvironment);
+        if ($defaultNode instanceof Node) {
+            return redirect()->route('nodes.show', $defaultNode);
         }
 
-        // No default environment - check if any environments exist
-        $firstEnvironment = Environment::where('status', 'active')->first();
+        // No default node - check if any nodes exist
+        $firstNode = Node::where('status', 'active')->first();
 
-        if ($firstEnvironment) {
-            // Set it as default and redirect
-            $firstEnvironment->update(['is_default' => true]);
+        if ($firstNode) {
+            $firstNode->update(['is_default' => true]);
 
-            return redirect()->route('environments.show', $firstEnvironment);
+            return redirect()->route('nodes.show', $firstNode);
         }
 
-        // No environments at all - redirect to create
-        return redirect()->route('environments.create');
+        // No nodes at all - redirect to create
+        return redirect()->route('nodes.create');
     }
 }

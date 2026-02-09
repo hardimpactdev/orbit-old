@@ -9,7 +9,7 @@ use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetPhpRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetPhpVersionsRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\ResetPhpRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\SetPhpRequest;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
 use HardImpact\Orbit\Core\Services\SshService;
@@ -29,66 +29,67 @@ class ConfigurationService
     /**
      * Get orbit configuration for an environment.
      */
-    public function getConfig(Environment $environment): array
+    public function getConfig(Node $node): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->getLocalConfig();
         }
 
-        return $this->getRemoteConfig($environment);
+        return $this->getRemoteConfig($node);
     }
 
     /**
      * Save orbit configuration for an environment.
      */
-    public function saveConfig(Environment $environment, array $config): array
+    public function saveConfig(Node $node, array $config): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->saveLocalConfig($config);
         }
 
-        return $this->saveRemoteConfig($environment, $config);
+        return $this->saveRemoteConfig($node, $config);
     }
 
     /**
      * Get or set PHP version for a project.
      */
-    public function php(Environment $environment, string $site, ?string $version = null): array
+    public function php(Node $node, string $site, ?string $version = null): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
+            $escapedSite = escapeshellarg($site);
             $command = $version
-                ? "php {$site} {$version} --json"
-                : "php {$site} --json";
+                ? "php {$escapedSite} ".escapeshellarg($version).' --json'
+                : "php {$escapedSite} --json";
 
-            return $this->command->executeCommand($environment, $command);
+            return $this->command->executeCommand($node, $command);
         }
 
         if ($version) {
-            return $this->connector->sendRequest($environment, new SetPhpRequest($site, $version));
+            return $this->connector->sendRequest($node, new SetPhpRequest($site, $version));
         }
 
-        return $this->connector->sendRequest($environment, new GetPhpRequest($site));
+        return $this->connector->sendRequest($node, new GetPhpRequest($site));
     }
 
     /**
      * Reset PHP version for a project to default.
      */
-    public function phpReset(Environment $environment, string $site): array
+    public function phpReset(Node $node, string $site): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, "php {$site} --reset --json");
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'php '.escapeshellarg($site).' --reset --json');
         }
 
-        return $this->connector->sendRequest($environment, new ResetPhpRequest($site));
+        return $this->connector->sendRequest($node, new ResetPhpRequest($site));
     }
 
     /**
      * Get Reverb WebSocket configuration for real-time updates.
      * Uses status endpoint to check if Reverb service is running.
      */
-    public function getReverbConfig(Environment $environment): array
+    public function getReverbConfig(Node $node): array
     {
-        $status = $this->status->status($environment);
+        $status = $this->status->status($node);
 
         if (! $status['success']) {
             return [
@@ -112,7 +113,7 @@ class ConfigurationService
         }
 
         // Get TLD from environment cache or status
-        $tld = $environment->tld ?? $statusData['tld'] ?? 'test';
+        $tld = $node->tld ?? $statusData['tld'] ?? 'test';
 
         // Caddy terminates TLS for reverb.{tld} and proxies to the Reverb container
         return [
@@ -203,15 +204,15 @@ class ConfigurationService
     /**
      * Get remote configuration via HTTP API.
      */
-    protected function getRemoteConfig(Environment $environment): array
+    protected function getRemoteConfig(Node $node): array
     {
         // Use HTTP API to get config
-        $result = $this->connector->sendRequest($environment, new GetConfigRequest);
+        $result = $this->connector->sendRequest($node, new GetConfigRequest);
 
         if (! $result['success']) {
             // Fallback to defaults if API fails
             $data = $this->getDefaultConfig();
-            $data['available_php_versions'] = $this->getAvailablePhpVersions($environment);
+            $data['available_php_versions'] = $this->getAvailablePhpVersions($node);
 
             return [
                 'success' => true,
@@ -224,7 +225,7 @@ class ConfigurationService
         $data = array_merge($this->getDefaultConfig(), $result);
         unset($data['success']); // Remove success flag from data
 
-        $data['available_php_versions'] = $this->getAvailablePhpVersions($environment);
+        $data['available_php_versions'] = $this->getAvailablePhpVersions($node);
 
         return [
             'success' => true,
@@ -236,11 +237,11 @@ class ConfigurationService
     /**
      * Get available PHP versions by scanning running containers.
      */
-    protected function getAvailablePhpVersions(Environment $environment): array
+    protected function getAvailablePhpVersions(Node $node): array
     {
         // For remote environments, use HTTP API
-        if (! $environment->is_local) {
-            $result = $this->connector->sendRequest($environment, new GetPhpVersionsRequest);
+        if (! $node->isLocal()) {
+            $result = $this->connector->sendRequest($node, new GetPhpVersionsRequest);
             if ($result['success'] && isset($result['versions'])) {
                 return $result['versions'];
             }
@@ -293,14 +294,14 @@ class ConfigurationService
      * Config reads use the API (fast, no SSH overhead), but writes require SSH
      * authentication which provides an additional security layer.
      */
-    protected function saveRemoteConfig(Environment $environment, array $config): array
+    protected function saveRemoteConfig(Node $node, array $config): array
     {
         $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         $escapedJson = escapeshellarg($json);
 
         // Ensure directory exists and write file
         $command = "mkdir -p ~/.config/orbit && echo {$escapedJson} > ~/.config/orbit/config.json";
-        $result = $this->ssh->execute($environment, $command);
+        $result = $this->ssh->execute($node, $command);
 
         if (! $result['success']) {
             return [
@@ -318,9 +319,9 @@ class ConfigurationService
     /**
      * Get DNS mappings for an environment.
      */
-    public function getDnsMappings(Environment $environment): array
+    public function getDnsMappings(Node $node): array
     {
-        $configResult = $this->getConfig($environment);
+        $configResult = $this->getConfig($node);
 
         if (! $configResult['success']) {
             return $configResult;
@@ -342,9 +343,9 @@ class ConfigurationService
     /**
      * Set DNS mappings for an environment.
      */
-    public function setDnsMappings(Environment $environment, array $mappings): array
+    public function setDnsMappings(Node $node, array $mappings): array
     {
-        $configResult = $this->getConfig($environment);
+        $configResult = $this->getConfig($node);
 
         if (! $configResult['success']) {
             return $configResult;
@@ -353,6 +354,6 @@ class ConfigurationService
         $config = $configResult['data'];
         $config['dns_mappings'] = $mappings;
 
-        return $this->saveConfig($environment, $config);
+        return $this->saveConfig($node, $config);
     }
 }

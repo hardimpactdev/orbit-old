@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\PackageService;
 use Illuminate\Http\Request;
 
@@ -17,9 +17,9 @@ class PackageController extends Controller
     /**
      * Get linked packages for a project.
      */
-    public function index(Environment $environment, string $project)
+    public function index(Node $node, string $project)
     {
-        $result = $this->package->packageLinked($environment, $project);
+        $result = $this->package->packageLinked($node, $project);
 
         if (! $result['success']) {
             return response()->json([
@@ -37,7 +37,7 @@ class PackageController extends Controller
     /**
      * Link a package to a project.
      */
-    public function link(Request $request, Environment $environment, string $project)
+    public function link(Request $request, Node $node, string $project)
     {
         $package = $request->input('package');
 
@@ -48,7 +48,7 @@ class PackageController extends Controller
             ], 400);
         }
 
-        $result = $this->package->packageLink($environment, $package, $project);
+        $result = $this->package->packageLink($node, $package, $project);
 
         if (! $result['success']) {
             return response()->json([
@@ -66,9 +66,9 @@ class PackageController extends Controller
     /**
      * Unlink a package from a project.
      */
-    public function unlink(Environment $environment, string $project, string $package)
+    public function unlink(Node $node, string $project, string $package)
     {
-        $result = $this->package->packageUnlink($environment, $package, $project);
+        $result = $this->package->packageUnlink($node, $package, $project);
 
         if (! $result['success']) {
             return response()->json([

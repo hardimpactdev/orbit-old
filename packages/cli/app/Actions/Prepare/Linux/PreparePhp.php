@@ -16,7 +16,9 @@ final readonly class PreparePhp
         // Check Homebrew availability (same as macOS)
         $brewCheck = Process::run('which brew');
         if ($brewCheck->failed()) {
-            return StepResult::failed('Homebrew is not installed. It will be installed during the installation.');
+            $logger->step('Homebrew not installed, will be installed during setup');
+
+            return StepResult::success();
         }
         $logger->success('Homebrew available');
 

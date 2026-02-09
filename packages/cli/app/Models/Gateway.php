@@ -12,6 +12,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $ip_address
  * @property string $ssh_user
  * @property string $status
+ * @property string $subnet
+ * @property string|null $wg_password
+ * @property int $wg_api_port
  * @property \Carbon\Carbon|null $last_connected_at
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
@@ -26,10 +29,30 @@ final class Gateway extends Model
         'ip_address',
         'ssh_user',
         'status',
+        'subnet',
+        'wg_password',
+        'wg_api_port',
         'last_connected_at',
     ];
 
     protected $casts = [
         'last_connected_at' => 'datetime',
+        'wg_api_port' => 'integer',
     ];
+
+    /**
+     * Get the VPN gateway IP from the subnet.
+     * For subnet 10.6.0.0/24, returns 10.6.0.1
+     */
+    public function getVpnGatewayIp(): string
+    {
+        $parts = explode('/', $this->subnet);
+        $network = $parts[0];
+        $octets = explode('.', $network);
+
+        // Gateway is typically .1 of the subnet
+        $octets[3] = '1';
+
+        return implode('.', $octets);
+    }
 }

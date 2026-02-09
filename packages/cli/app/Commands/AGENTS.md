@@ -64,17 +64,70 @@ final class MyCommand extends Command
 }
 ```
 
+### Step Output Trait
+
+Use `HasStepOutput` for commands with provisioning-style progress:
+
+```php
+use App\Concerns\HasStepOutput;
+
+final class MyCommand extends Command
+{
+    use HasStepOutput;
+
+    public function handle(): int
+    {
+        $this->step('Task completed');   // ✓ Task completed (green)
+        $this->skip('Task skipped');     // ○ Task skipped (gray)
+    }
+}
+```
+
+### Command Delegation Pattern
+
+For commands that share provisioning logic, use `$this->call()` to delegate:
+
+```php
+// SetupGatewayCommand delegates shared provisioning to setup:remote
+$this->call('setup:remote', [
+    'ip' => $ip,
+    'user' => $user,
+    '--template' => 'gateway',
+    '--yes' => true,  // suppress interactive prompts since parent already collected input
+]);
+```
+
+Pass `--yes` when the parent command already collected interactive input to avoid double-prompting.
+
 ## Key Commands
 
 | Command | Description |
 |---------|-------------|
-| `install` | Install Orbit using a template (`--template=development`) |
+| `install` | Install Orbit using a template (`--template=php-dev`) |
+| `setup` | Interactive wizard: local or remote setup |
+| `setup:remote` | Provision remote server + install any template |
+| `setup:gateway` | Gateway setup (delegates to `setup:remote` + gateway post-install) |
 | `site:create` | Create new site via ProvisionPipeline |
 | `site:delete` | Remove site and cleanup resources |
 | `start`/`stop`/`restart` | Host + Docker service lifecycle |
 | `status` | Show running services |
 | `php` | Manage PHP versions |
-| `setup` | Initial Orbit configuration |
+
+### Remote Setup Architecture
+
+```
+setup (wizard)
+├── Local → install --template=X
+└── Remote
+    ├── Gateway → setup:gateway → setup:remote --template=gateway → post-install (WG, DB)
+    └── Other   → setup:remote --template=X
+```
+
+`setup:remote` handles: clearHostKey → detectState → checkSystemCompatibility → createUser → copySshKeys → hardenSsh → updateSystem → installOrbit → [Docker if needed] → runMigrations → installTemplate
+
+Docker is installed conditionally:
+- `gateway`, `php-dev`: always
+- `php-production`: only when `--services` is non-empty
 
 ## Site Creation Architecture
 

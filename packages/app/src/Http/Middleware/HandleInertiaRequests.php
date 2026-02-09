@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Middleware;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -100,20 +100,20 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $currentPath = $request->path();
-        $multiEnvironment = config('orbit.multi_environment');
+        $multiNode = config('orbit.multi_node');
 
-        // Cache current environment to avoid duplicate queries
-        $currentEnv = null;
-        $getCurrentEnv = function () use (&$currentEnv, $multiEnvironment): ?\HardImpact\Orbit\Core\Models\Environment {
-            if ($multiEnvironment) {
+        // Cache current node to avoid duplicate queries
+        $currentNode = null;
+        $getCurrentNode = function () use (&$currentNode, $multiNode): ?\HardImpact\Orbit\Core\Models\Node {
+            if ($multiNode) {
                 return null;
             }
 
-            if (! $currentEnv instanceof \HardImpact\Orbit\Core\Models\Environment) {
-                $currentEnv = Environment::where('is_local', true)->first();
+            if (! $currentNode instanceof \HardImpact\Orbit\Core\Models\Node) {
+                $currentNode = Node::where('is_default', true)->first();
             }
 
-            return $currentEnv;
+            return $currentNode;
         };
 
         // Compute client-side Reverb host from APP_URL's TLD
@@ -122,7 +122,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'multi_environment' => $multiEnvironment,
+            'multi_node' => $multiNode,
             'orbit_version' => $this->getOrbitVersion(),
             'reverb' => [
                 'enabled' => config('broadcasting.default') === 'reverb',
@@ -136,33 +136,33 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'provisioning' => fn () => $request->session()->get('provisioning'),
             ],
-            'environments' => fn () => Environment::where('status', 'active')
+            'nodes' => fn () => Node::where('status', 'active')
                 ->orderBy('is_default', 'desc')
                 ->orderBy('name')
-                ->get(['id', 'name', 'host', 'is_local', 'is_default']),
-            'navigation' => function () use ($currentPath, $getCurrentEnv, $multiEnvironment, $request): array {
-                // In web mode, get current environment from middleware injection or query
-                $currentEnv = $multiEnvironment ? null : $getCurrentEnv();
+                ->get(['id', 'name', 'host', 'is_default']),
+            'navigation' => function () use ($currentPath, $getCurrentNode, $multiNode, $request): array {
+                // In web mode, get current node from middleware injection or query
+                $currentNode = $multiNode ? null : $getCurrentNode();
 
-                // In desktop mode, try to get environment from route parameter
-                if ($multiEnvironment && $request->route('environment')) {
-                    $routeEnv = $request->route('environment');
-                    if ($routeEnv instanceof Environment) {
-                        $currentEnv = $routeEnv;
+                // In desktop mode, try to get node from route parameter
+                if ($multiNode && $request->route('node')) {
+                    $routeNode = $request->route('node');
+                    if ($routeNode instanceof Node) {
+                        $currentNode = $routeNode;
                     }
                 }
 
-                $envId = $currentEnv?->id;
+                $nodeId = $currentNode?->id;
 
                 // Build URLs based on mode
-                $urlPrefix = $multiEnvironment && $envId ? "/environments/{$envId}" : '';
-                $pathPrefix = $multiEnvironment && $envId ? "environments/{$envId}/" : '';
+                $urlPrefix = $multiNode && $nodeId ? "/nodes/{$nodeId}" : '';
+                $pathPrefix = $multiNode && $nodeId ? "nodes/{$nodeId}/" : '';
 
                 $mainItems = [];
 
-                // In web mode, always show navigation (single implicit environment)
-                // In desktop mode, only show when an environment is selected
-                if ($envId || ! $multiEnvironment) {
+                // In web mode, always show navigation (single implicit node)
+                // In desktop mode, only show when a node is selected
+                if ($nodeId || ! $multiNode) {
                     $mainItems = [
                         [
                             'title' => 'Dashboard',

@@ -49,12 +49,6 @@ parameters:
 			path: src/Services/OrbitCli/Shared/ConnectorService.php
 
 		-
-			message: '#^Expression on left side of \?\? is not nullable\.$#'
-			identifier: nullCoalesce.expr
-			count: 1
-			path: src/Services/OrbitService.php
-
-		-
 			message: '#^Method HardImpact\\Orbit\\Core\\Services\\Provision\\Actions\\BuildAssets\:\:buildWithBun\(\) should return Illuminate\\Process\\ProcessResult but returns Illuminate\\Contracts\\Process\\ProcessResult\.$#'
 			identifier: return.type
 			count: 1

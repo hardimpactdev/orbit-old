@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\App\OrbitAppServiceProvider;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
@@ -64,17 +64,15 @@ class AppServiceProvider extends ServiceProvider
         config(['inertia.root_view' => 'app']);
 
         Inertia::share([
-            'multi_environment' => fn () => config('orbit.multi_environment'),
-            'currentEnvironment' => function () {
-                if (! config('orbit.multi_environment')) {
-                    // Single environment mode: use local environment
-                    return Environment::where('is_local', true)->first();
+            'multi_node' => fn () => config('orbit.multi_node'),
+            'currentNode' => function () {
+                if (! config('orbit.multi_node')) {
+                    return Node::where('is_default', true)->first();
                 }
 
-                // Multi-environment mode: get active environment or first available
-                $activeEnvironment = Environment::where('is_active', true)->first();
+                $activeNode = Node::where('is_active', true)->first();
 
-                return $activeEnvironment ?? Environment::first();
+                return $activeNode ?? Node::first();
             },
             'cli' => fn () => [
                 'installed' => app(\App\Services\CliInstallService::class)->isInstalled(),

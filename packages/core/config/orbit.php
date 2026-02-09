@@ -8,22 +8,22 @@ return [
     | Orbit Mode
     |--------------------------------------------------------------------------
     |
-    | Determines whether Orbit is running in web (single environment) or
-    | desktop (multi-environment) mode.
+    | Determines whether Orbit is running in web (single node) or
+    | desktop (multi-node) mode.
     |
     */
     'mode' => env('ORBIT_MODE', 'web'),
 
     /*
     |--------------------------------------------------------------------------
-    | Multi-Environment Management
+    | Multi-Node Management
     |--------------------------------------------------------------------------
     |
-    | When true, enables multi-environment management UI and routing.
-    | When false, uses implicit environment injection via middleware.
+    | When true, enables multi-node management UI and routing.
+    | When false, uses implicit node injection via middleware.
     |
     */
-    'multi_environment' => env('MULTI_ENVIRONMENT_MANAGEMENT', false),
+    'multi_node' => env('MULTI_NODE_MANAGEMENT', false),
 
     /*
     |--------------------------------------------------------------------------

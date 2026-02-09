@@ -33,7 +33,7 @@ final readonly class PullServiceImages
             $logger->step("Pulling {$service} image...");
 
             // Pull using the unified compose file
-            $result = Process::run("docker compose -f {$composePath} pull {$service}");
+            $result = Process::timeout(300)->run("docker compose -f {$composePath} pull {$service}");
 
             if (! $result->successful()) {
                 $error = $result->errorOutput() ?: $result->output();

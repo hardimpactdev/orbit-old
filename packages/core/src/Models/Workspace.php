@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
- * @property int $environment_id
+ * @property int $node_id
  * @property string $name
  * @property string|null $path
  * @property array|null $projects
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
- * @property-read Environment $environment
+ * @property-read Node $node
  * @property-read int $project_count
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static> where(string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and')
@@ -27,7 +27,7 @@ class Workspace extends Model
     use HasFactory;
 
     protected $fillable = [
-        'environment_id',
+        'node_id',
         'name',
         'path',
         'projects',
@@ -37,9 +37,9 @@ class Workspace extends Model
         'projects' => 'array',
     ];
 
-    public function environment(): BelongsTo
+    public function node(): BelongsTo
     {
-        return $this->belongsTo(Environment::class);
+        return $this->belongsTo(Node::class);
     }
 
     /**

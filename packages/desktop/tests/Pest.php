@@ -55,14 +55,13 @@ expect()->extend('toBeSuccessful', function () {
 |
 */
 
-function createEnvironment(array $attributes = []): \HardImpact\Orbit\Core\Models\Environment
+function createNode(array $attributes = []): \HardImpact\Orbit\Core\Models\Node
 {
-    return \HardImpact\Orbit\Core\Models\Environment::create(array_merge([
-        'name' => 'Test Environment',
+    return \HardImpact\Orbit\Core\Models\Node::create(array_merge([
+        'name' => 'Test Node',
         'host' => 'ai',
         'user' => 'orbit',
         'port' => 22,
-        'is_local' => false,
         'is_default' => true,
         'status' => 'active',
     ], $attributes));

@@ -56,7 +56,7 @@ orbit-desktop/
 
 ```env
 ORBIT_MODE=desktop
-MULTI_ENVIRONMENT_MANAGEMENT=true
+MULTI_NODE_MANAGEMENT=true
 ```
 
 ### Route Registration
@@ -94,9 +94,9 @@ build: {
 
 ## Desktop Mode Behavior
 
-In desktop mode (`MULTI_ENVIRONMENT_MANAGEMENT=true`):
-- Routes are prefixed: `/environments/{id}/projects`
-- Environment switcher UI is visible
+In desktop mode (`MULTI_NODE_MANAGEMENT=true`):
+- Routes are prefixed: `/nodes/{id}/projects`
+- Node switcher UI is visible
 - SSH key management is available
 - Native notifications via NativePHP
 
@@ -159,11 +159,11 @@ php artisan native:build    # Build for distribution
 Tests use orbit-core namespaces:
 
 ```php
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ProjectService;
 
-// Use the helper function for creating environments
-$environment = createEnvironment(['is_local' => true]);
+// Use the helper function for creating nodes
+$node = createNode(['is_default' => true, 'host' => 'localhost']);
 ```
 
 ### Mocking Services
@@ -216,10 +216,10 @@ All orbit-core classes use `HardImpact\Orbit\*` namespace, not `App\*`:
 
 ```php
 // Correct
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 
 // Wrong - will fail
-use App\Models\Environment;
+use App\Models\Node;
 ```
 
 ### Inertia Page Paths

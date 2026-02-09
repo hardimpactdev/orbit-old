@@ -187,7 +187,7 @@ class MyTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
         // ... implementation
         return Response::structured(['result' => $data]);
     }

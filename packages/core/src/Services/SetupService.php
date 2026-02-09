@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Enums\NodeStatus;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
@@ -21,7 +22,7 @@ class SetupService
         'install_cli' => 'Installing CLI',
         'init_services' => 'Installing & configuring services',
         'configure_tld' => 'Finalizing TLD',
-        'create_environment' => 'Creating local environment',
+        'create_node' => 'Creating local node',
     ];
 
     public function __construct(
@@ -38,8 +39,8 @@ class SetupService
             return true;
         }
 
-        // Check if local environment exists
-        if (! $this->hasLocalEnvironment()) {
+        // Check if node exists
+        if (! $this->hasNode()) {
             return true;
         }
 
@@ -62,7 +63,7 @@ class SetupService
             'needs_setup' => $this->needsSetup(),
             'cli_installed' => $cliStatus['installed'],
             'cli_version' => $cliStatus['version'],
-            'has_local_environment' => $this->hasLocalEnvironment(),
+            'has_node' => $this->hasNode(),
             'has_services' => $this->hasServicesConfigured(),
             'has_tld' => $this->hasTldConfigured(),
             'steps' => $this->steps,
@@ -78,11 +79,11 @@ class SetupService
     }
 
     /**
-     * Check if local environment exists.
+     * Check if a node exists.
      */
-    public function hasLocalEnvironment(): bool
+    public function hasNode(): bool
     {
-        return Environment::where('is_local', true)->exists();
+        return Node::where('is_default', true)->exists();
     }
 
     /**
@@ -133,9 +134,9 @@ class SetupService
      */
     public function hasTldConfigured(): bool
     {
-        $env = Environment::getLocal();
+        $node = Node::getSelf();
 
-        return $env !== null && ! empty($env->tld);
+        return $node !== null && ! empty($node->tld);
     }
 
     /**
@@ -208,15 +209,15 @@ class SetupService
             'error' => $tldResult['error'] ?? null,
         ];
 
-        // Step 6: Create local environment
+        // Step 6: Create node
         $currentStep++;
-        $envResult = $this->createLocalEnvironment($tld);
-        yield 'create_environment' => [
+        $nodeResult = $this->createNode($tld);
+        yield 'create_node' => [
             'step' => $currentStep,
             'total' => $totalSteps,
-            'message' => $this->steps['create_environment'],
-            'success' => $envResult['success'],
-            'error' => $envResult['error'] ?? null,
+            'message' => $this->steps['create_node'],
+            'success' => $nodeResult['success'],
+            'error' => $nodeResult['error'] ?? null,
         ];
     }
 
@@ -228,7 +229,7 @@ class SetupService
     {
         try {
             // Ensure the config directory exists
-            $configPath = config('orbit.config_path', getenv('HOME') . '/.config/orbit');
+            $configPath = config('orbit.config_path', getenv('HOME').'/.config/orbit');
             if (! File::isDirectory($configPath)) {
                 File::makeDirectory($configPath, 0755, true);
             }
@@ -240,7 +241,7 @@ class SetupService
             }
 
             // Check if migrations have run by checking for a core table
-            if (! Schema::hasTable('environments')) {
+            if (! Schema::hasTable('nodes')) {
                 // Run migrations
                 Artisan::call('migrate', ['--force' => true]);
             }
@@ -249,7 +250,7 @@ class SetupService
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => 'Failed to initialize database: ' . $e->getMessage(),
+                'error' => 'Failed to initialize database: '.$e->getMessage(),
             ];
         }
     }
@@ -309,37 +310,34 @@ class SetupService
     }
 
     /**
-     * Create the local environment record.
+     * Create the node record.
      */
-    protected function createLocalEnvironment(string $tld): array
+    protected function createNode(string $tld): array
     {
         try {
-            // Check if local environment already exists
-            $existing = Environment::where('is_local', true)->first();
+            $existing = Node::where('is_default', true)->first();
 
             if ($existing) {
                 $existing->update(['tld' => $tld]);
 
-                return ['success' => true, 'environment' => $existing];
+                return ['success' => true, 'node' => $existing];
             }
 
-            // Create new local environment
-            $environment = Environment::create([
+            $node = Node::create([
                 'name' => 'Local',
                 'host' => 'localhost',
                 'user' => get_current_user(),
                 'port' => 22,
-                'is_local' => true,
                 'is_default' => true,
                 'tld' => $tld,
-                'status' => Environment::STATUS_ACTIVE,
+                'status' => NodeStatus::Active,
             ]);
 
-            return ['success' => true, 'environment' => $environment];
+            return ['success' => true, 'node' => $node];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => 'Failed to create environment: '.$e->getMessage(),
+                'error' => 'Failed to create node: '.$e->getMessage(),
             ];
         }
     }
@@ -378,7 +376,7 @@ class SetupService
     {
         $currentPath = getenv('PATH') ?: '';
         $commonPaths = [
-            '/Users/' . get_current_user() . '/.orbstack/bin',
+            '/Users/'.get_current_user().'/.orbstack/bin',
             '/opt/homebrew/bin',
             '/usr/local/bin',
             '/usr/bin',

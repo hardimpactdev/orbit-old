@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Support\Facades\Process;
 
 class SshService
@@ -21,24 +21,24 @@ class SshService
         }
     }
 
-    protected function getControlPath(Environment $environment): string
+    protected function getControlPath(Node $node): string
     {
         // Use short hash to avoid path length limits on macOS
-        $hash = substr(md5("{$environment->user}@{$environment->host}:{$environment->port}"), 0, 12);
+        $hash = substr(md5("{$node->user}@{$node->host}:{$node->port}"), 0, 12);
 
         return "{$this->controlDir}/ctrl-{$hash}";
     }
 
-    public function testConnection(Environment $environment): array
+    public function testConnection(Node $node): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return [
                 'success' => true,
                 'message' => 'Local connection',
             ];
         }
 
-        $result = Process::timeout(10)->run($this->buildSshCommand($environment, 'echo "connected"'));
+        $result = Process::timeout(10)->run($this->buildSshCommand($node, 'echo "connected"'));
 
         return [
             'success' => $result->successful(),
@@ -47,14 +47,14 @@ class SshService
         ];
     }
 
-    public function execute(Environment $environment, string $command, int $timeout = 30): array
+    public function execute(Node $node, string $command, int $timeout = 30): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $result = Process::timeout($timeout)->run($command);
         } else {
             // Prepend common paths for PHP and other binaries
             $pathPrefix = 'export PATH="$HOME/.local/bin:$HOME/.bun/bin:$HOME/bin:/usr/local/bin:$PATH" && ';
-            $result = Process::timeout($timeout)->run($this->buildSshCommand($environment, $pathPrefix.$command));
+            $result = Process::timeout($timeout)->run($this->buildSshCommand($node, $pathPrefix.$command));
         }
 
         return [
@@ -65,9 +65,9 @@ class SshService
         ];
     }
 
-    public function executeJson(Environment $environment, string $command): array
+    public function executeJson(Node $node, string $command): array
     {
-        $result = $this->execute($environment, $command);
+        $result = $this->execute($node, $command);
 
         // Always try to parse JSON from stdout, even if command failed
         // CLI tools often return valid JSON with error info even on non-zero exit
@@ -96,9 +96,9 @@ class SshService
         ];
     }
 
-    protected function buildSshCommand(Environment $environment, string $command): string
+    protected function buildSshCommand(Node $node, string $command): string
     {
-        $controlPath = $this->getControlPath($environment);
+        $controlPath = $this->getControlPath($node);
 
         $sshOptions = [
             '-o BatchMode=yes',
@@ -109,23 +109,23 @@ class SshService
             "-o ControlPersist={$this->controlPersist}",
         ];
 
-        if ($environment->port !== 22) {
-            $sshOptions[] = "-p {$environment->port}";
+        if ($node->port !== 22) {
+            $sshOptions[] = "-p {$node->port}";
         }
 
         $options = implode(' ', $sshOptions);
         $escapedCommand = escapeshellarg($command);
 
-        return "ssh {$options} {$environment->user}@{$environment->host} {$escapedCommand}";
+        return "ssh {$options} {$node->user}@{$node->host} {$escapedCommand}";
     }
 
-    public function closeConnection(Environment $environment): void
+    public function closeConnection(Node $node): void
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return;
         }
 
-        $controlPath = $this->getControlPath($environment);
-        Process::run("ssh -O exit -o ControlPath={$controlPath} {$environment->user}@{$environment->host}");
+        $controlPath = $this->getControlPath($node);
+        Process::run("ssh -O exit -o ControlPath={$controlPath} {$node->user}@{$node->host}");
     }
 }

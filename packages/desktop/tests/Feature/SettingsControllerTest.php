@@ -1,24 +1,24 @@
 <?php
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\TemplateFavorite;
 use HardImpact\Orbit\Core\Models\UserPreference;
 
 beforeEach(function () {
-    createEnvironment();
+    createNode();
 });
 
 test('configuration page loads', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
-    $response = $this->get("/environments/{$environment->id}/configuration");
+    $response = $this->get("/nodes/{$node->id}/configuration");
 
     $response->assertStatus(200);
-    $response->assertInertia(fn ($page) => $page->component('environments/Configuration'));
+    $response->assertInertia(fn ($page) => $page->component('nodes/Configuration'));
 });
 
 test('configuration page includes template favorites', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
     TemplateFavorite::create([
         'repo_url' => 'laravel/laravel',
@@ -26,7 +26,7 @@ test('configuration page includes template favorites', function () {
         'usage_count' => 5,
     ]);
 
-    $response = $this->get("/environments/{$environment->id}/configuration");
+    $response = $this->get("/nodes/{$node->id}/configuration");
 
     $response->assertStatus(200);
     $response->assertInertia(fn ($page) => $page
@@ -95,9 +95,9 @@ test('template favorite can be deleted', function () {
 });
 
 test('configuration page includes notification preference', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
-    $response = $this->get("/environments/{$environment->id}/configuration");
+    $response = $this->get("/nodes/{$node->id}/configuration");
 
     $response->assertStatus(200);
     $response->assertInertia(fn ($page) => $page->has('notificationsEnabled'));
@@ -131,9 +131,9 @@ test('notifications can be enabled', function () {
 });
 
 test('configuration page includes menu bar preference', function () {
-    $environment = Environment::first();
+    $node = Node::first();
 
-    $response = $this->get("/environments/{$environment->id}/configuration");
+    $response = $this->get("/nodes/{$node->id}/configuration");
 
     $response->assertStatus(200);
     $response->assertInertia(fn ($page) => $page->has('menuBarEnabled'));

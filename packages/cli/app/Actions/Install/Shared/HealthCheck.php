@@ -10,7 +10,7 @@ use App\Services\Install\InstallLogger;
 use App\Services\PhpManager;
 use App\Services\ServiceManager;
 use HardImpact\Orbit\Core\Data\StepResult;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Support\Facades\DB;
 
 final readonly class HealthCheck
@@ -30,9 +30,9 @@ final readonly class HealthCheck
             return StepResult::failed('Database tables not found');
         }
 
-        // Check local environment record exists
-        if (! $this->checkLocalEnvironment($logger)) {
-            return StepResult::failed('Local environment record not found');
+        // Check node record exists
+        if (! $this->checkNode($logger)) {
+            return StepResult::failed('Node record not found');
         }
 
         // Check PHP-FPM services
@@ -53,9 +53,8 @@ final readonly class HealthCheck
     private function checkDatabaseTables(InstallLogger $logger): bool
     {
         try {
-            // Check if environments table exists and has records
-            $environmentsCount = DB::table('environments')->count();
-            $logger->info("Found {$environmentsCount} environment(s) in database");
+            $nodesCount = DB::table('nodes')->count();
+            $logger->info("Found {$nodesCount} node(s) in database");
 
             // Check if projects table exists
             $projectsCount = DB::table('projects')->count();
@@ -69,22 +68,22 @@ final readonly class HealthCheck
         }
     }
 
-    private function checkLocalEnvironment(InstallLogger $logger): bool
+    private function checkNode(InstallLogger $logger): bool
     {
         try {
-            $localEnvironment = Environment::getLocal();
+            $node = Node::getSelf();
 
-            if (! $localEnvironment) {
-                $logger->error('Local environment record not found in database');
+            if (! $node) {
+                $logger->error('Node record not found in database');
 
                 return false;
             }
 
-            $logger->info("Local environment found: {$localEnvironment->getAttribute('name')}");
+            $logger->info("Node found: {$node->getAttribute('name')}");
 
             return true;
         } catch (\Exception $e) {
-            $logger->error("Local environment check failed: {$e->getMessage()}");
+            $logger->error("Node check failed: {$e->getMessage()}");
 
             return false;
         }

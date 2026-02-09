@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services\OrbitCli;
 
+use HardImpact\Orbit\Core\Enums\ProjectStatus;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\CreateProjectRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\DeleteProjectRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetProjectsRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetProvisionStatusRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\RebuildProjectRequest;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
@@ -34,12 +35,12 @@ class ProjectCliService
      * Sync all projects from CLI to database.
      * Creates new projects, updates existing ones, removes orphans.
      */
-    public function syncAllProjectsFromCli(Environment $environment): array
+    public function syncAllProjectsFromCli(Node $node): array
     {
-        if ($environment->is_local) {
-            $result = $this->command->executeCommand($environment, 'project:list --json');
+        if ($node->isLocal()) {
+            $result = $this->command->executeCommand($node, 'project:list --json');
         } else {
-            $result = $this->connector->sendRequest($environment, new GetProjectsRequest);
+            $result = $this->connector->sendRequest($node, new GetProjectsRequest);
         }
 
         if (! $result['success']) {
@@ -49,18 +50,12 @@ class ProjectCliService
         $cliProjects = collect($result['data']['projects'] ?? []);
         $cliSlugs = $cliProjects->pluck('name')->toArray();
 
-        // Update or create projects from CLI
-        foreach ($cliProjects as $cliProject) {
-            $slug = $cliProject['name'];
-            $project = Project::where('environment_id', $environment->id)
-                ->where(fn ($q) => $q->where('slug', $slug)->orWhere('name', $slug))
-                ->first();
-
-            $data = [
-                'environment_id' => $environment->id,
-                'slug' => $slug,
-                'name' => $slug,
-                'display_name' => $cliProject['display_name'] ?? ucwords(str_replace(['-', '_'], ' ', $slug)),
+        if ($cliProjects->isNotEmpty()) {
+            $rows = $cliProjects->map(fn (array $cliProject) => [
+                'node_id' => $node->id,
+                'slug' => $cliProject['name'],
+                'name' => $cliProject['name'],
+                'display_name' => $cliProject['display_name'] ?? ucwords(str_replace(['-', '_'], ' ', $cliProject['name'])),
                 'github_repo' => $cliProject['github_repo'] ?? null,
                 'project_type' => $cliProject['project_type'] ?? 'unknown',
                 'has_public_folder' => $cliProject['has_public_folder'] ?? false,
@@ -68,18 +63,18 @@ class ProjectCliService
                 'url' => $cliProject['url'] ?? null,
                 'php_version' => $cliProject['php_version'] ?? '8.4',
                 'path' => $cliProject['path'] ?? '',
-                'status' => 'active',
-            ];
+                'status' => ProjectStatus::Active,
+            ])->all();
 
-            if ($project) {
-                $project->update($data);
-            } else {
-                Project::create($data);
-            }
+            Project::upsert(
+                $rows,
+                ['slug'],
+                ['name', 'display_name', 'github_repo', 'project_type', 'has_public_folder', 'domain', 'url', 'php_version', 'path', 'status']
+            );
         }
 
         // Remove orphan projects (in DB but not in CLI)
-        Project::where('environment_id', $environment->id)
+        Project::where('node_id', $node->id)
             ->whereNotIn('slug', $cliSlugs)
             ->whereNotIn('name', $cliSlugs)
             ->delete();
@@ -92,12 +87,12 @@ class ProjectCliService
         ];
     }
 
-    public function syncProjectFromCli(Environment $environment, Project $project, string $slug): array
+    public function syncProjectFromCli(Node $node, Project $project, string $slug): array
     {
-        if ($environment->is_local) {
-            $result = $this->command->executeCommand($environment, 'project:list --json');
+        if ($node->isLocal()) {
+            $result = $this->command->executeCommand($node, 'project:list --json');
         } else {
-            $result = $this->connector->sendRequest($environment, new GetProjectsRequest);
+            $result = $this->connector->sendRequest($node, new GetProjectsRequest);
         }
 
         if (! $result['success']) {
@@ -132,14 +127,14 @@ class ProjectCliService
      * Get all projects from CLI (fresh, no caching).
      * Returns all directories in scan paths, with has_public_folder flag.
      */
-    public function projectList(Environment $environment): array
+    public function projectList(Node $node): array
     {
         $projects = Project::query()
-            ->where('environment_id', $environment->id)
+            ->where('node_id', $node->id)
             ->orderBy('name')
             ->get();
 
-        $config = $this->config->getConfig($environment);
+        $config = $this->config->getConfig($node);
         $configData = $config['success'] ? ($config['data'] ?? []) : [];
 
         return [
@@ -158,21 +153,21 @@ class ProjectCliService
      *
      * @param  array  $options  Array containing: name, org (optional), template (optional), is_template (optional), directory (optional), visibility (optional), db_driver, session_driver, cache_driver, queue_driver
      */
-    public function createProject(Environment $environment, array $options): array
+    public function createProject(Node $node, array $options): array
     {
         // For local environments, use CLI command directly
-        if ($environment->is_local) {
-            return $this->createProjectViaCommand($environment, $options);
+        if ($node->isLocal()) {
+            return $this->createProjectViaCommand($node, $options);
         }
 
         // For remote environments, use HTTP API
-        return $this->createProjectViaHttp($environment, $options);
+        return $this->createProjectViaHttp($node, $options);
     }
 
     /**
      * Create project via CLI command (for local environments).
      */
-    protected function createProjectViaCommand(Environment $environment, array $options): array
+    protected function createProjectViaCommand(Node $node, array $options): array
     {
         $name = escapeshellarg($options['name']);
         $command = "project:create {$name}";
@@ -215,7 +210,7 @@ class ProjectCliService
 
         $command .= ' --json';
 
-        $result = $this->command->executeCommand($environment, $command);
+        $result = $this->command->executeCommand($node, $command);
 
         if ($result['success']) {
             return [
@@ -234,7 +229,7 @@ class ProjectCliService
     /**
      * Create project via HTTP API (for remote environments).
      */
-    protected function createProjectViaHttp(Environment $environment, array $options): array
+    protected function createProjectViaHttp(Node $node, array $options): array
     {
         // Build request payload
         $payload = [
@@ -287,7 +282,7 @@ class ProjectCliService
             $payload['php_version'] = $options['php_version'];
         }
 
-        $result = $this->connector->sendRequest($environment, new CreateProjectRequest($payload));
+        $result = $this->connector->sendRequest($node, new CreateProjectRequest($payload));
 
         if ($result['success']) {
             return [
@@ -306,21 +301,21 @@ class ProjectCliService
     /**
      * Rebuild a project (re-run deps install, build, migrations without git pull).
      */
-    public function rebuild(Environment $environment, string $project): array
+    public function rebuild(Node $node, string $project): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $escapedProject = escapeshellarg($project);
 
-            return $this->command->executeCommand($environment, "project:update --project={$escapedProject} --no-git --json");
+            return $this->command->executeCommand($node, "project:update --project={$escapedProject} --no-git --json");
         }
 
-        return $this->connector->sendRequest($environment, new RebuildProjectRequest($project));
+        return $this->connector->sendRequest($node, new RebuildProjectRequest($project));
     }
 
     /**
      * Scan for existing projects on a server.
      */
-    public function scanProjects(Environment $environment, ?string $path = null, int $depth = 2): array
+    public function scanProjects(Node $node, ?string $path = null, int $depth = 2): array
     {
         $command = 'project:scan';
 
@@ -331,13 +326,13 @@ class ProjectCliService
         $command .= ' --depth='.escapeshellarg((string) $depth);
         $command .= ' --json';
 
-        return $this->command->executeCommand($environment, $command);
+        return $this->command->executeCommand($node, $command);
     }
 
     /**
      * Update a project (git pull + dependencies + migrations).
      */
-    public function updateProject(Environment $environment, string $path, array $options = []): array
+    public function updateProject(Node $node, string $path, array $options = []): array
     {
         $escapedPath = escapeshellarg($path);
         $command = "project:update {$escapedPath}";
@@ -352,16 +347,16 @@ class ProjectCliService
 
         $command .= ' --json';
 
-        return $this->command->executeCommand($environment, $command);
+        return $this->command->executeCommand($node, $command);
     }
 
     /**
      * Delete a project via the CLI (uses DeletionPipeline for proper cleanup).
      */
-    public function deleteProject(Environment $environment, string $slug, bool $force = false, bool $keepDb = false): array
+    public function deleteProject(Node $node, string $slug, bool $force = false, bool $keepDb = false): array
     {
-        if (! $environment->is_local) {
-            return $this->connector->sendRequest($environment, new DeleteProjectRequest($slug, $keepDb));
+        if (! $node->isLocal()) {
+            return $this->connector->sendRequest($node, new DeleteProjectRequest($slug, $keepDb));
         }
 
         // For local environments, use the CLI command which runs the DeletionPipeline
@@ -374,7 +369,7 @@ class ProjectCliService
 
         $command .= ' --json';
 
-        return $this->command->executeCommand($environment, $command);
+        return $this->command->executeCommand($node, $command);
     }
 
     /**
@@ -384,13 +379,13 @@ class ProjectCliService
      * @param  string  $repo  Repository in "owner/name" format (e.g., "nckrtl/my-project")
      * @return array{exists: bool, error?: string}
      */
-    public function checkGitHubRepoExists(Environment $environment, string $repo): array
+    public function checkGitHubRepoExists(Node $node, string $repo): array
     {
         // Use gh repo view to check if repo exists
         $escapedRepo = escapeshellarg($repo);
         $command = "gh repo view {$escapedRepo} --json name 2>/dev/null && echo 'EXISTS' || echo 'NOT_FOUND'";
 
-        $result = $this->ssh->execute($environment, $command, 15);
+        $result = $this->ssh->execute($node, $command, 15);
 
         if (! $result['success']) {
             return [
@@ -413,11 +408,11 @@ class ProjectCliService
      * Get the GitHub username/org for new repos.
      * Gets from config (for remote) or queries gh CLI (for local).
      */
-    public function getGitHubUser(Environment $environment): ?string
+    public function getGitHubUser(Node $node): ?string
     {
         // For remote environments, get from config API (no SSH needed)
-        if (! $environment->is_local) {
-            $config = $this->config->getConfig($environment);
+        if (! $node->isLocal()) {
+            $config = $this->config->getConfig($node);
             if ($config['success'] && ! empty($config['data']['github_username'])) {
                 return $config['data']['github_username'];
             }
@@ -425,14 +420,14 @@ class ProjectCliService
 
         // For local environments, query gh CLI directly
         $command = 'gh api user --jq .login 2>/dev/null';
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $result = Process::timeout(10)->run($command);
             if ($result->successful() && trim($result->output())) {
                 return trim($result->output());
             }
         } else {
             // Fallback to SSH if not in config (shouldn't happen normally)
-            $result = $this->ssh->execute($environment, $command, 10);
+            $result = $this->ssh->execute($node, $command, 10);
             if ($result['success'] && ! empty($result['output'])) {
                 return trim((string) $result['output']);
             }
@@ -447,12 +442,12 @@ class ProjectCliService
      *
      * @return array{success: bool, data?: array<array{login: string, avatar_url: string}>, error?: string}
      */
-    public function getGitHubOrgs(Environment $environment): array
+    public function getGitHubOrgs(Node $node): array
     {
         // Query gh CLI for user's organizations
         $command = "gh api user/orgs --jq '[.[] | {login: .login, avatar_url: .avatar_url}]' 2>/dev/null";
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $result = Process::timeout(10)->run($command);
             if ($result->successful() && trim($result->output())) {
                 $orgs = json_decode(trim($result->output()), true);
@@ -465,7 +460,7 @@ class ProjectCliService
         }
 
         // For remote environments, use SSH
-        $result = $this->ssh->execute($environment, $command, 10);
+        $result = $this->ssh->execute($node, $command, 10);
         if ($result['success'] && ! empty($result['output'])) {
             $orgs = json_decode(trim((string) $result['output']), true);
             if (is_array($orgs)) {
@@ -479,22 +474,22 @@ class ProjectCliService
     /**
      * Check the provisioning status of a project.
      */
-    public function provisionStatus(Environment $environment, string $slug): array
+    public function provisionStatus(Node $node, string $slug): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, 'provision:status '.escapeshellarg($slug).' --json');
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'provision:status '.escapeshellarg($slug).' --json');
         }
 
-        return $this->connector->sendRequest($environment, new GetProvisionStatusRequest($slug));
+        return $this->connector->sendRequest($node, new GetProvisionStatusRequest($slug));
     }
 
     /**
      * Setup a Laravel project (configure env, create database, run composer setup).
      */
-    public function setupProject(Environment $environment, string $project): array
+    public function setupProject(Node $node, string $project): array
     {
         $escapedProject = escapeshellarg($project);
 
-        return $this->command->executeCommand($environment, "setup {$escapedProject} --json");
+        return $this->command->executeCommand($node, "setup {$escapedProject} --json");
     }
 }

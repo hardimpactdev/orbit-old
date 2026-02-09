@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\WorktreeService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -34,15 +34,15 @@ class WorktreesTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
-            return Response::error('No local environment configured');
+        if (! $node) {
+            return Response::error('No local node configured');
         }
 
         $site = $request->get('site');
 
-        $result = $this->worktreeService->worktrees($environment, $site);
+        $result = $this->worktreeService->worktrees($node, $site);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to get worktrees');

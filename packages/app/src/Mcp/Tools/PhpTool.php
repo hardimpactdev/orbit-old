@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -34,10 +34,10 @@ class PhpTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
-            return Response::error('No local environment configured');
+        if (! $node) {
+            return Response::error('No local node configured');
         }
 
         $site = $request->get('site');
@@ -51,7 +51,7 @@ class PhpTool extends Tool
 
         switch ($action) {
             case 'get':
-                return $this->getPhpVersion($environment, $site);
+                return $this->getPhpVersion($node, $site);
 
             case 'set':
                 if (! $version) {
@@ -62,25 +62,25 @@ class PhpTool extends Tool
                     return Response::error('Invalid PHP version. Must be one of: 8.3, 8.4, 8.5');
                 }
 
-                return $this->setPhpVersion($environment, $site, $version);
+                return $this->setPhpVersion($node, $site, $version);
 
             case 'reset':
-                return $this->resetPhpVersion($environment, $site);
+                return $this->resetPhpVersion($node, $site);
 
             default:
                 return Response::error('Invalid action. Must be one of: get, set, reset');
         }
     }
 
-    protected function getPhpVersion(Environment $environment, string $site): Response|ResponseFactory
+    protected function getPhpVersion(Node $node, string $site): Response|ResponseFactory
     {
-        $result = $this->configService->php($environment, $site);
+        $result = $this->configService->php($node, $site);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to get PHP version');
         }
 
-        $configResult = $this->configService->getConfig($environment);
+        $configResult = $this->configService->getConfig($node);
         $defaultVersion = $configResult['success'] ? ($configResult['data']['default_php_version'] ?? '8.4') : '8.4';
         $phpVersion = $result['data']['php_version'] ?? $defaultVersion;
 
@@ -92,9 +92,9 @@ class PhpTool extends Tool
         ]);
     }
 
-    protected function setPhpVersion(Environment $environment, string $site, string $version): Response|ResponseFactory
+    protected function setPhpVersion(Node $node, string $site, string $version): Response|ResponseFactory
     {
-        $result = $this->configService->php($environment, $site, $version);
+        $result = $this->configService->php($node, $site, $version);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to set PHP version');
@@ -108,15 +108,15 @@ class PhpTool extends Tool
         ]);
     }
 
-    protected function resetPhpVersion(Environment $environment, string $site): Response|ResponseFactory
+    protected function resetPhpVersion(Node $node, string $site): Response|ResponseFactory
     {
-        $result = $this->configService->phpReset($environment, $site);
+        $result = $this->configService->phpReset($node, $site);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to reset PHP version');
         }
 
-        $configResult = $this->configService->getConfig($environment);
+        $configResult = $this->configService->getConfig($node);
         $defaultVersion = $configResult['success'] ? ($configResult['data']['default_php_version'] ?? '8.4') : '8.4';
 
         return Response::structured([

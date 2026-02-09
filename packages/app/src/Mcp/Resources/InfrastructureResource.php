@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Resources;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -35,15 +35,15 @@ class InfrastructureResource extends Resource
 
     public function handle(Request $request): Response
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
+        if (! $node) {
             return Response::json([
-                'error' => 'No local environment configured',
+                'error' => 'No local node configured',
             ]);
         }
 
-        $statusResult = $this->statusService->status($environment);
+        $statusResult = $this->statusService->status($node);
 
         if (! $statusResult['success']) {
             return Response::json([

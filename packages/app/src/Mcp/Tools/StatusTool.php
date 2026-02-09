@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -29,16 +29,16 @@ final class StatusTool extends Tool
 
     public function handle(Request $request): ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
+        if (! $node) {
             return Response::structured([
                 'success' => false,
-                'error' => 'No local environment configured',
+                'error' => 'No local node configured',
             ]);
         }
 
-        $result = $this->statusService->status($environment);
+        $result = $this->statusService->status($node);
 
         if (! $result['success']) {
             return Response::structured([

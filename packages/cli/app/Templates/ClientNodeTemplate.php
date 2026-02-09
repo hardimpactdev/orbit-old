@@ -82,6 +82,8 @@ final readonly class ClientNodeTemplate implements Template
             ['action' => Shared\StartServices::class, 'name' => 'Starting services'],
 
             ['action' => Shared\HealthCheck::class, 'name' => 'Running health checks'],
+
+            ['action' => Shared\RegisterWithGatewayVpn::class, 'name' => 'Registering with gateway VPN'],
         ];
     }
 

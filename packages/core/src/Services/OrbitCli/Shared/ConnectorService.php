@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace HardImpact\Orbit\Core\Services\OrbitCli\Shared;
 
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\OrbitConnector;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\SshService;
 use Saloon\Http\Request;
 
@@ -21,24 +21,24 @@ class ConnectorService
      * Get the TLD for an environment.
      * Uses cached value from database or fetches via SSH on first request.
      */
-    public function getTld(Environment $environment): string
+    public function getTld(Node $node): string
     {
         // Use cached TLD if available
-        if ($environment->tld) {
-            return $environment->tld;
+        if ($node->tld) {
+            return $node->tld;
         }
 
         // For local environments, read from local config
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $config = $this->getLocalConfigForTld();
             $tld = $config['tld'] ?? 'test';
-            $environment->update(['tld' => $tld]);
+            $node->update(['tld' => $tld]);
 
             return $tld;
         }
 
         // Bootstrap: fetch via SSH and cache (one-time only)
-        $result = $this->ssh->execute($environment, 'cat ~/.config/orbit/config.json 2>/dev/null');
+        $result = $this->ssh->execute($node, 'cat ~/.config/orbit/config.json 2>/dev/null');
         if ($result['success'] && ! empty($result['output'])) {
             $config = json_decode((string) $result['output'], true);
             $tld = $config['tld'] ?? 'test';
@@ -46,7 +46,7 @@ class ConnectorService
             $tld = 'test';
         }
 
-        $environment->update(['tld' => $tld]);
+        $node->update(['tld' => $tld]);
 
         return $tld;
     }
@@ -54,9 +54,9 @@ class ConnectorService
     /**
      * Get the Saloon connector for the orbit web app API.
      */
-    public function getConnector(Environment $environment, int $timeout = 30): OrbitConnector
+    public function getConnector(Node $node, int $timeout = 30): OrbitConnector
     {
-        $tld = $this->getTld($environment);
+        $tld = $this->getTld($node);
 
         return OrbitConnector::forEnvironment($tld, $timeout);
     }
@@ -64,18 +64,18 @@ class ConnectorService
     /**
      * Send a Saloon request and return the result as an array.
      */
-    public function sendRequest(Environment $environment, Request $request): array
+    public function sendRequest(Node $node, Request $request): array
     {
-        return $this->sendRequestWithTimeout($environment, $request, 30);
+        return $this->sendRequestWithTimeout($node, $request, 30);
     }
 
     /**
      * Send a Saloon request with configurable timeout.
      */
-    public function sendRequestWithTimeout(Environment $environment, Request $request, int $timeout): array
+    public function sendRequestWithTimeout(Node $node, Request $request, int $timeout): array
     {
         try {
-            $connector = $this->getConnector($environment, $timeout);
+            $connector = $this->getConnector($node, $timeout);
             $response = $connector->send($request);
 
             if ($response->successful()) {

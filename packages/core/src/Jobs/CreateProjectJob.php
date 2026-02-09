@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace HardImpact\Orbit\Core\Jobs;
 
 use HardImpact\Orbit\Core\Data\ProvisionContext;
+use HardImpact\Orbit\Core\Enums\ProjectStatus;
 use HardImpact\Orbit\Core\Enums\RepoIntent;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionLogger;
@@ -30,7 +31,7 @@ use Illuminate\Support\Str;
  *
  * Status updates are broadcast via native Laravel events to Reverb.
  */
-class CreateProjectJob implements ShouldQueue
+final class CreateProjectJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -59,13 +60,13 @@ class CreateProjectJob implements ShouldQueue
     public function handle(ProvisionPipeline $pipeline, ConfigurationService $configService): void
     {
         $project = Project::findOrFail($this->projectId);
-        $environment = Environment::findOrFail($project->environment_id);
+        $node = Node::findOrFail($project->node_id);
 
         // Initialize logger with native Laravel broadcasting
         $logger = new ProvisionLogger($this->slug, $this->projectId);
 
         $project->update([
-            'status' => Project::STATUS_QUEUED,
+            'status' => ProjectStatus::Queued,
             'job_id' => $this->job?->uuid() ?? $project->job_id,
             'error_message' => null,
         ]);
@@ -75,7 +76,7 @@ class CreateProjectJob implements ShouldQueue
 
         try {
             // Determine project path
-            $projectPath = $this->determineProjectPath($project, $configService, $environment);
+            $projectPath = $this->determineProjectPath($project, $configService, $node);
 
             // Create project directory if it doesn't exist
             if (! is_dir($projectPath)) {
@@ -88,7 +89,7 @@ class CreateProjectJob implements ShouldQueue
             $project->update(['path' => $projectPath]);
 
             // Build provision context
-            $context = $this->buildContext($projectPath, $environment);
+            $context = $this->buildContext($projectPath, $node);
 
             // Determine repo intent
             $intent = RepoIntent::fromPayload($this->options);
@@ -122,7 +123,7 @@ class CreateProjectJob implements ShouldQueue
 
             // Update project with final details
             $project->update([
-                'status' => Project::STATUS_READY,
+                'status' => ProjectStatus::Ready,
                 'github_repo' => $context->githubRepo,
                 'url' => "https://{$this->slug}.{$context->tld}",
                 'domain' => "{$this->slug}.{$context->tld}",
@@ -143,7 +144,7 @@ class CreateProjectJob implements ShouldQueue
 
         } catch (\Throwable $e) {
             $project->update([
-                'status' => Project::STATUS_FAILED,
+                'status' => ProjectStatus::Failed,
                 'error_message' => $e->getMessage(),
             ]);
 
@@ -164,7 +165,7 @@ class CreateProjectJob implements ShouldQueue
     /**
      * Determine the project path for the project.
      */
-    protected function determineProjectPath(Project $project, ConfigurationService $configService, Environment $environment): string
+    protected function determineProjectPath(Project $project, ConfigurationService $configService, Node $node): string
     {
         // If path already set on project, use it
         if ($project->path) {
@@ -177,7 +178,7 @@ class CreateProjectJob implements ShouldQueue
         }
 
         // Get default path from config
-        $config = $configService->getConfig($environment);
+        $config = $configService->getConfig($node);
         $paths = $config['data']['paths'] ?? [];
         $basePath = $paths[0] ?? '~/projects';
 
@@ -187,10 +188,10 @@ class CreateProjectJob implements ShouldQueue
     /**
      * Build the provision context from options.
      */
-    protected function buildContext(string $projectPath, Environment $environment): ProvisionContext
+    protected function buildContext(string $projectPath, Node $node): ProvisionContext
     {
         // Get TLD from environment
-        $tld = $environment->tld ?? config('orbit.tld');
+        $tld = $node->tld ?? config('orbit.tld');
 
         // Parse clone URL if provided
         $cloneUrl = $this->options['template'] ?? $this->options['clone_url'] ?? null;

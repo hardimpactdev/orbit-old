@@ -14,7 +14,7 @@ class NotificationService
     public function isEnabled(): bool
     {
         // Web mode doesn't support native notifications
-        if (! config('orbit.multi_environment')) {
+        if (! config('orbit.multi_node')) {
             return false;
         }
 

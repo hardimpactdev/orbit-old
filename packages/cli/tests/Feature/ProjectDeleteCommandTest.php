@@ -47,7 +47,7 @@ beforeEach(function () {
     // Create projects table
     Schema::connection('testing')->create('projects', function ($table) {
         $table->id();
-        $table->unsignedBigInteger('environment_id')->nullable();
+        $table->unsignedBigInteger('node_id')->nullable();
         $table->string('name');
         $table->string('display_name')->nullable();
         $table->string('slug');

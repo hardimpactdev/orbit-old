@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
@@ -12,11 +12,16 @@ class DnsResolverService
 {
     protected string $resolverDir = '/etc/resolver';
 
+    protected function validateTld(string $tld): bool
+    {
+        return (bool) preg_match('/^[a-zA-Z0-9]+$/', $tld);
+    }
+
     /**
      * Update the DNS resolver configuration for an environment's TLD.
      * Creates/updates /etc/resolver/{tld} to point to the correct DNS server.
      */
-    public function updateResolver(Environment $environment, string $tld): array
+    public function updateResolver(Node $node, string $tld): array
     {
         // Only manage resolvers on macOS
         if (PHP_OS_FAMILY !== 'Darwin') {
@@ -26,12 +31,20 @@ class DnsResolverService
             ];
         }
 
+        if (! $this->validateTld($tld)) {
+            return [
+                'success' => false,
+                'error' => 'Invalid TLD: must be alphanumeric only',
+            ];
+        }
+
         $resolverFile = "{$this->resolverDir}/{$tld}";
-        $dnsServer = $this->getDnsServer($environment);
+        $dnsServer = $this->getDnsServer($node);
 
         try {
-            // Build shell command (use double quotes inside to avoid Tcl escaping issues)
-            $shellCommand = "mkdir -p {$this->resolverDir} && echo \"nameserver {$dnsServer}\" > {$resolverFile}";
+            $escapedResolverFile = escapeshellarg($resolverFile);
+            $escapedDnsServer = escapeshellarg("nameserver {$dnsServer}");
+            $shellCommand = "mkdir -p {$this->resolverDir} && echo {$escapedDnsServer} > {$escapedResolverFile}";
 
             // Write expect script to temp file to avoid complex escaping
             // Using Tcl variable assignment preserves the command correctly
@@ -96,6 +109,13 @@ EXPECT;
             return ['success' => true];
         }
 
+        if (! $this->validateTld($tld)) {
+            return [
+                'success' => false,
+                'error' => 'Invalid TLD: must be alphanumeric only',
+            ];
+        }
+
         $resolverFile = "{$this->resolverDir}/{$tld}";
 
         if (! file_exists($resolverFile)) {
@@ -103,7 +123,7 @@ EXPECT;
         }
 
         try {
-            $shellCommand = "rm -f {$resolverFile}";
+            $shellCommand = 'rm -f '.escapeshellarg($resolverFile);
 
             // Write expect script to temp file to avoid complex escaping
             $tempScript = tempnam(sys_get_temp_dir(), 'orbit_expect_');
@@ -152,14 +172,14 @@ EXPECT;
      * Get the DNS server address for an environment.
      * Local environments use 127.0.0.1, remote environments use their host IP.
      */
-    protected function getDnsServer(Environment $environment): string
+    protected function getDnsServer(Node $node): string
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return '127.0.0.1';
         }
 
         // For remote servers, resolve hostname to IP if needed
-        $host = $environment->host;
+        $host = $node->host;
 
         // If it's already an IP address, use it directly
         if (filter_var($host, FILTER_VALIDATE_IP)) {
@@ -207,13 +227,13 @@ EXPECT;
     public function syncAllResolvers(\App\Services\OrbitCli\ConfigurationService $configService): array
     {
         $results = [];
-        $environments = Environment::all();
+        $nodes = Node::all();
 
-        foreach ($environments as $environment) {
-            $config = $configService->getConfig($environment);
+        foreach ($nodes as $node) {
+            $config = $configService->getConfig($node);
             if ($config['success'] && isset($config['data']['tld'])) {
                 $tld = $config['data']['tld'];
-                $results[$environment->name] = $this->updateResolver($environment, $tld);
+                $results[$node->name] = $this->updateResolver($node, $tld);
             }
         }
 

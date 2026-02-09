@@ -38,12 +38,6 @@ final class InstallLogger
         }
     }
 
-    public function progress(int $current, int $total, string $message): void
-    {
-        $this->flushBuffer();
-        $this->command->line("<fg=gray>[{$current}/{$total}]</> {$message}");
-    }
-
     /**
      * Execute a callback with a spinner for visual feedback.
      * Buffers log output during execution and displays after completion.
@@ -64,31 +58,9 @@ final class InstallLogger
 
         $this->buffering = false;
 
-        // Check if there were errors or warnings in the buffer
-        $hasErrors = $this->hasErrorsInBuffer();
-
-        if ($hasErrors) {
-            $this->flushBuffer();
-        } else {
-            $this->buffer = [];
-        }
+        $this->flushBuffer();
 
         return $result;
-    }
-
-    /**
-     * Check if buffer contains errors or warnings.
-     */
-    private function hasErrorsInBuffer(): bool
-    {
-        foreach ($this->buffer as $entry) {
-            $type = $entry[0];
-            if ($type === 'error' || $type === 'warn') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -100,13 +72,13 @@ final class InstallLogger
             $type = $entry[0];
             $message = $entry[1];
             match ($type) {
-                'step' => $this->command->line("  <fg=yellow>→</> {$message}"),
+                'step' => null,
                 'success' => $this->command->line("  <fg=green>✓</> {$message}"),
                 'skip' => $this->command->line("  <fg=gray>○</> {$message}"),
                 'error' => $this->command->line("  <fg=red>✗</> {$message}"),
                 'warn' => $this->command->line("  <fg=yellow>⚠</> {$message}"),
-                'info' => $this->command->line("  {$message}"),
-                default => $this->command->line("  {$message}"),
+                'info' => $this->command->line("    {$message}"),
+                default => $this->command->line("    {$message}"),
             };
         }
         $this->buffer = [];

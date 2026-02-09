@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ProjectCliService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -34,10 +34,10 @@ class ProjectCreateTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
-            return Response::error('No local environment configured');
+        if (! $node) {
+            return Response::error('No local node configured');
         }
 
         $name = $request->get('name');
@@ -58,7 +58,7 @@ class ProjectCreateTool extends Tool
             $options['is_template'] = true;
         }
 
-        $result = $this->projectService->createProject($environment, $options);
+        $result = $this->projectService->createProject($node, $options);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to create project');

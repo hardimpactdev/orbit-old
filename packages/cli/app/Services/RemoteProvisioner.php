@@ -13,26 +13,20 @@ use Illuminate\Support\Facades\Process;
  */
 final class RemoteProvisioner
 {
-    /**
-     * Run a command on a remote server via SSH.
-     */
+    public function sshRun(string $ip, string $user, string $remoteCommand, int $timeout = 120): bool
+    {
+        return $this->ssh($user, $ip, $remoteCommand, $timeout)->successful();
+    }
+
     private function ssh(string $user, string $ip, string $remoteCommand, int $timeout = 120): \Illuminate\Contracts\Process\ProcessResult
     {
         return Process::timeout($timeout)->run(
-            sprintf('ssh %s@%s %s', escapeshellarg($user), escapeshellarg($ip), escapeshellarg($remoteCommand))
-        );
-    }
-
-    /**
-     * Run a command on a remote server via SSH with output streaming.
-     */
-    private function sshWithOutput(string $user, string $ip, string $remoteCommand, int $timeout = 120): \Illuminate\Contracts\Process\ProcessResult
-    {
-        return Process::timeout($timeout)->run(
-            sprintf('ssh %s@%s %s', escapeshellarg($user), escapeshellarg($ip), escapeshellarg($remoteCommand)),
-            function (string $type, string $output) {
-                echo $output;
-            }
+            sprintf(
+                'ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=10 %s@%s %s',
+                escapeshellarg($user),
+                escapeshellarg($ip),
+                escapeshellarg($remoteCommand),
+            )
         );
     }
 
@@ -283,7 +277,7 @@ SCRIPT;
 
         $settings = [
             'PasswordAuthentication no',
-            'PermitRootLogin prohibit-password',
+            'PermitRootLogin no',
             'PubkeyAuthentication yes',
             'ChallengeResponseAuthentication no',
             'UsePAM yes',
@@ -386,45 +380,34 @@ SCRIPT;
     }
 
     /**
-     * Set up gateway stack on remote server.
-     */
-    public function setupGateway(string $ip, string $user): bool
-    {
-        $dockerResult = $this->installDocker($ip, $user);
-        if (! $dockerResult['success']) {
-            return false;
-        }
-
-        $migrateResult = $this->sshWithOutput($user, $ip, '~/.local/bin/orbit migrate --force', 60);
-        if (! $migrateResult->successful()) {
-            return false;
-        }
-
-        $escapedUser = escapeshellarg($user);
-        $escapedIp = escapeshellarg($ip);
-        $result = Process::timeout(600)->run(
-            "ssh -t {$escapedUser}@{$escapedIp} '~/.local/bin/orbit install --template=gateway --yes'",
-            function (string $type, string $output) {
-                echo $output;
-            }
-        );
-
-        return $result->successful();
-    }
-
-    /**
-     * Install Docker on the remote server (required for gateway/WG Easy).
+     * Update and upgrade system packages on the remote server.
      *
      * @return array{success: bool, error?: string}
      */
-    private function installDocker(string $ip, string $user): array
+    public function updateSystem(string $ip, string $user): array
+    {
+        $result = $this->ssh($user, $ip, 'export DEBIAN_FRONTEND=noninteractive && sudo apt-get update -qq && sudo apt-get upgrade -y -qq', 300);
+
+        if (! $result->successful()) {
+            return ['success' => false, 'error' => trim($result->errorOutput()) ?: 'apt update/upgrade failed'];
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Install Docker on the remote server.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function installDocker(string $ip, string $user): array
     {
         $checkDocker = $this->ssh($user, $ip, 'command -v docker');
         if ($checkDocker->successful()) {
-            return ['success' => true, 'message' => 'Docker already installed'];
+            return ['success' => true];
         }
 
-        $result = $this->sshWithOutput($user, $ip, 'curl -fsSL https://get.docker.com | sh', 300);
+        $result = $this->ssh($user, $ip, 'curl -fsSL https://get.docker.com | sh', 300);
 
         if (! $result->successful()) {
             return ['success' => false, 'error' => 'Failed to install Docker: '.$result->errorOutput()];
@@ -434,6 +417,177 @@ SCRIPT;
         $this->ssh($user, $ip, "sudo usermod -aG docker {$escapedUser}");
         $this->ssh($user, $ip, 'sudo systemctl start docker && sudo systemctl enable docker');
 
-        return ['success' => true, 'message' => 'Docker installed successfully'];
+        $verify = $this->ssh($user, $ip, 'sg docker -c "docker info" 2>/dev/null', 30);
+        if (! $verify->successful()) {
+            return ['success' => false, 'error' => 'Docker installed but daemon not responding'];
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Run Orbit database migrations on the remote server.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function runMigrations(string $ip, string $user): array
+    {
+        $result = $this->ssh($user, $ip, '~/.local/bin/orbit migrate --force', 60);
+
+        if (! $result->successful()) {
+            return ['success' => false, 'error' => trim($result->errorOutput()) ?: 'Migration failed'];
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Install a template via Orbit CLI on the remote server.
+     *
+     * @param  array<string, string>  $options  Extra CLI flags (e.g. ['services' => 'postgres,redis'])
+     * @return array{success: bool, error?: string}
+     */
+    public function installTemplate(string $ip, string $user, string $template, array $options = []): array
+    {
+        $command = '~/.local/bin/orbit install --template='.escapeshellarg($template).' --yes';
+
+        foreach ($options as $key => $value) {
+            $command .= ' --'.escapeshellarg($key).'='.escapeshellarg($value);
+        }
+
+        $hasDocker = $this->ssh($user, $ip, 'command -v docker')->successful();
+
+        if ($hasDocker) {
+            $command = 'sg docker -c '.escapeshellarg($command);
+        }
+
+        $result = $this->ssh($user, $ip, $command, 600);
+
+        if (! $result->successful()) {
+            $error = trim($result->errorOutput()) ?: trim($result->output()) ?: 'Template install failed';
+
+            return ['success' => false, 'error' => $error];
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Ensure Homebrew is installed on the remote server.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function ensureHomebrew(string $ip, string $user): array
+    {
+        // Check if brew is already installed
+        $checkResult = $this->ssh($user, $ip, 'command -v brew');
+        if ($checkResult->successful()) {
+            return ['success' => true];
+        }
+
+        // Install Homebrew
+        $installResult = $this->ssh(
+            $user,
+            $ip,
+            'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+            600
+        );
+
+        if (! $installResult->successful()) {
+            return ['success' => false, 'error' => 'Failed to install Homebrew: '.$installResult->errorOutput()];
+        }
+
+        // Add to PATH for this session
+        $brewPath = '/home/linuxbrew/.linuxbrew';
+        $this->ssh($user, $ip, "echo 'eval \"\$({$brewPath}/bin/brew shellenv)\"' >> ~/.bashrc");
+
+        return ['success' => true];
+    }
+
+    /**
+     * Install PHP via Homebrew on the remote server.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function installPhp(string $ip, string $user, string $versions): array
+    {
+        $brewPath = '/home/linuxbrew/.linuxbrew';
+        $versionsArray = array_map('trim', explode(',', $versions));
+
+        // Tap shivammathur/php
+        $tapResult = $this->ssh($user, $ip, "{$brewPath}/bin/brew tap shivammathur/php", 120);
+        if (! $tapResult->successful() && ! str_contains($tapResult->output(), 'already tapped')) {
+            return ['success' => false, 'error' => 'Failed to tap shivammathur/php'];
+        }
+
+        // Install each PHP version
+        foreach ($versionsArray as $version) {
+            $installResult = $this->ssh($user, $ip, "{$brewPath}/bin/brew install shivammathur/php/php@{$version}", 600);
+            if (! $installResult->successful()) {
+                return ['success' => false, 'error' => "Failed to install PHP {$version}: ".$installResult->errorOutput()];
+            }
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Install Caddy via Homebrew on the remote server.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function installCaddy(string $ip, string $user): array
+    {
+        $brewPath = '/home/linuxbrew/.linuxbrew';
+
+        $installResult = $this->ssh($user, $ip, "{$brewPath}/bin/brew install caddy", 300);
+
+        if (! $installResult->successful()) {
+            return ['success' => false, 'error' => 'Failed to install Caddy: '.$installResult->errorOutput()];
+        }
+
+        return ['success' => true];
+    }
+
+    /**
+     * Finalize template setup (directories, config, services).
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function finalizeTemplate(string $ip, string $user, string $template, array $options = []): array
+    {
+        // Run orbit install with --skip-brew flag (assuming we add this flag)
+        // For now, just run the full install which will skip already-installed components
+        return $this->installTemplate($ip, $user, $template, $options);
+    }
+
+    /**
+     * Install the gateway stack via Orbit CLI on the remote server.
+     *
+     * @return array{success: bool, error?: string}
+     */
+    public function installGatewayStack(string $ip, string $user): array
+    {
+        return $this->installTemplate($ip, $user, 'gateway');
+    }
+
+    /**
+     * Read the WG Easy password from the remote Orbit config.
+     */
+    public function getWgPassword(string $ip, string $user): ?string
+    {
+        $result = $this->ssh($user, $ip, 'cat ~/.config/orbit/config.json 2>/dev/null', 15);
+
+        if (! $result->successful()) {
+            return null;
+        }
+
+        $config = json_decode(trim($result->output()), true);
+
+        if (! is_array($config)) {
+            return null;
+        }
+
+        return $config['wg_easy']['password'] ?? null;
     }
 }

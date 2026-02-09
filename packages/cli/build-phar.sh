@@ -1,34 +1,47 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-# Generate command registry for PHAR
-echo "<?php" > app/CommandRegistry.php
-echo "" >> app/CommandRegistry.php
-echo "namespace App;" >> app/CommandRegistry.php
-echo "" >> app/CommandRegistry.php
-echo "class CommandRegistry" >> app/CommandRegistry.php
-echo "{" >> app/CommandRegistry.php
-echo "    public static function getCommands(): array" >> app/CommandRegistry.php
-echo "    {" >> app/CommandRegistry.php
-echo "        return [" >> app/CommandRegistry.php
+echo "🔧 Preparing orbit-core for phar build..."
 
-# Find all command classes
-for file in app/Commands/*.php; do
-    if [[ -f "$file" && "$file" != *"AGENTS.md" ]]; then
-        class=$(basename "$file" .php)
-        echo "            \\App\\Commands\\$class::class," >> app/CommandRegistry.php
-    fi
-done
+CORE_VENDOR_PATH="vendor/hardimpactdev/orbit-core"
 
-echo "        ];" >> app/CommandRegistry.php
-echo "    }" >> app/CommandRegistry.php
-echo "}" >> app/CommandRegistry.php
+# Check if orbit-core is a symlink
+if [ -L "$CORE_VENDOR_PATH" ]; then
+    echo "📦 Found symlinked orbit-core, preparing to copy files..."
 
-echo "Generated command registry with $(find app/Commands -name "*.php" -type f | wc -l) commands"
+    # Save the original symlink target (relative path)
+    ORIGINAL_SYMLINK_TARGET=$(readlink "$CORE_VENDOR_PATH")
+    echo "📝 Saved symlink target: $ORIGINAL_SYMLINK_TARGET"
 
-# Build PHAR
-php box.phar compile
+    # Resolve the symlink to absolute path for copying
+    CORE_ABSOLUTE_PATH=$(cd "$(dirname "$CORE_VENDOR_PATH")" && cd "$ORIGINAL_SYMLINK_TARGET" && pwd)
+    echo "📍 Resolved to: $CORE_ABSOLUTE_PATH"
 
-# Clean up
-rm -f app/CommandRegistry.php
+    # Remove the symlink
+    rm "$CORE_VENDOR_PATH"
 
-echo "PHAR build complete"
+    # Copy the actual files
+    echo "📋 Copying orbit-core files..."
+    cp -R "$CORE_ABSOLUTE_PATH" "$CORE_VENDOR_PATH"
+
+    echo "✅ orbit-core files copied successfully"
+else
+    echo "ℹ️  orbit-core is not a symlink, skipping copy"
+    ORIGINAL_SYMLINK_TARGET=""
+fi
+
+echo ""
+echo "🏗️  Building phar with Box..."
+~/.composer/vendor/bin/box compile
+
+echo ""
+if [ -n "$ORIGINAL_SYMLINK_TARGET" ]; then
+    echo "🔄 Restoring orbit-core symlink..."
+    rm -rf "$CORE_VENDOR_PATH"
+    ln -s "$ORIGINAL_SYMLINK_TARGET" "$CORE_VENDOR_PATH"
+    echo "✅ Symlink restored: $CORE_VENDOR_PATH -> $ORIGINAL_SYMLINK_TARGET"
+fi
+
+echo ""
+echo "✅ Build complete! Phar location: builds/orbit.phar"
+echo "📊 Phar size: $(du -h builds/orbit.phar | cut -f1)"

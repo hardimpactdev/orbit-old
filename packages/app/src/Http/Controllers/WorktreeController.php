@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\WorktreeService;
 use Illuminate\Http\Request;
 
@@ -15,11 +15,11 @@ class WorktreeController extends Controller
     ) {}
 
     /**
-     * Get all worktrees for an environment.
+     * Get all worktrees for a node.
      */
-    public function index(Environment $environment)
+    public function index(Node $node)
     {
-        $result = $this->worktree->worktrees($environment);
+        $result = $this->worktree->worktrees($node);
 
         return response()->json($result);
     }
@@ -27,7 +27,7 @@ class WorktreeController extends Controller
     /**
      * Unlink a worktree from a project.
      */
-    public function unlink(Request $request, Environment $environment)
+    public function unlink(Request $request, Node $node)
     {
         $validated = $request->validate([
             'project' => 'required|string',
@@ -35,7 +35,7 @@ class WorktreeController extends Controller
         ]);
 
         $result = $this->worktree->unlinkWorktree(
-            $environment,
+            $node,
             $validated['project'],
             $validated['worktree']
         );
@@ -46,9 +46,9 @@ class WorktreeController extends Controller
     /**
      * Refresh worktree detection.
      */
-    public function refresh(Environment $environment)
+    public function refresh(Node $node)
     {
-        $result = $this->worktree->refreshWorktrees($environment);
+        $result = $this->worktree->refreshWorktrees($node);
 
         return response()->json($result);
     }

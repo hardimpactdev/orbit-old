@@ -1,7 +1,7 @@
 <?php
 
 use HardImpact\Orbit\App\Http\Middleware\HandleInertiaRequests;
-use HardImpact\Orbit\App\Http\Middleware\ImplicitEnvironment;
+use HardImpact\Orbit\App\Http\Middleware\ImplicitNode;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->alias([
-            'implicit.environment' => ImplicitEnvironment::class,
+            'implicit.node' => ImplicitNode::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\HasStepOutput;
+use App\Services\GatewayManager;
 use App\Services\IpValidator;
 use App\Services\RemoteProvisioner;
 use HardImpact\Orbit\Core\Enums\NodeType;
@@ -26,13 +27,15 @@ final class SetupRemoteCommand extends Command
                             {--services= : Docker services (comma-separated, e.g. postgres,redis)}
                             {--node-packages= : Node package managers (comma-separated: npm,yarn,pnpm,bun)}
                             {--binary= : Path to local phar binary to copy instead of downloading}
+                            {--gateway= : Gateway ID for client nodes (for VPN registration)}
+                            {--skip-hardening : Skip SSH hardening and user creation}
                             {--yes : Skip confirmation prompts}';
 
     protected $description = 'Provision a remote Linux server and install an Orbit template';
 
     private const array DOCKER_ALWAYS_TEMPLATES = ['gateway', 'php-dev'];
 
-    public function handle(RemoteProvisioner $provisioner): int
+    public function handle(RemoteProvisioner $provisioner, GatewayManager $gatewayManager): int
     {
         if (PHP_OS_FAMILY !== 'Linux' && PHP_OS_FAMILY !== 'Darwin') {
             $this->error('This command must be run from Linux or macOS');
@@ -150,65 +153,69 @@ final class SetupRemoteCommand extends Command
             $this->step("{$compatResult['os']} {$compatResult['version']} detected");
         }
 
-        if (! $state['userExists'] && $effectiveUser === $user) {
-            $created = spin(
-                fn () => $provisioner->createUser($ip, $user, $remoteUser),
-                "Creating {$remoteUser} user...",
-            );
-
-            if (! $created) {
-                $this->error("Failed to create {$remoteUser} user");
-
-                return self::FAILURE;
-            }
-            $this->step("{$remoteUser} user created with sudo access");
+        if ($this->option('skip-hardening')) {
+            $this->skip('Skipping user creation and SSH hardening (--skip-hardening)');
         } else {
-            $this->step("{$remoteUser} user already exists");
-        }
+            if (! $state['userExists'] && $effectiveUser === $user) {
+                $created = spin(
+                    fn () => $provisioner->createUser($ip, $user, $remoteUser),
+                    "Creating {$remoteUser} user...",
+                );
 
-        if ($effectiveUser === $user) {
-            $copied = spin(
-                fn () => $provisioner->copySshKeys($ip, $user, $remoteUser),
-                'Copying SSH authorized_keys...',
-            );
+                if (! $created) {
+                    $this->error("Failed to create {$remoteUser} user");
 
-            if (! $copied) {
-                $this->error('Failed to copy SSH keys');
-                $this->info("  Fix: ssh-copy-id {$user}@{$ip}");
-
-                return self::FAILURE;
+                    return self::FAILURE;
+                }
+                $this->step("{$remoteUser} user created with sudo access");
+            } else {
+                $this->step("{$remoteUser} user already exists");
             }
-            $this->step('SSH keys copied to '.$remoteUser);
-        }
 
-        if (! $state['sshHardened'] && $effectiveUser === $user) {
-            $hardened = spin(
-                fn () => $provisioner->hardenSsh($ip, $user),
-                'Hardening SSH configuration...',
-            );
+            if ($effectiveUser === $user) {
+                $copied = spin(
+                    fn () => $provisioner->copySshKeys($ip, $user, $remoteUser),
+                    'Copying SSH authorized_keys...',
+                );
 
-            if (! $hardened) {
-                $this->error('Failed to harden SSH');
+                if (! $copied) {
+                    $this->error('Failed to copy SSH keys');
+                    $this->info("  Fix: ssh-copy-id {$user}@{$ip}");
 
-                return self::FAILURE;
+                    return self::FAILURE;
+                }
+                $this->step('SSH keys copied to '.$remoteUser);
             }
-            $this->step('SSH hardened (root login disabled, password auth disabled)');
 
-            $remoteUserConnection = spin(
-                fn () => $provisioner->testConnection($ip, $remoteUser),
-                "Verifying {$remoteUser} SSH access...",
-            );
+            if (! $state['sshHardened'] && $effectiveUser === $user) {
+                $hardened = spin(
+                    fn () => $provisioner->hardenSsh($ip, $user),
+                    'Hardening SSH configuration...',
+                );
 
-            if (! $remoteUserConnection['success']) {
-                $this->error("Cannot connect as {$remoteUser} after SSH hardening");
+                if (! $hardened) {
+                    $this->error('Failed to harden SSH');
 
-                return self::FAILURE;
+                    return self::FAILURE;
+                }
+                $this->step('SSH hardened (root login disabled, password auth disabled)');
+
+                $remoteUserConnection = spin(
+                    fn () => $provisioner->testConnection($ip, $remoteUser),
+                    "Verifying {$remoteUser} SSH access...",
+                );
+
+                if (! $remoteUserConnection['success']) {
+                    $this->error("Cannot connect as {$remoteUser} after SSH hardening");
+
+                    return self::FAILURE;
+                }
+                $this->step("{$remoteUser} SSH access verified");
+
+                $effectiveUser = $remoteUser;
+            } else {
+                $this->step('SSH already hardened');
             }
-            $this->step("{$remoteUser} SSH access verified");
-
-            $effectiveUser = $remoteUser;
-        } else {
-            $this->step('SSH already hardened');
         }
 
         $updateResult = spin(
@@ -222,27 +229,34 @@ final class SetupRemoteCommand extends Command
             $this->skip('System update failed, continuing');
         }
 
-        if (! $state['orbitInstalled']) {
-            $localBinary = $this->option('binary');
+        $nodeType = $this->inferNodeTypeFromTemplate($template);
 
-            if ($localBinary === null && file_exists('builds/orbit.phar')) {
-                $localBinary = 'builds/orbit.phar';
+        // Client nodes don't need Orbit CLI - they're managed remotely by the gateway
+        if ($nodeType !== NodeType::Client) {
+            if (! $state['orbitInstalled']) {
+                $localBinary = $this->option('binary');
+
+                if ($localBinary === null && file_exists('builds/orbit.phar')) {
+                    $localBinary = 'builds/orbit.phar';
+                }
+
+                $installResult = spin(
+                    fn () => $provisioner->installOrbit($ip, $remoteUser, $localBinary),
+                    'Installing Orbit CLI...',
+                );
+
+                if (! $installResult['success']) {
+                    $this->error('Failed to install Orbit CLI');
+                    $this->warn($installResult['error'] ?? 'Unknown error');
+
+                    return self::FAILURE;
+                }
+                $this->step('Orbit CLI installed');
+            } else {
+                $this->step('Orbit CLI already installed');
             }
-
-            $installResult = spin(
-                fn () => $provisioner->installOrbit($ip, $remoteUser, $localBinary),
-                'Installing Orbit CLI...',
-            );
-
-            if (! $installResult['success']) {
-                $this->error('Failed to install Orbit CLI');
-                $this->warn($installResult['error'] ?? 'Unknown error');
-
-                return self::FAILURE;
-            }
-            $this->step('Orbit CLI installed');
         } else {
-            $this->step('Orbit CLI already installed');
+            $this->step('Skipping Orbit CLI installation for client node');
         }
 
         $needsDocker = $this->templateNeedsDocker($template, $services);
@@ -262,55 +276,79 @@ final class SetupRemoteCommand extends Command
             $this->step('Docker ready');
         }
 
-        $migrateResult = spin(
-            fn () => $provisioner->runMigrations($ip, $remoteUser),
-            'Running database migrations...',
-        );
+        // Client nodes don't need Orbit CLI or database - they're managed remotely
+        if ($nodeType !== NodeType::Client) {
+            $migrateResult = spin(
+                fn () => $provisioner->runMigrations($ip, $remoteUser),
+                'Running database migrations...',
+            );
 
-        if (! $migrateResult['success']) {
-            $this->error('Failed to run migrations');
-            $this->warn($migrateResult['error'] ?? 'Unknown error');
+            if (! $migrateResult['success']) {
+                $this->error('Failed to run migrations');
+                $this->warn($migrateResult['error'] ?? 'Unknown error');
 
-            return self::FAILURE;
-        }
-        $this->step('Database migrations complete');
-
-        $templateOptions = [];
-        if ($services !== null && $services !== '') {
-            $templateOptions['services'] = $services;
-        }
-
-        $nodePackages = $this->option('node-packages');
-        if ($nodePackages !== null && $nodePackages !== '') {
-            $templateOptions['node-packages'] = $nodePackages;
+                return self::FAILURE;
+            }
+            $this->step('Database migrations complete');
+        } else {
+            $this->step('Skipping database setup for client node');
         }
 
-        // Install template using the install pipeline
-        $templateResult = spin(
-            fn () => $provisioner->installTemplate($ip, $remoteUser, $template, $templateOptions),
-            "Installing {$template} template...",
-        );
+        // Client nodes don't need template installation - they're managed remotely
+        if ($nodeType !== NodeType::Client) {
+            $templateOptions = [];
+            if ($services !== null && $services !== '') {
+                $templateOptions['services'] = $services;
+            }
 
-        if (! $templateResult['success']) {
-            $this->error("Failed to install {$template} template");
-            $this->warn($templateResult['error'] ?? 'Unknown error');
-            $this->info("  Retry: ssh {$remoteUser}@{$ip} orbit install --template={$template}");
+            $nodePackages = $this->option('node-packages');
+            if ($nodePackages !== null && $nodePackages !== '') {
+                $templateOptions['node-packages'] = $nodePackages;
+            }
 
-            return self::FAILURE;
+            // Install template using the install pipeline
+            $templateResult = spin(
+                fn () => $provisioner->installTemplate($ip, $remoteUser, $template, $templateOptions),
+                "Installing {$template} template...",
+            );
+
+            if (! $templateResult['success']) {
+                $this->error("Failed to install {$template} template");
+                $this->warn($templateResult['error'] ?? 'Unknown error');
+                $this->info("  Retry: ssh {$remoteUser}@{$ip} orbit install --template={$template}");
+
+                return self::FAILURE;
+            }
+            $this->step("{$template} template installed");
+        } else {
+            $this->step('Skipping template installation for client node');
         }
-        $this->step("{$template} template installed");
 
-        $nodeType = $this->inferNodeTypeFromTemplate($template);
+        $gatewayId = $this->option('gateway') ? (int) $this->option('gateway') : null;
 
-        Node::updateOrCreate(
+        $node = Node::updateOrCreate(
             ['host' => $ip],
             [
                 'name' => $ip,
                 'user' => $remoteUser,
                 'port' => 22,
                 'node_type' => $nodeType,
+                'gateway_id' => $gatewayId,
             ]
         );
+
+        if ($nodeType === NodeType::Client && $gatewayId !== null) {
+            $vpnResult = spin(
+                fn () => $this->registerWithVpn($node, $gatewayManager),
+                'Registering with gateway VPN...',
+            );
+
+            if ($vpnResult['success']) {
+                $this->step("VPN registered: {$vpnResult['vpn_ip']}");
+            } else {
+                $this->skip('VPN registration failed, continuing');
+            }
+        }
 
         $this->newLine();
         $this->line('<fg=green;options=bold>Remote setup complete!</>');
@@ -318,9 +356,43 @@ final class SetupRemoteCommand extends Command
         $this->line("  <fg=gray>SSH</>       ssh {$remoteUser}@{$ip}");
         $this->line("  <fg=gray>Template</>  {$template}");
         $this->line("  <fg=gray>Node Type</> {$nodeType->value}");
+        if ($node->hasVpn()) {
+            $this->line("  <fg=gray>VPN IP</>    {$node->getAttribute('vpn_ip')}");
+        }
         $this->newLine();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array{success: bool, vpn_ip?: string, error?: string}
+     */
+    private function registerWithVpn(Node $node, GatewayManager $gatewayManager): array
+    {
+        try {
+            $gatewayId = $node->getAttribute('gateway_id');
+            if ($gatewayId === null) {
+                return ['success' => false, 'error' => 'No gateway configured'];
+            }
+
+            $vpnIp = $gatewayManager->registerVpnClient(
+                $gatewayId,
+                $node->name,
+            );
+
+            if ($vpnIp === null) {
+                return ['success' => false, 'error' => 'VPN registration failed'];
+            }
+
+            $node->update([
+                'vpn_ip' => $vpnIp,
+                'vpn_registered_at' => now(),
+            ]);
+
+            return ['success' => true, 'vpn_ip' => $vpnIp];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     private function inferNodeTypeFromTemplate(string $template): NodeType

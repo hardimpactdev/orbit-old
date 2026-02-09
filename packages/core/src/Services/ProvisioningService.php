@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Enums\NodeStatus;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 class ProvisioningService
 {
-    protected Environment $environment;
+    protected Node $node;
 
     protected string $sshPublicKey;
 
@@ -40,15 +41,15 @@ class ProvisioningService
         17 => 'Starting orbit services',
     ];
 
-    public function provision(Environment $environment, string $sshPublicKey): bool
+    public function provision(Node $node, string $sshPublicKey): bool
     {
-        $this->environment = $environment;
+        $this->node = $node;
         $this->sshPublicKey = trim($sshPublicKey);
         $this->currentStep = 0;
 
         // Initialize provisioning state
-        $this->environment->update([
-            'status' => Environment::STATUS_PROVISIONING,
+        $this->node->update([
+            'status' => NodeStatus::Provisioning,
             'provisioning_log' => [],
             'provisioning_error' => null,
             'provisioning_step' => 0,
@@ -142,8 +143,8 @@ class ProvisioningService
             }
 
             // Success! Clear provisioning log since it's no longer needed
-            $this->environment->update([
-                'status' => Environment::STATUS_ACTIVE,
+            $this->node->update([
+                'status' => NodeStatus::Active,
                 'user' => 'orbit',
                 'port' => 22,
                 'provisioning_log' => null,
@@ -169,7 +170,7 @@ class ProvisioningService
         $this->logStep($stepName);
         Log::info("Provisioning step {$stepNumber}: {$stepName}");
 
-        $this->environment->update([
+        $this->node->update([
             'provisioning_step' => $stepNumber,
         ]);
 
@@ -178,30 +179,30 @@ class ProvisioningService
 
     protected function logStep(string $message): void
     {
-        $log = $this->environment->provisioning_log ?? [];
+        $log = $this->node->provisioning_log ?? [];
         $log[] = ['step' => $message, 'time' => now()->toIso8601String()];
-        $this->environment->update(['provisioning_log' => $log]);
+        $this->node->update(['provisioning_log' => $log]);
     }
 
     protected function logInfo(string $message): void
     {
-        $log = $this->environment->provisioning_log ?? [];
+        $log = $this->node->provisioning_log ?? [];
         $log[] = ['info' => $message, 'time' => now()->toIso8601String()];
-        $this->environment->update(['provisioning_log' => $log]);
+        $this->node->update(['provisioning_log' => $log]);
     }
 
     protected function logError(string $message): void
     {
-        $log = $this->environment->provisioning_log ?? [];
+        $log = $this->node->provisioning_log ?? [];
         $log[] = ['error' => $message, 'time' => now()->toIso8601String()];
-        $this->environment->update(['provisioning_log' => $log]);
+        $this->node->update(['provisioning_log' => $log]);
     }
 
     protected function failure(string $message): bool
     {
         $this->logError($message);
-        $this->environment->update([
-            'status' => Environment::STATUS_ERROR,
+        $this->node->update([
+            'status' => NodeStatus::Error,
             'provisioning_error' => $message,
         ]);
 
@@ -245,14 +246,14 @@ class ProvisioningService
 
         $options = implode(' ', $sshOptions);
         $escapedCommand = escapeshellarg($command);
+        $escapedUser = escapeshellarg("{$user}@{$this->node->host}");
 
-        return "ssh {$options} {$user}@{$this->environment->host} {$escapedCommand}";
+        return "ssh {$options} {$escapedUser} {$escapedCommand}";
     }
 
     protected function clearOldHostKeys(): bool
     {
-        // Remove any existing host keys to prevent conflicts when server is reset
-        Process::run("ssh-keygen -R {$this->environment->host} 2>/dev/null || true");
+        Process::run('ssh-keygen -R '.escapeshellarg($this->node->host).' 2>/dev/null || true');
         $this->logInfo('Cleared old SSH host keys');
 
         return true;
@@ -292,13 +293,12 @@ class ProvisioningService
 
     protected function setupSshKey(): bool
     {
-        // Escape the SSH key for shell
-        $escapedKey = str_replace("'", "'\\''", $this->sshPublicKey);
+        $base64Key = base64_encode($this->sshPublicKey);
 
         $script = <<<BASH
 mkdir -p /home/orbit/.ssh
 chmod 700 /home/orbit/.ssh
-echo '$escapedKey' > /home/orbit/.ssh/authorized_keys
+echo '{$base64Key}' | base64 -d > /home/orbit/.ssh/authorized_keys
 chmod 600 /home/orbit/.ssh/authorized_keys
 chown -R orbit:orbit /home/orbit/.ssh
 chown orbit:orbit /home/orbit
@@ -910,7 +910,7 @@ UNIT;
 
         // First, try connecting as the orbit user (in case already provisioned)
         $orbitCheck = Process::timeout(15)->run(
-            "ssh {$options} orbit@{$host} 'echo connected'"
+            "ssh {$options} ".escapeshellarg("orbit@{$host}")." 'echo connected'"
         );
 
         if ($orbitCheck->successful() && str_contains($orbitCheck->output(), 'connected')) {
@@ -918,9 +918,8 @@ UNIT;
             $result['connected_as'] = 'orbit';
             $result['has_orbit_user'] = true;
 
-            // Check if orbit CLI is installed and get status
             $statusCheck = Process::timeout(30)->run(
-                "ssh {$options} orbit@{$host} 'php ~/.local/bin/orbit status --json 2>/dev/null'"
+                "ssh {$options} ".escapeshellarg("orbit@{$host}")." 'php ~/.local/bin/orbit status --json 2>/dev/null'"
             );
 
             if ($statusCheck->successful()) {
@@ -933,7 +932,7 @@ UNIT;
             } else {
                 // Check if CLI exists but maybe not running
                 $cliCheck = Process::timeout(15)->run(
-                    "ssh {$options} orbit@{$host} 'test -f ~/.local/bin/orbit && echo exists'"
+                    "ssh {$options} ".escapeshellarg("orbit@{$host}")." 'test -f ~/.local/bin/orbit && echo exists'"
                 );
                 if ($cliCheck->successful() && str_contains($cliCheck->output(), 'exists')) {
                     $result['has_orbit'] = true;
@@ -945,7 +944,7 @@ UNIT;
 
         // Try connecting as the specified user (usually root for provisioning)
         $rootCheck = Process::timeout(15)->run(
-            "ssh {$options} {$user}@{$host} 'echo connected'"
+            "ssh {$options} ".escapeshellarg("{$user}@{$host}")." 'echo connected'"
         );
 
         if ($rootCheck->successful() && str_contains($rootCheck->output(), 'connected')) {
@@ -954,7 +953,7 @@ UNIT;
 
             // Check if orbit user exists
             $userCheck = Process::timeout(15)->run(
-                "ssh {$options} {$user}@{$host} 'id orbit >/dev/null 2>&1 && echo exists || echo missing'"
+                "ssh {$options} ".escapeshellarg("{$user}@{$host}")." 'id orbit >/dev/null 2>&1 && echo exists || echo missing'"
             );
 
             if (str_contains($userCheck->output(), 'exists')) {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -12,17 +12,17 @@ class OrbitInitCommandTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_creates_local_environment(): void
+    public function test_creates_local_node(): void
     {
-        $this->assertDatabaseCount('environments', 0);
+        $this->assertDatabaseCount('nodes', 0);
 
         $this->artisan('orbit:init', ['--name' => 'Local'])
             ->assertExitCode(0);
 
-        $this->assertDatabaseCount('environments', 1);
-        $this->assertDatabaseHas('environments', [
-            'is_local' => true,
+        $this->assertDatabaseCount('nodes', 1);
+        $this->assertDatabaseHas('nodes', [
             'name' => 'Local',
+            'is_default' => true,
         ]);
     }
 
@@ -32,16 +32,16 @@ class OrbitInitCommandTest extends TestCase
         $this->artisan('orbit:init', ['--name' => 'Local'])->assertExitCode(0);
         $this->artisan('orbit:init', ['--name' => 'Local'])->assertExitCode(0);
 
-        // Still only one environment
-        $this->assertDatabaseCount('environments', 1);
+        // Still only one node
+        $this->assertDatabaseCount('nodes', 1);
     }
 
-    public function test_skips_when_local_environment_exists(): void
+    public function test_skips_when_local_node_exists(): void
     {
-        createEnvironment(['is_local' => true]);
+        createNode(['is_default' => true, 'host' => 'localhost']);
 
         $this->artisan('orbit:init', ['--name' => 'Local'])
-            ->expectsOutput('Local environment already exists. Skipping.')
+            ->expectsOutput('Node already exists. Skipping.')
             ->assertExitCode(0);
     }
 
@@ -56,12 +56,12 @@ class OrbitInitCommandTest extends TestCase
 
         $this->artisan('orbit:init', ['--name' => 'Local'])->assertExitCode(0);
 
-        $env = Environment::where('is_local', true)->first();
+        $node = Node::where('is_default', true)->first();
 
-        $this->assertEquals('Local', $env->name);
-        $this->assertEquals('localhost', $env->host);
-        $this->assertTrue($env->is_default);
-        $this->assertEquals('test', $env->tld);
+        $this->assertEquals('Local', $node->name);
+        $this->assertEquals('localhost', $node->host);
+        $this->assertTrue($node->is_default);
+        $this->assertEquals('test', $node->tld);
     }
 
     public function test_reads_tld_from_config(): void
@@ -77,11 +77,11 @@ class OrbitInitCommandTest extends TestCase
             ->andReturn(json_encode(['tld' => 'orbit']));
 
         $this->artisan('orbit:init', ['--name' => 'Local'])
-            ->expectsOutputToContain('Local environment')
+            ->expectsOutputToContain("Node 'Local' initialized")
             ->assertExitCode(0);
 
-        $this->assertDatabaseHas('environments', [
-            'is_local' => true,
+        $this->assertDatabaseHas('nodes', [
+            'is_default' => true,
             'tld' => 'orbit',
         ]);
     }

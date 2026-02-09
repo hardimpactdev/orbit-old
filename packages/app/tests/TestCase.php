@@ -57,9 +57,9 @@ class TestCase extends Orchestra
         config()->set('inertia.testing.ensure_pages_exist', false);
         config()->set('inertia.testing.page_paths', []);
 
-        // Configure orbit mode (multi_environment = desktop mode)
+        // Configure orbit mode (multi_node = desktop mode)
         config()->set('orbit.mode', 'web');
-        config()->set('orbit.multi_environment', true);
+        config()->set('orbit.multi_node', true);
 
         // Disable Vite in testing (no manifest needed)
         $app->bind('Illuminate\Foundation\Vite', function () {

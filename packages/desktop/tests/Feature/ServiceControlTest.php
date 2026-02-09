@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\SshKey;
 use HardImpact\Orbit\Core\Services\OrbitCli\ServiceControlService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,7 +13,7 @@ class ServiceControlTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected Environment $environment;
+    protected Node $node;
 
     protected function setUp(): void
     {
@@ -27,14 +27,14 @@ class ServiceControlTest extends TestCase
             'is_default' => true,
         ]);
 
-        // Create an environment
-        $this->environment = Environment::create([
+        // Create a node
+        $this->node = Node::create([
             'name' => 'Test Server',
             'host' => '1.2.3.4',
             'user' => 'orbit',
             'port' => 22,
-            'is_local' => false,
             'status' => 'active',
+            'is_default' => true,
         ]);
     }
 
@@ -42,13 +42,13 @@ class ServiceControlTest extends TestCase
     {
         $this->mock(ServiceControlService::class, function (MockInterface $mock) {
             $mock->shouldReceive('startHostService')
-                ->with(\Mockery::on(fn ($e) => $e->id === $this->environment->id), 'caddy')
+                ->with(\Mockery::on(fn ($e) => $e->id === $this->node->id), 'caddy')
                 ->once()
                 ->andReturn(['success' => true]);
         });
 
-        $response = $this->post(route('environments.host-services.start', [
-            'environment' => $this->environment,
+        $response = $this->post(route('nodes.host-services.start', [
+            'node' => $this->node,
             'service' => 'caddy',
         ]));
 
@@ -60,13 +60,13 @@ class ServiceControlTest extends TestCase
     {
         $this->mock(ServiceControlService::class, function (MockInterface $mock) {
             $mock->shouldReceive('stopHostService')
-                ->with(\Mockery::on(fn ($e) => $e->id === $this->environment->id), 'php-8.4')
+                ->with(\Mockery::on(fn ($e) => $e->id === $this->node->id), 'php-8.4')
                 ->once()
                 ->andReturn(['success' => true]);
         });
 
-        $response = $this->post(route('environments.host-services.stop', [
-            'environment' => $this->environment,
+        $response = $this->post(route('nodes.host-services.stop', [
+            'node' => $this->node,
             'service' => 'php-8.4',
         ]));
 
@@ -78,13 +78,13 @@ class ServiceControlTest extends TestCase
     {
         $this->mock(ServiceControlService::class, function (MockInterface $mock) {
             $mock->shouldReceive('restartHostService')
-                ->with(\Mockery::on(fn ($e) => $e->id === $this->environment->id), 'horizon')
+                ->with(\Mockery::on(fn ($e) => $e->id === $this->node->id), 'horizon')
                 ->once()
                 ->andReturn(['success' => true]);
         });
 
-        $response = $this->post(route('environments.host-services.restart', [
-            'environment' => $this->environment,
+        $response = $this->post(route('nodes.host-services.restart', [
+            'node' => $this->node,
             'service' => 'horizon',
         ]));
 
@@ -96,13 +96,13 @@ class ServiceControlTest extends TestCase
     {
         $this->mock(ServiceControlService::class, function (MockInterface $mock) {
             $mock->shouldReceive('disable')
-                ->with(\Mockery::on(fn ($e) => $e->id === $this->environment->id), 'mysql')
+                ->with(\Mockery::on(fn ($e) => $e->id === $this->node->id), 'mysql')
                 ->once()
                 ->andReturn(['success' => true]);
         });
 
-        $response = $this->delete(route('environments.services.disable', [
-            'environment' => $this->environment,
+        $response = $this->delete(route('nodes.services.disable', [
+            'node' => $this->node,
             'service' => 'mysql',
         ]));
 
@@ -125,7 +125,7 @@ class ServiceControlTest extends TestCase
                 ]);
         });
 
-        $response = $this->get("/api/environments/{$this->environment->id}/config");
+        $response = $this->get("/api/nodes/{$this->node->id}/config");
 
         $response->assertStatus(200)
             ->assertJsonPath('data.available_php_versions', ['8.3', '8.4', '8.5', '8.6']);

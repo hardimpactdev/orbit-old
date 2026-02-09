@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,13 +16,13 @@ class WebModeTest extends TestCase
     {
         parent::setUp();
 
-        if (config('orbit.multi_environment')) {
+        if (config('orbit.multi_node')) {
             $this->markTestSkipped('Skipping WebModeTest in desktop mode.');
         }
 
-        // Create local environment
-        createEnvironment([
-            'is_local' => true,
+        // Create local node
+        createNode([
+            'is_default' => true,
             'name' => 'Local',
             'host' => 'localhost',
         ]);
@@ -35,14 +35,14 @@ class WebModeTest extends TestCase
         $response->assertRedirect('/projects');
     }
 
-    public function test_projects_page_loads_with_implicit_environment(): void
+    public function test_projects_page_loads_with_implicit_node(): void
     {
         $response = $this->get('/projects');
 
         $response->assertStatus(200);
     }
 
-    public function test_services_page_loads_with_implicit_environment(): void
+    public function test_services_page_loads_with_implicit_node(): void
     {
         $response = $this->get('/services');
 
@@ -51,17 +51,17 @@ class WebModeTest extends TestCase
 
     public function test_desktop_only_routes_return_403(): void
     {
-        $this->get('/environments')->assertStatus(403);
-        $this->get('/environments/create')->assertStatus(403);
+        $this->get('/nodes')->assertStatus(403);
+        $this->get('/nodes/create')->assertStatus(403);
         $this->get('/ssh-keys/available')->assertStatus(403);
     }
 
-    public function test_inertia_props_include_current_environment(): void
+    public function test_inertia_props_include_current_node(): void
     {
         $response = $this->get('/projects');
 
-        $response->assertInertia(fn ($page) => $page->has('currentEnvironment')
-            ->where('multi_environment', false)
+        $response->assertInertia(fn ($page) => $page->has('currentNode')
+            ->where('multi_node', false)
         );
     }
 }

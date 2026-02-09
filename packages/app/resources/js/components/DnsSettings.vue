@@ -10,7 +10,7 @@ interface DnsMapping {
 }
 
 interface Props {
-    environmentId: number;
+    nodeId: number;
 }
 
 const props = defineProps<Props>();
@@ -36,7 +36,7 @@ const loadMappings = async () => {
     error.value = null;
 
     try {
-        const response = await fetch(`/environments/${props.environmentId}/dns`, {
+        const response = await fetch(`/nodes/${props.nodeId}/dns`, {
             headers: {
                 'Accept': 'application/json',
             },
@@ -63,7 +63,7 @@ const saveMappings = async () => {
     successMessage.value = null;
 
     try {
-        const response = await fetch(`/environments/${props.environmentId}/dns`, {
+        const response = await fetch(`/nodes/${props.nodeId}/dns`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

@@ -4,7 +4,7 @@ describe('Provisioning Page', function () {
     test('can view provisioning form', function () {
         $this->visit('/provision')
             ->assertSee('Provision')
-            ->assertSee('Environment Name')
+            ->assertSee('Node Name')
             ->assertSee('Host IP Address');
     });
 

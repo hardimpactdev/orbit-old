@@ -1,24 +1,24 @@
 <?php
 
-test('homepage redirects to create when no environments exist', function () {
-    if (! config('orbit.multi_environment')) {
-        $this->get('/')->assertStatus(500); // Middleware fails because no local env
+test('homepage redirects to create when no nodes exist', function () {
+    if (! config('orbit.multi_node')) {
+        $this->get('/')->assertStatus(500); // Middleware fails because no local node
 
         return;
     }
 
     $response = $this->get('/');
 
-    $response->assertRedirect('/environments/create');
+    $response->assertRedirect('/setup');
 });
 
-test('homepage redirects to default environment when one exists', function () {
-    $environment = createEnvironment(['is_local' => true, 'host' => 'localhost']);
+test('homepage redirects to default node when one exists', function () {
+    $node = createNode(['host' => 'localhost']);
 
     $response = $this->get('/');
 
-    if (config('orbit.multi_environment')) {
-        $response->assertRedirect("/environments/{$environment->id}");
+    if (config('orbit.multi_node')) {
+        $response->assertRedirect("/nodes/{$node->id}");
     } else {
         $response->assertRedirect('/sites');
     }

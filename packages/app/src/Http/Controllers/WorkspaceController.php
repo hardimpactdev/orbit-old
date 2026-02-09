@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\WorkspaceService;
 use HardImpact\Orbit\App\Http\Controllers\Concerns\ProvidesRemoteApiUrl;
 use Illuminate\Http\Request;
@@ -18,16 +18,15 @@ class WorkspaceController extends Controller
     ) {}
 
     /**
-     * List all workspaces for an environment (Inertia page).
+     * List all workspaces for a node (Inertia page).
      */
-    public function index(Environment $environment): \Inertia\Response
+    public function index(Node $node): \Inertia\Response
     {
-        $editor = $environment->getEditor();
-        $remoteApiUrl = $this->getRemoteApiUrl($environment);
+        $editor = $node->getEditor();
+        $remoteApiUrl = $this->getRemoteApiUrl($node);
 
-        // Don't fetch workspaces synchronously - let Vue load them async
-        return \Inertia\Inertia::render('environments/Workspaces', [
-            'environment' => $environment,
+        return \Inertia\Inertia::render('nodes/Workspaces', [
+            'node' => $node,
             'editor' => $editor,
             'remoteApiUrl' => $remoteApiUrl,
         ]);
@@ -36,11 +35,10 @@ class WorkspaceController extends Controller
     /**
      * API endpoint for workspaces list.
      */
-    public function indexApi(Environment $environment)
+    public function indexApi(Node $node)
     {
-        $result = $this->workspace->workspacesList($environment);
+        $result = $this->workspace->workspacesList($node);
 
-        // Normalize workspace data for frontend (rename keys)
         if ($result['success'] && isset($result['data']['workspaces'])) {
             $result['data']['workspaces'] = array_map(
                 fn ($workspace) => $this->normalizeWorkspaceData($workspace),
@@ -54,43 +52,42 @@ class WorkspaceController extends Controller
     /**
      * Show the create workspace form.
      */
-    public function create(Environment $environment): \Inertia\Response
+    public function create(Node $node): \Inertia\Response
     {
-        return \Inertia\Inertia::render('environments/workspaces/Create', [
-            'environment' => $environment,
+        return \Inertia\Inertia::render('nodes/workspaces/Create', [
+            'node' => $node,
         ]);
     }
 
     /**
      * Store a new workspace.
      */
-    public function store(Request $request, Environment $environment)
+    public function store(Request $request, Node $node)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|regex:/^[a-z0-9-]+$/',
         ]);
 
-        $result = $this->workspace->workspaceCreate($environment, $validated['name']);
+        $result = $this->workspace->workspaceCreate($node, $validated['name']);
 
         if (! $result['success']) {
             return back()->with('error', $result['error'] ?? 'Failed to create workspace');
         }
 
-        return redirect()->route('environments.workspaces', $environment)
+        return redirect()->route('nodes.workspaces', $node)
             ->with('success', "Workspace '{$validated['name']}' created successfully");
     }
 
     /**
      * Show a single workspace.
      */
-    public function show(Environment $environment, string $workspace): \Inertia\Response
+    public function show(Node $node, string $workspace): \Inertia\Response
     {
-        $editor = $environment->getEditor();
-        $remoteApiUrl = $this->getRemoteApiUrl($environment);
+        $editor = $node->getEditor();
+        $remoteApiUrl = $this->getRemoteApiUrl($node);
 
-        // Don't fetch workspace data synchronously - let Vue load it async
-        return \Inertia\Inertia::render('environments/workspaces/Show', [
-            'environment' => $environment,
+        return \Inertia\Inertia::render('nodes/workspaces/Show', [
+            'node' => $node,
             'workspaceName' => $workspace,
             'editor' => $editor,
             'remoteApiUrl' => $remoteApiUrl,
@@ -100,9 +97,9 @@ class WorkspaceController extends Controller
     /**
      * API endpoint for single workspace.
      */
-    public function showApi(Environment $environment, string $workspace)
+    public function showApi(Node $node, string $workspace)
     {
-        $result = $this->workspace->workspacesList($environment);
+        $result = $this->workspace->workspacesList($node);
         $workspaces = $result['success'] ? ($result['data']['workspaces'] ?? []) : [];
 
         $workspaceData = collect($workspaces)->firstWhere('name', $workspace);
@@ -123,28 +120,28 @@ class WorkspaceController extends Controller
     /**
      * Delete a workspace.
      */
-    public function destroy(Environment $environment, string $workspace)
+    public function destroy(Node $node, string $workspace)
     {
-        $result = $this->workspace->workspaceDelete($environment, $workspace);
+        $result = $this->workspace->workspaceDelete($node, $workspace);
 
         if (! $result['success']) {
             return back()->with('error', $result['error'] ?? 'Failed to delete workspace');
         }
 
-        return redirect()->route('environments.workspaces', $environment)
+        return redirect()->route('nodes.workspaces', $node)
             ->with('success', "Workspace '{$workspace}' deleted successfully");
     }
 
     /**
      * Add a project to a workspace.
      */
-    public function addProject(Request $request, Environment $environment, string $workspace)
+    public function addProject(Request $request, Node $node, string $workspace)
     {
         $validated = $request->validate([
             'project' => 'required|string|max:255',
         ]);
 
-        $result = $this->workspace->workspaceAddProject($environment, $workspace, $validated['project']);
+        $result = $this->workspace->workspaceAddProject($node, $workspace, $validated['project']);
 
         if (! $result['success']) {
             return response()->json([
@@ -162,9 +159,9 @@ class WorkspaceController extends Controller
     /**
      * Remove a project from a workspace.
      */
-    public function removeProject(Environment $environment, string $workspace, string $project)
+    public function removeProject(Node $node, string $workspace, string $project)
     {
-        $result = $this->workspace->workspaceRemoveProject($environment, $workspace, $project);
+        $result = $this->workspace->workspaceRemoveProject($node, $workspace, $project);
 
         if (! $result['success']) {
             return response()->json([
@@ -181,7 +178,6 @@ class WorkspaceController extends Controller
 
     /**
      * Normalize workspace data from CLI for frontend consistency.
-     * CLI already returns 'projects' and 'project_count', so we just pass through.
      */
     protected function normalizeWorkspaceData(array $workspace): array
     {

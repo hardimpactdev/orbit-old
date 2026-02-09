@@ -1,7 +1,7 @@
 <?php
 
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\OrbitConnector;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ProjectCliService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
@@ -19,12 +19,11 @@ beforeEach(function () {
         ->byDefault()
         ->andReturn(['success' => true, 'output' => '']);
 
-    $this->environment = Environment::create([
-        'name' => 'Test Environment',
+    $this->node = Node::create([
+        'name' => 'Test Node',
         'host' => 'ai',
         'user' => 'orbit',
         'port' => 22,
-        'is_local' => false,
         'is_default' => true,
         'status' => 'active',
         'tld' => 'ccc',
@@ -54,7 +53,7 @@ describe('createProject', function () {
                 'message' => 'Project creation has been queued.',
             ]);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
         ]);
@@ -67,7 +66,7 @@ describe('createProject', function () {
     test('creates project with template option', function () {
         $this->connectorService->shouldReceive('sendRequest')
             ->once()
-            ->with(Mockery::type(Environment::class), Mockery::on(function ($request) {
+            ->with(Mockery::type(Node::class), Mockery::on(function ($request) {
                 $body = $request->body()->all();
 
                 return ($body['template'] ?? null) === 'laravel/laravel'
@@ -75,7 +74,7 @@ describe('createProject', function () {
             }))
             ->andReturn(['success' => true, 'slug' => 'my-project']);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
             'template' => 'laravel/laravel',
@@ -88,7 +87,7 @@ describe('createProject', function () {
     test('creates project with clone URL option', function () {
         $this->connectorService->shouldReceive('sendRequest')
             ->once()
-            ->with(Mockery::type(Environment::class), Mockery::on(function ($request) {
+            ->with(Mockery::type(Node::class), Mockery::on(function ($request) {
                 $body = $request->body()->all();
 
                 return ($body['clone_url'] ?? null) === 'git@github.com:owner/repo.git'
@@ -96,7 +95,7 @@ describe('createProject', function () {
             }))
             ->andReturn(['success' => true, 'slug' => 'my-project']);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
             'template' => 'owner/repo',
@@ -109,14 +108,14 @@ describe('createProject', function () {
     test('creates project with fork option', function () {
         $this->connectorService->shouldReceive('sendRequest')
             ->once()
-            ->with(Mockery::type(Environment::class), Mockery::on(function ($request) {
+            ->with(Mockery::type(Node::class), Mockery::on(function ($request) {
                 $body = $request->body()->all();
 
                 return ($body['fork'] ?? null) === true;
             }))
             ->andReturn(['success' => true, 'slug' => 'my-project']);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
             'template' => 'owner/repo',
@@ -130,7 +129,7 @@ describe('createProject', function () {
     test('creates project with all driver options', function () {
         $this->connectorService->shouldReceive('sendRequest')
             ->once()
-            ->with(Mockery::type(Environment::class), Mockery::on(function ($request) {
+            ->with(Mockery::type(Node::class), Mockery::on(function ($request) {
                 $body = $request->body()->all();
 
                 return ($body['db_driver'] ?? null) === 'pgsql'
@@ -141,7 +140,7 @@ describe('createProject', function () {
             }))
             ->andReturn(['success' => true, 'slug' => 'my-project']);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
             'db_driver' => 'pgsql',
@@ -157,14 +156,14 @@ describe('createProject', function () {
     test('creates project with directory option', function () {
         $this->connectorService->shouldReceive('sendRequest')
             ->once()
-            ->with(Mockery::type(Environment::class), Mockery::on(function ($request) {
+            ->with(Mockery::type(Node::class), Mockery::on(function ($request) {
                 $body = $request->body()->all();
 
                 return ($body['path'] ?? null) === '/custom/path';
             }))
             ->andReturn(['success' => true, 'slug' => 'my-project']);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
             'directory' => '/custom/path',
@@ -181,7 +180,7 @@ describe('createProject', function () {
                 'error' => 'Project already exists',
             ]);
 
-        $result = $this->service->createProject($this->environment, [
+        $result = $this->service->createProject($this->node, [
             'name' => 'My Project',
             'visibility' => 'private',
         ]);

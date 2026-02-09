@@ -1,7 +1,7 @@
 <?php
 
 use HardImpact\Orbit\App\Http\Controllers\DashboardController;
-use HardImpact\Orbit\App\Http\Controllers\EnvironmentController;
+use HardImpact\Orbit\App\Http\Controllers\NodeController;
 use HardImpact\Orbit\App\Http\Controllers\ProvisioningController;
 use HardImpact\Orbit\App\Http\Controllers\SetupController;
 use HardImpact\Orbit\App\Http\Controllers\SettingsController;
@@ -16,16 +16,18 @@ Route::prefix('setup')->name('setup.')->group(function (): void {
     Route::get('/status', [SetupController::class, 'status'])->name('status');
 });
 
-if (config('orbit.multi_environment')) {
-    // Desktop: Environment management + prefixed routes
+if (config('orbit.multi_node')) {
+    // Desktop: Node management + prefixed routes
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('environments', EnvironmentController::class);
+    Route::resource('nodes', NodeController::class);
 
-    // Redirect old server routes to environments
-    Route::redirect('/servers', '/environments')->name('servers.index');
-    Route::redirect('/servers/{id}', '/environments/{id}');
+    // Redirect old server/environment routes to nodes
+    Route::redirect('/servers', '/nodes')->name('servers.index');
+    Route::redirect('/servers/{id}', '/nodes/{id}');
+    Route::redirect('/environments', '/nodes');
+    Route::redirect('/environments/{id}', '/nodes/{id}');
 
-    Route::post('environments/{environment}/switch', [EnvironmentController::class, 'switchEnvironment'])->name('environments.switch');
+    Route::post('nodes/{node}/switch', [NodeController::class, 'switchNode'])->name('nodes.switch');
 
     // SSH Key Management (Desktop-only for now)
     Route::prefix('ssh-keys')->name('ssh-keys.')->group(function (): void {
@@ -36,72 +38,73 @@ if (config('orbit.multi_environment')) {
         Route::get('available', [SshKeyController::class, 'getAvailableKeys'])->name('available');
     });
 
-    // Include environment-scoped routes WITH prefix
-    Route::prefix('environments/{environment}')
-        ->group(__DIR__.'/environment.php');
+    // Include node-scoped routes WITH prefix
+    Route::prefix('nodes/{node}')
+        ->group(__DIR__.'/node.php');
 } else {
     // Gate desktop-only management routes with 403 in web mode
-    // These MUST come before the compatibility routes below
+    Route::any('/nodes', fn () => abort(403));
+    Route::any('/nodes/create', fn () => abort(403));
     Route::any('/environments', fn () => abort(403));
     Route::any('/environments/create', fn () => abort(403));
     Route::any('/ssh-keys/{any?}', fn () => abort(403))->where('any', '.*');
 
-    // Web: Flat routes, middleware injects implicit environment
-    // Web: Routes
-    Route::middleware('implicit.environment')->group(function () {
-        Route::get('/', [EnvironmentController::class, 'show'])->name('dashboard');
+    // Web: Flat routes, middleware injects implicit node
+    Route::middleware('implicit.node')->group(function () {
+        Route::get('/', [NodeController::class, 'show'])->name('dashboard');
 
         // Flat routes (e.g. /projects)
-        Route::group([], __DIR__.'/environment.php');
+        Route::group([], __DIR__.'/node.php');
     });
 
-    // Prefixed routes for compatibility (e.g. /environments/1/projects)
-    // These work in web mode too, but are not the primary way to access them
-    Route::prefix('environments/{environment}')
-        ->group(__DIR__.'/environment.php');
+    // Prefixed routes for compatibility (e.g. /nodes/1/projects)
+    Route::prefix('nodes/{node}')
+        ->group(__DIR__.'/node.php');
 
-    // Redirect environment show to root in web mode
-    Route::get('environments/{environment}', fn () => redirect('/'))->name('environments.show');
+    // Redirect node show to root in web mode
+    Route::get('nodes/{node}', fn () => redirect('/'))->name('nodes.show');
 
-    // Gate environment edit route specifically
-    Route::any('/environments/{environment}/edit', fn () => abort(403));
+    // Gate node edit route specifically
+    Route::any('/nodes/{node}/edit', fn () => abort(403));
+
+    // Backwards compatibility: redirect old environment routes
+    Route::get('environments/{environment}', fn () => redirect('/'));
 }
 
 // SHARED ROUTES (Outside conditional)
 
-// Project routes - forwards to active environment's API
+// Project routes - forwards to active node's API
 Route::post('projects', [\HardImpact\Orbit\App\Http\Controllers\ProjectController::class, 'store'])->name('projects.store');
 Route::delete('projects/{slug}', [\HardImpact\Orbit\App\Http\Controllers\ProjectController::class, 'destroy'])->name('projects.destroy');
 Route::post('projects/{project}/php', [\HardImpact\Orbit\App\Http\Controllers\ProjectController::class, 'setPhpVersion'])->name('projects.php.set');
 Route::post('projects/{project}/php/reset', [\HardImpact\Orbit\App\Http\Controllers\ProjectController::class, 'resetPhpVersion'])->name('projects.php.reset');
 
-// API routes for environment data
-Route::prefix('api/environments')->group(function (): void {
-    Route::get('tlds', [\HardImpact\Orbit\App\Http\Controllers\EnvironmentConfigController::class, 'getAllTlds'])->name('api.environments.tlds');
+// API routes for node data
+Route::prefix('api/nodes')->group(function (): void {
+    Route::get('tlds', [\HardImpact\Orbit\App\Http\Controllers\NodeConfigController::class, 'getAllTlds'])->name('api.nodes.tlds');
 });
 
-// Redirect global settings to environment configuration
+// Redirect global settings to node configuration
 Route::get('settings', function () {
-    $environment = \HardImpact\Orbit\Core\Models\Environment::getLocal()
-        ?? \HardImpact\Orbit\Core\Models\Environment::getDefault()
-        ?? \HardImpact\Orbit\Core\Models\Environment::first();
+    $node = \HardImpact\Orbit\Core\Models\Node::getSelf()
+        ?? \HardImpact\Orbit\Core\Models\Node::getDefault()
+        ?? \HardImpact\Orbit\Core\Models\Node::first();
 
-    if ($environment) {
-        return redirect()->route('environments.configuration', $environment);
+    if ($node) {
+        return redirect()->route('nodes.configuration', $node);
     }
 
-    // Fallback if no environment exists (shouldn't happen normally)
     return redirect('/');
 })->name('settings.index');
 
-// Redirect /configuration to environment configuration
+// Redirect /configuration to node configuration
 Route::get('configuration', function () {
-    $environment = \HardImpact\Orbit\Core\Models\Environment::getLocal()
-        ?? \HardImpact\Orbit\Core\Models\Environment::getDefault()
-        ?? \HardImpact\Orbit\Core\Models\Environment::first();
+    $node = \HardImpact\Orbit\Core\Models\Node::getSelf()
+        ?? \HardImpact\Orbit\Core\Models\Node::getDefault()
+        ?? \HardImpact\Orbit\Core\Models\Node::first();
 
-    if ($environment) {
-        return redirect()->route('environments.configuration', $environment);
+    if ($node) {
+        return redirect()->route('nodes.configuration', $node);
     }
 
     return redirect('/');
@@ -131,6 +134,6 @@ Route::prefix('provision')->name('provision.')->group(function (): void {
     Route::get('/', [ProvisioningController::class, 'create'])->name('create');
     Route::post('/', [ProvisioningController::class, 'store'])->name('store');
     Route::post('/check-server', [ProvisioningController::class, 'checkServer'])->name('check-server');
-    Route::post('/{environment}/run', [ProvisioningController::class, 'run'])->name('run');
-    Route::get('/{environment}/status', [ProvisioningController::class, 'status'])->name('status');
+    Route::post('/{node}/run', [ProvisioningController::class, 'run'])->name('run');
+    Route::get('/{node}/status', [ProvisioningController::class, 'status'])->name('status');
 });

@@ -56,7 +56,7 @@ final readonly class InstallWgEasy
         file_put_contents($wgEasyPath.'/docker-compose.yml', $composeContent);
 
         // Start WG Easy
-        $result = Process::run("cd {$wgEasyPath} && docker compose up -d");
+        $result = Process::timeout(300)->run("cd {$wgEasyPath} && docker compose up -d");
 
         if (! $result->successful()) {
             $logger->warn('Could not start WG Easy automatically');

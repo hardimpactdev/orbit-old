@@ -127,7 +127,7 @@ const checkServer = async () => {
 
 const addWithoutProvisioning = () => {
     // Create server directly without provisioning
-    router.post('/environments', {
+    router.post('/nodes', {
         name: form.name,
         host: form.host,
         user: checkResult.value?.connected_as === 'orbit' ? 'orbit' : form.user,
@@ -142,7 +142,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Add Remote Environment" />
+    <Head title="Add Remote Node" />
 
     <div>
         <div class="mb-6">
@@ -151,20 +151,20 @@ const submit = () => {
                 class="text-zinc-400 hover:text-white flex items-center transition-colors text-sm"
             >
                 <ChevronLeft class="w-4 h-4 mr-1" />
-                Back to Environments
+                Back to Nodes
             </Link>
         </div>
 
-        <Heading title="Add Remote Environment" />
+        <Heading title="Add Remote Node" />
         <p class="text-zinc-400 mb-8 mt-2">
-            Set up a remote environment with the complete Orbit stack. Requires root SSH access.
+            Set up a remote node with the complete Orbit stack. Requires root SSH access.
         </p>
 
         <form @submit.prevent="submit" class="max-w-lg">
             <div class="space-y-6">
                 <div>
                     <Label for="name" class="text-muted-foreground mb-2">
-                        Environment Name
+                        Node Name
                     </Label>
                     <Input
                         v-model="form.name"
@@ -249,7 +249,7 @@ const submit = () => {
                                 >
                             </p>
                             <p class="mt-2 text-sm text-zinc-500">
-                                You can add this environment without re-provisioning.
+                                You can add this node without re-provisioning.
                             </p>
                         </div>
                     </div>

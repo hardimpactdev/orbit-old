@@ -24,8 +24,7 @@ final readonly class InstallCaddy
             return StepResult::success();
         }
 
-        $logger->step('Installing Caddy...');
-
+        $logger->step('Installing Caddy via apt...');
         $result = Process::timeout(300)->run(
             'sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl && '
             .'curl -1sLf "https://dl.cloudsmith.io/public/caddy/stable/gpg.key" | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && '
@@ -38,6 +37,17 @@ final readonly class InstallCaddy
         }
 
         $logger->success('Caddy installed');
+
+        // Start and enable Caddy service
+        $logger->step('Starting Caddy service...');
+        $startResult = Process::run('sudo systemctl enable caddy && sudo systemctl start caddy');
+
+        if (! $startResult->successful()) {
+            $logger->warn('Failed to start Caddy service: '.$startResult->errorOutput());
+            $logger->warn('You may need to start it manually: sudo systemctl start caddy');
+        } else {
+            $logger->success('Caddy service started');
+        }
 
         return StepResult::success();
     }

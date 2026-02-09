@@ -17,12 +17,24 @@ final class WgEasyService
     private string $password;
 
     public function __construct(
-        private ConfigManager $configManager,
+        private ?ConfigManager $configManager = null,
+        ?string $host = null,
+        ?int $port = null,
+        ?string $password = null,
     ) {
-        $host = $this->configManager->get('wg_easy.host', '127.0.0.1');
-        $port = $this->configManager->get('wg_easy.web_ui_port', 51821);
-        $this->baseUrl = "http://{$host}:{$port}";
-        $this->password = $this->configManager->get('wg_easy.password', '');
+        if ($host !== null) {
+            $this->baseUrl = "http://{$host}:{$port}";
+            $this->password = $password ?? '';
+        } else {
+            $cm = $this->configManager ?? app(ConfigManager::class);
+            $this->baseUrl = 'http://'.$cm->get('wg_easy.host', '127.0.0.1').':'.$cm->get('wg_easy.web_ui_port', 51821);
+            $this->password = $cm->get('wg_easy.password', '');
+        }
+    }
+
+    public static function forGateway(string $host, int $port, string $password): self
+    {
+        return new self(host: $host, port: $port, password: $password);
     }
 
     /**
@@ -30,9 +42,14 @@ final class WgEasyService
      */
     public function isRunning(): bool
     {
-        $result = Process::run('docker ps --filter "name=orbit-wg-easy" --format "{{.Names}}"');
+        foreach (['wg-easy', 'orbit-wg-easy'] as $name) {
+            $result = Process::run("docker ps --filter \"name=^{$name}\$\" --format \"{{.Names}}\"");
+            if ($result->successful() && trim($result->output()) === $name) {
+                return true;
+            }
+        }
 
-        return $result->successful() && trim($result->output()) === 'orbit-wg-easy';
+        return false;
     }
 
     /**
@@ -162,7 +179,7 @@ final class WgEasyService
     /**
      * Get all clients.
      *
-     * @return array<int, array{id: string, name: string, ip: string}>
+     * @return array<int, array{id: string, name: string, ip: string, enabled: bool, latestHandshakeAt: string|null}>
      */
     public function getClients(): array
     {
@@ -183,6 +200,8 @@ final class WgEasyService
                         'id' => $client['id'] ?? $client['uuid'] ?? '',
                         'name' => $client['name'] ?? '',
                         'ip' => $client['address'] ?? '',
+                        'enabled' => $client['enabled'] ?? true,
+                        'latestHandshakeAt' => $client['latestHandshakeAt'] ?? null,
                     ];
                 }
 

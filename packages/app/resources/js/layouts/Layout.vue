@@ -21,7 +21,7 @@ import {
     RotateCw,
 } from 'lucide-vue-next';
 import { Toaster, toast } from 'vue-sonner';
-import EnvironmentSwitcher from '@/components/EnvironmentSwitcher.vue';
+import NodeSwitcher from '@/components/NodeSwitcher.vue';
 import { Button } from '@hardimpactdev/craft-ui';
 
 interface FlashMessages {
@@ -37,7 +37,7 @@ interface NavigationItem {
     enabled?: boolean;
 }
 
-interface Environment {
+interface Node {
     id: number;
     name: string;
     host: string;
@@ -59,13 +59,13 @@ const navigation = computed(
               }
             | undefined,
 );
-const environments = computed(() => page.props.environments as Environment[] | undefined);
-const currentEnvironment = computed(
-    () => page.props.currentEnvironment as Environment | null | undefined,
+const nodes = computed(() => page.props.nodes as Node[] | undefined);
+const currentNode = computed(
+    () => page.props.currentNode as Node | null | undefined,
 );
 
-// Hide sidebar during onboarding (no active environment)
-const showSidebar = computed(() => !!currentEnvironment.value);
+// Hide sidebar during onboarding (no active node)
+const showSidebar = computed(() => !!currentNode.value);
 
 const iconMap: Record<string, Component> = {
     LayoutDashboard,
@@ -161,7 +161,7 @@ router.on('finish', () => {
                     <PanelLeftClose v-else class="w-4 h-4" aria-hidden="true" />
                 </button>
                 <!-- Navigation buttons -->
-                <div v-if="page.props.multi_environment" class="flex items-center ml-3 no-drag">
+                <div v-if="page.props.multi_node" class="flex items-center ml-3 no-drag">
                     <button class="flex items-center justify-center w-7 h-7 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-500" disabled aria-label="Go back">
                         <ChevronLeft class="w-4 h-4" aria-hidden="true" />
                     </button>
@@ -204,11 +204,11 @@ router.on('finish', () => {
                 class="bg-zinc-950 flex flex-col border-r border-zinc-800/50 transition-all duration-200 overflow-hidden"
                 :class="sidebarCollapsed ? 'w-16' : 'w-56'"
             >
-                <!-- Environment Switcher -->
-                <div v-if="page.props.multi_environment" class="p-3 border-b border-zinc-800/50">
-                    <EnvironmentSwitcher
-                        :environments="environments || []"
-                        :current-environment="currentEnvironment || null"
+                <!-- Node Switcher -->
+                <div v-if="page.props.multi_node" class="p-3 border-b border-zinc-800/50">
+                    <NodeSwitcher
+                        :nodes="nodes || []"
+                        :current-node="currentNode || null"
                         :collapsed="sidebarCollapsed"
                     />
                 </div>

@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 use HardImpact\Orbit\Core\Data\ProvisionContext;
 use HardImpact\Orbit\Core\Jobs\CreateProjectJob;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Provision\GitHubService;
 
 beforeEach(function () {
-    $environment = Environment::factory()->local()->create([
+    $node = Node::factory()->create([
+        'host' => '127.0.0.1',
         'tld' => 'test',
     ]);
     $project = Project::create([
-        'environment_id' => $environment->id,
+        'node_id' => $node->id,
         'name' => 'test-project',
         'display_name' => 'Test Project',
         'slug' => 'test-project',
@@ -23,7 +24,7 @@ beforeEach(function () {
         'status' => 'queued',
     ]);
 
-    test()->environment = $environment;
+    test()->node = $node;
     test()->project = $project;
 });
 
@@ -102,7 +103,7 @@ describe('CreateProjectJob', function () {
             $reflection = new ReflectionClass($job);
             $method = $reflection->getMethod('buildContext');
 
-            $context = $method->invoke($job, '/tmp/test', test()->environment);
+            $context = $method->invoke($job, '/tmp/test', test()->node);
 
             expect($context)->toBeInstanceOf(ProvisionContext::class);
             expect($context->slug)->toBe('test-site');
@@ -129,13 +130,13 @@ describe('CreateProjectJob', function () {
             $reflection = new ReflectionClass($job);
             $method = $reflection->getMethod('buildContext');
 
-            $context = $method->invoke($job, '/tmp/cloned', test()->environment);
+            $context = $method->invoke($job, '/tmp/cloned', test()->node);
 
             expect($context->cloneUrl)->toBe('owner/repo');
             expect($context->template)->toBeNull(); // template is null when is_template=false
         });
 
-        it('uses environment TLD', function () {
+        it('uses node TLD', function () {
             $job = new CreateProjectJob(
                 projectId: test()->project->id,
                 options: ['name' => 'test-site'],
@@ -144,7 +145,7 @@ describe('CreateProjectJob', function () {
             $reflection = new ReflectionClass($job);
             $method = $reflection->getMethod('buildContext');
 
-            $context = $method->invoke($job, '/tmp/test', test()->environment);
+            $context = $method->invoke($job, '/tmp/test', test()->node);
 
             expect($context->tld)->toBe('test');
         });

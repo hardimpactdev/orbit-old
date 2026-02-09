@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ProjectCliService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -33,10 +33,10 @@ class ProjectDeleteTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
-            return Response::error('No local environment configured');
+        if (! $node) {
+            return Response::error('No local node configured');
         }
 
         $slug = $request->get('slug');
@@ -50,7 +50,7 @@ class ProjectDeleteTool extends Tool
             return Response::error('Deletion not confirmed. Set confirm=true to proceed');
         }
 
-        $result = $this->projectService->deleteProject($environment, $slug, force: true);
+        $result = $this->projectService->deleteProject($node, $slug, force: true);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to delete project');

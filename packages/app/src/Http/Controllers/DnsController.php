@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ServiceControlService;
 use HardImpact\Orbit\Core\Services\SshService;
@@ -20,11 +20,11 @@ class DnsController extends Controller
     ) {}
 
     /**
-     * Get DNS mappings for an environment.
+     * Get DNS mappings for a node.
      */
-    public function index(Environment $environment)
+    public function index(Node $node)
     {
-        $result = $this->config->getDnsMappings($environment);
+        $result = $this->config->getDnsMappings($node);
 
         if (! $result['success']) {
             return response()->json([
@@ -40,9 +40,9 @@ class DnsController extends Controller
     }
 
     /**
-     * Update DNS mappings for an environment.
+     * Update DNS mappings for a node.
      */
-    public function update(Request $request, Environment $environment)
+    public function update(Request $request, Node $node)
     {
         $validated = $request->validate([
             'mappings' => 'required|array',
@@ -51,10 +51,8 @@ class DnsController extends Controller
             'mappings.*.value' => 'required|string',
         ]);
 
-        // Validate IP addresses and DNS structure
         foreach ($validated['mappings'] as $index => $mapping) {
             if ($mapping['type'] === 'address') {
-                // address type requires both TLD and IP
                 if (empty($mapping['tld'])) {
                     return response()->json([
                         'success' => false,
@@ -69,7 +67,6 @@ class DnsController extends Controller
                     ], 422);
                 }
             } elseif ($mapping['type'] === 'server') {
-                // server type: value must be valid IP
                 if (! $this->isValidIp($mapping['value'])) {
                     return response()->json([
                         'success' => false,
@@ -77,9 +74,8 @@ class DnsController extends Controller
                     ], 422);
                 }
 
-                // If TLD is provided for server type, validate DNS is reachable
                 if (! empty($mapping['tld'])) {
-                    $dnsReachable = $this->validateDnsServer($environment, $mapping['value']);
+                    $dnsReachable = $this->validateDnsServer($node, $mapping['value']);
                     if (! $dnsReachable) {
                         return response()->json([
                             'success' => false,
@@ -90,8 +86,7 @@ class DnsController extends Controller
             }
         }
 
-        // Update DNS mappings via orbit-cli
-        $result = $this->config->setDnsMappings($environment, $validated['mappings']);
+        $result = $this->config->setDnsMappings($node, $validated['mappings']);
 
         if (! $result['success']) {
             return response()->json([
@@ -100,8 +95,7 @@ class DnsController extends Controller
             ]);
         }
 
-        // Restart DNS service to apply changes
-        $restartResult = $this->serviceControl->restart($environment, 'dns');
+        $restartResult = $this->serviceControl->restart($node, 'dns');
 
         return response()->json([
             'success' => true,
@@ -121,11 +115,10 @@ class DnsController extends Controller
     /**
      * Validate if a DNS server is reachable.
      */
-    protected function validateDnsServer(Environment $environment, string $ip): bool
+    protected function validateDnsServer(Node $node, string $ip): bool
     {
-        // Try to ping the DNS server
         $command = "timeout 2 ping -c 1 -W 1 {$ip} > /dev/null 2>&1 && echo 'reachable' || echo 'unreachable'";
-        $result = $this->ssh->execute($environment, $command, 5);
+        $result = $this->ssh->execute($node, $command, 5);
 
         if (! $result['success']) {
             return false;

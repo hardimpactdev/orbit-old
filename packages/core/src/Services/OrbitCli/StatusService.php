@@ -6,7 +6,7 @@ namespace HardImpact\Orbit\Core\Services\OrbitCli;
 
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetProjectsRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetStatusRequest;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
 use HardImpact\Orbit\Core\Services\SshService;
@@ -26,25 +26,25 @@ class StatusService
     /**
      * Get orbit status for an environment.
      */
-    public function status(Environment $environment): array
+    public function status(Node $node): array
     {
-        return $this->statusWithTimeout($environment);
+        return $this->statusWithTimeout($node);
     }
 
     /**
      * Get orbit status with configurable timeout.
      */
-    protected function statusWithTimeout(Environment $environment, int $timeout = 30): array
+    protected function statusWithTimeout(Node $node, int $timeout = 30): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, 'status --json');
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'status --json');
         }
 
-        $result = $this->connector->sendRequestWithTimeout($environment, new GetStatusRequest, $timeout);
+        $result = $this->connector->sendRequestWithTimeout($node, new GetStatusRequest, $timeout);
 
         // Cache CLI info from status response (so checkInstallation can use it)
         if ($result['success'] && isset($result['data']['cli_version'])) {
-            $environment->updateCliCache(
+            $node->updateCliCache(
                 $result['data']['cli_version'],
                 $result['data']['cli_path'] ?? null
             );
@@ -56,36 +56,36 @@ class StatusService
     /**
      * Get all projects for an environment.
      */
-    public function projects(Environment $environment): array
+    public function projects(Node $node): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, 'projects --json');
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'projects --json');
         }
 
-        return $this->connector->sendRequest($environment, new GetProjectsRequest);
+        return $this->connector->sendRequest($node, new GetProjectsRequest);
     }
 
     /**
      * Check if orbit CLI is installed on the environment.
      */
-    public function checkInstallation(Environment $environment): array
+    public function checkInstallation(Node $node): array
     {
         // For local servers, check the bundled CLI
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->checkLocalInstallation();
         }
 
         // For remote servers, use cached value if fresh
-        if ($environment->hasCliCache()) {
+        if ($node->hasCliCache()) {
             return [
                 'installed' => true,
-                'path' => $environment->cli_path,
-                'version' => $environment->cli_version,
+                'path' => $node->cli_path,
+                'version' => $node->cli_version,
             ];
         }
 
         // Fetch from API and cache
-        return $this->checkRemoteInstallationViaApi($environment);
+        return $this->checkRemoteInstallationViaApi($node);
     }
 
     /**
@@ -115,18 +115,18 @@ class StatusService
      * Check remote installation via HTTP API (fast, uses status endpoint).
      * Falls back to SSH if API fails.
      */
-    protected function checkRemoteInstallationViaApi(Environment $environment): array
+    protected function checkRemoteInstallationViaApi(Node $node): array
     {
         // Try to get CLI info from status endpoint (includes cli_version and cli_path)
         // Use a short timeout (5s) for this check to avoid blocking app startup
-        $status = $this->statusWithTimeout($environment, timeout: 5);
+        $status = $this->statusWithTimeout($node, timeout: 5);
 
         if ($status['success'] && isset($status['data']['cli_version'])) {
             $version = $status['data']['cli_version'];
             $path = $status['data']['cli_path'] ?? null;
 
             // Cache the result
-            $environment->updateCliCache($version, $path);
+            $node->updateCliCache($version, $path);
 
             return [
                 'installed' => true,
@@ -136,15 +136,15 @@ class StatusService
         }
 
         // Fallback to SSH-based check if API doesn't have CLI info
-        return $this->checkRemoteInstallationViaSsh($environment);
+        return $this->checkRemoteInstallationViaSsh($node);
     }
 
     /**
      * Check remote installation via SSH (slow, used as fallback).
      */
-    protected function checkRemoteInstallationViaSsh(Environment $environment): array
+    protected function checkRemoteInstallationViaSsh(Node $node): array
     {
-        $path = $this->command->findBinary($environment);
+        $path = $this->command->findBinary($node);
 
         if (! $path) {
             return [
@@ -154,11 +154,11 @@ class StatusService
             ];
         }
 
-        $versionResult = $this->ssh->execute($environment, "{$path} --version");
+        $versionResult = $this->ssh->execute($node, "{$path} --version");
         $version = trim((string) $versionResult['output']);
 
         // Cache the result
-        $environment->updateCliCache($version, $path);
+        $node->updateCliCache($version, $path);
 
         return [
             'installed' => true,

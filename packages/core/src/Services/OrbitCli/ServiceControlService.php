@@ -17,7 +17,7 @@ use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\StartServiceRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\StartServicesRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\StopServiceRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\StopServicesRequest;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\HorizonService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
@@ -39,197 +39,197 @@ class ServiceControlService
     /**
      * List all services and their status.
      */
-    public function list(Environment $environment): array
+    public function list(Node $node): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, 'service:list --json');
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'service:list --json');
         }
 
-        return $this->connector->sendRequest($environment, new ListServicesRequest);
+        return $this->connector->sendRequest($node, new ListServicesRequest);
     }
 
     /**
      * List available services that can be enabled.
      */
-    public function available(Environment $environment): array
+    public function available(Node $node): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, 'service:list --available --json');
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'service:list --available --json');
         }
 
-        return $this->connector->sendRequest($environment, new ListAvailableServicesRequest);
+        return $this->connector->sendRequest($node, new ListAvailableServicesRequest);
     }
 
     /**
      * Enable a service.
      */
-    public function enable(Environment $environment, string $service, array $options = []): array
+    public function enable(Node $node, string $service, array $options = []): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, "service:enable {$service} --json");
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, "service:enable {$service} --json");
         }
 
-        return $this->connector->sendRequest($environment, new EnableServiceRequest($service, $options));
+        return $this->connector->sendRequest($node, new EnableServiceRequest($service, $options));
     }
 
     /**
      * Disable a service.
      */
-    public function disable(Environment $environment, string $service): array
+    public function disable(Node $node, string $service): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, "service:disable {$service} --json");
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, "service:disable {$service} --json");
         }
 
-        return $this->connector->sendRequest($environment, new DisableServiceRequest($service));
+        return $this->connector->sendRequest($node, new DisableServiceRequest($service));
     }
 
     /**
      * Update service configuration.
      */
-    public function configure(Environment $environment, string $service, array $config): array
+    public function configure(Node $node, string $service, array $config): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $configJson = json_encode($config);
             $escapedConfig = escapeshellarg($configJson);
 
-            return $this->command->executeCommand($environment, "service:config {$service} --config={$escapedConfig} --json");
+            return $this->command->executeCommand($node, "service:config {$service} --config={$escapedConfig} --json");
         }
 
-        return $this->connector->sendRequest($environment, new ConfigureServiceRequest($service, $config));
+        return $this->connector->sendRequest($node, new ConfigureServiceRequest($service, $config));
     }
 
     /**
      * Get detailed info for a service.
      */
-    public function info(Environment $environment, string $service): array
+    public function info(Node $node, string $service): array
     {
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, "service:info {$service} --json");
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, "service:info {$service} --json");
         }
 
-        return $this->connector->sendRequest($environment, new GetServiceInfoRequest($service));
+        return $this->connector->sendRequest($node, new GetServiceInfoRequest($service));
     }
 
     /**
      * Start orbit services.
      */
-    public function start(Environment $environment, ?string $site = null): array
+    public function start(Node $node, ?string $site = null): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $command = $site ? "start {$site} --json" : 'start --json';
 
-            return $this->command->executeCommand($environment, $command);
+            return $this->command->executeCommand($node, $command);
         }
 
         // Note: Project-specific start not supported via API yet
-        return $this->connector->sendRequest($environment, new StartServicesRequest);
+        return $this->connector->sendRequest($node, new StartServicesRequest);
     }
 
     /**
      * Stop orbit services.
      */
-    public function stop(Environment $environment, ?string $site = null): array
+    public function stop(Node $node, ?string $site = null): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $command = $site ? "stop {$site} --json" : 'stop --json';
 
-            return $this->command->executeCommand($environment, $command);
+            return $this->command->executeCommand($node, $command);
         }
 
-        return $this->connector->sendRequest($environment, new StopServicesRequest);
+        return $this->connector->sendRequest($node, new StopServicesRequest);
     }
 
     /**
      * Restart orbit services.
      */
-    public function restart(Environment $environment, ?string $site = null): array
+    public function restart(Node $node, ?string $site = null): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $command = $site ? "restart {$site} --json" : 'restart --json';
 
-            return $this->command->executeCommand($environment, $command);
+            return $this->command->executeCommand($node, $command);
         }
 
-        return $this->connector->sendRequest($environment, new RestartServicesRequest);
+        return $this->connector->sendRequest($node, new RestartServicesRequest);
     }
 
     /**
      * Start a single service via Docker.
      */
-    public function startService(Environment $environment, string $service): array
+    public function startService(Node $node, string $service): array
     {
         $container = $this->getContainerName($service);
 
-        if ($environment->is_local) {
-            return $this->dockerServiceAction($environment, $container, 'start');
+        if ($node->isLocal()) {
+            return $this->dockerServiceAction($node, $container, 'start');
         }
 
-        return $this->connector->sendRequest($environment, new StartServiceRequest($container));
+        return $this->connector->sendRequest($node, new StartServiceRequest($container));
     }
 
     /**
      * Stop a single service via Docker.
      */
-    public function stopService(Environment $environment, string $service): array
+    public function stopService(Node $node, string $service): array
     {
         $container = $this->getContainerName($service);
 
-        if ($environment->is_local) {
-            return $this->dockerServiceAction($environment, $container, 'stop');
+        if ($node->isLocal()) {
+            return $this->dockerServiceAction($node, $container, 'stop');
         }
 
-        return $this->connector->sendRequest($environment, new StopServiceRequest($container));
+        return $this->connector->sendRequest($node, new StopServiceRequest($container));
     }
 
     /**
      * Restart a single service via Docker.
      */
-    public function restartService(Environment $environment, string $service): array
+    public function restartService(Node $node, string $service): array
     {
         $container = $this->getContainerName($service);
 
-        if ($environment->is_local) {
-            return $this->dockerServiceAction($environment, $container, 'restart');
+        if ($node->isLocal()) {
+            return $this->dockerServiceAction($node, $container, 'restart');
         }
 
-        return $this->connector->sendRequest($environment, new RestartServiceRequest($container));
+        return $this->connector->sendRequest($node, new RestartServiceRequest($container));
     }
 
     /**
      * Start a host service (Caddy, PHP-FPM, Horizon).
      */
-    public function startHostService(Environment $environment, string $service): array
+    public function startHostService(Node $node, string $service): array
     {
-        if ($environment->is_local) {
-            return $this->hostServiceAction($environment, $service, 'start');
+        if ($node->isLocal()) {
+            return $this->hostServiceAction($node, $service, 'start');
         }
 
-        return $this->command->executeCommand($environment, "host:start {$service} --json");
+        return $this->command->executeCommand($node, "host:start {$service} --json");
     }
 
     /**
      * Stop a host service (Caddy, PHP-FPM, Horizon).
      */
-    public function stopHostService(Environment $environment, string $service): array
+    public function stopHostService(Node $node, string $service): array
     {
-        if ($environment->is_local) {
-            return $this->hostServiceAction($environment, $service, 'stop');
+        if ($node->isLocal()) {
+            return $this->hostServiceAction($node, $service, 'stop');
         }
 
-        return $this->command->executeCommand($environment, "host:stop {$service} --json");
+        return $this->command->executeCommand($node, "host:stop {$service} --json");
     }
 
     /**
      * Restart a host service (Caddy, PHP-FPM, Horizon).
      */
-    public function restartHostService(Environment $environment, string $service): array
+    public function restartHostService(Node $node, string $service): array
     {
-        if ($environment->is_local) {
-            return $this->hostServiceAction($environment, $service, 'restart');
+        if ($node->isLocal()) {
+            return $this->hostServiceAction($node, $service, 'restart');
         }
 
-        return $this->command->executeCommand($environment, "host:restart {$service} --json");
+        return $this->command->executeCommand($node, "host:restart {$service} --json");
     }
 
     /**
@@ -237,11 +237,11 @@ class ServiceControlService
      *
      * @param  string|null  $since  ISO 8601 timestamp to fetch logs since (for "clear" functionality)
      */
-    public function serviceLogs(Environment $environment, string $service, int $lines = 200, ?string $since = null): array
+    public function serviceLogs(Node $node, string $service, int $lines = 200, ?string $since = null): array
     {
         $container = $this->getContainerName($service);
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $cmd = 'docker logs --timestamps';
 
             if ($since) {
@@ -262,7 +262,7 @@ class ServiceControlService
             ];
         }
 
-        return $this->connector->sendRequest($environment, new GetServiceLogsRequest($container, $lines));
+        return $this->connector->sendRequest($node, new GetServiceLogsRequest($container, $lines));
     }
 
     /**
@@ -270,14 +270,14 @@ class ServiceControlService
      *
      * @param  string|null  $since  ISO 8601 timestamp to fetch logs since (for "clear" functionality)
      */
-    public function hostServiceLogs(Environment $environment, string $service, int $lines = 200, ?string $since = null): array
+    public function hostServiceLogs(Node $node, string $service, int $lines = 200, ?string $since = null): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->getLocalHostServiceLogs($service, $lines, $since);
         }
 
         // For remote environments, delegate to CLI
-        return $this->command->executeCommand($environment, "host:logs {$service} --lines={$lines} --json");
+        return $this->command->executeCommand($node, "host:logs {$service} --lines={$lines} --json");
     }
 
     /**
@@ -365,25 +365,25 @@ class ServiceControlService
      * This is needed when TLD changes on a remote server.
      * Also restarts orbit to regenerate Caddy config with new domains.
      */
-    public function rebuildDns(Environment $environment, string $tld): array
+    public function rebuildDns(Node $node, string $tld): array
     {
         // For local servers, just restart orbit (handles DNS automatically)
-        if ($environment->is_local) {
-            return $this->restartWithoutJson($environment);
+        if ($node->isLocal()) {
+            return $this->restartWithoutJson($node);
         }
 
         // For remote servers, rebuild the DNS container with correct TLD and HOST_IP
-        $hostIp = $environment->host;
+        $hostIp = $node->host;
         $escapedTld = escapeshellarg($tld);
         $escapedHostIp = escapeshellarg($hostIp);
 
         // Stop and remove existing DNS container
-        $this->ssh->execute($environment, 'sg docker -c "docker stop orbit-dns 2>/dev/null || true"');
-        $this->ssh->execute($environment, 'sg docker -c "docker rm orbit-dns 2>/dev/null || true"');
+        $this->ssh->execute($node, 'sg docker -c "docker stop orbit-dns 2>/dev/null || true"');
+        $this->ssh->execute($node, 'sg docker -c "docker rm orbit-dns 2>/dev/null || true"');
 
         // Rebuild DNS image with correct TLD and HOST_IP
         $buildCommand = "sg docker -c 'cd ~/.config/orbit/dns && TLD={$escapedTld} HOST_IP={$escapedHostIp} docker compose build --no-cache'";
-        $buildResult = $this->ssh->execute($environment, $buildCommand, 120); // 2 min timeout for build
+        $buildResult = $this->ssh->execute($node, $buildCommand, 120); // 2 min timeout for build
 
         if (! $buildResult['success']) {
             return [
@@ -395,7 +395,7 @@ class ServiceControlService
         // Restart orbit to regenerate all configs (Caddy, etc.) with new TLD
         // This also starts the DNS container with the rebuilt image
         // Use restartWithoutJson to avoid JSON parsing errors from orbit output
-        $restartResult = $this->restartWithoutJson($environment);
+        $restartResult = $this->restartWithoutJson($node);
 
         if (! $restartResult['success']) {
             return [
@@ -414,15 +414,15 @@ class ServiceControlService
      * Restart orbit without expecting JSON output.
      * Used by rebuildDns where we just need success/failure, not parsed data.
      */
-    protected function restartWithoutJson(Environment $environment): array
+    protected function restartWithoutJson(Node $node): array
     {
-        return $this->command->executeRawCommand($environment, 'restart');
+        return $this->command->executeRawCommand($node, 'restart');
     }
 
     /**
      * Execute a host service action.
      */
-    protected function hostServiceAction(Environment $environment, string $service, string $action): array
+    protected function hostServiceAction(Node $node, string $service, string $action): array
     {
         // Use HorizonService for horizon actions
         if ($service === 'horizon' || $service === 'horizon-dev') {
@@ -477,9 +477,9 @@ class ServiceControlService
     /**
      * Execute a Docker action on a container.
      */
-    protected function dockerServiceAction(Environment $environment, string $container, string $action): array
+    protected function dockerServiceAction(Node $node, string $container, string $action): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $result = Process::timeout(60)
                 ->run("docker {$action} {$container}");
 
@@ -493,7 +493,7 @@ class ServiceControlService
             return ['success' => true];
         }
 
-        $result = $this->ssh->execute($environment, "sg docker -c 'docker {$action} {$container}'");
+        $result = $this->ssh->execute($node, "sg docker -c 'docker {$action} {$container}'");
 
         if (! $result['success']) {
             return [

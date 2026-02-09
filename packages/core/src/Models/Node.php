@@ -33,6 +33,9 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $provisioning_error
  * @property int|null $provisioning_step
  * @property int|null $provisioning_total_steps
+ * @property string|null $vpn_ip
+ * @property int|null $gateway_id
+ * @property \Carbon\Carbon|null $vpn_registered_at
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read bool $is_local
@@ -65,6 +68,9 @@ class Node extends Model
         'provisioning_error',
         'provisioning_step',
         'provisioning_total_steps',
+        'vpn_ip',
+        'gateway_id',
+        'vpn_registered_at',
     ];
 
     protected $casts = [
@@ -77,6 +83,7 @@ class Node extends Model
         'last_connected_at' => 'datetime',
         'cli_checked_at' => 'datetime',
         'provisioning_log' => 'array',
+        'vpn_registered_at' => 'datetime',
     ];
 
     protected $hidden = [
@@ -181,5 +188,10 @@ class Node extends Model
             'scheme' => $scheme,
             'name' => $options[$scheme] ?? 'Cursor',
         ];
+    }
+
+    public function hasVpn(): bool
+    {
+        return $this->vpn_ip !== null;
     }
 }

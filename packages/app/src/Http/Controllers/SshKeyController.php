@@ -79,6 +79,6 @@ class SshKeyController extends Controller
 
     public function getAvailableKeys()
     {
-        return response()->json(Setting::getAvailableSshKeys());
+        return response()->json(SshKey::getAvailableLocalKeys());
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ServiceControlService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -35,10 +35,10 @@ class LogsTool extends Tool
 
     public function handle(Request $request): Response|ResponseFactory
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
-            return Response::error('No local environment configured');
+        if (! $node) {
+            return Response::error('No local node configured');
         }
 
         $service = $request->get('service');
@@ -53,7 +53,7 @@ class LogsTool extends Tool
             return Response::error('Lines must be between 1 and 1000');
         }
 
-        $result = $this->serviceControl->serviceLogs($environment, $service, $lines);
+        $result = $this->serviceControl->serviceLogs($node, $service, $lines);
 
         if (! $result['success']) {
             return Response::error($result['error'] ?? 'Failed to retrieve logs');

@@ -5,16 +5,12 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Services\GatewayManager;
+use App\Services\TemplateRegistry;
 use LaravelZero\Framework\Commands\Command;
 
+use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
 
-/**
- * Set up Orbit - interactive wizard when run without arguments.
- *
- * When run as `orbit setup` (no args): Shows interactive wizard
- * When run with args: Delegates to legacy setup or install command
- */
 final class SetupCommand extends Command
 {
     protected $signature = 'setup
@@ -25,28 +21,20 @@ final class SetupCommand extends Command
 
     protected $description = 'Set up Orbit (interactive wizard or legacy mode with options)';
 
-    public function handle(GatewayManager $gatewayManager): int
+    public function handle(GatewayManager $gatewayManager, TemplateRegistry $registry): int
     {
-        // Check if any non-default options were provided
         if ($this->hasCustomOptions()) {
-            // Run legacy setup mode
             return $this->runLegacySetup();
         }
 
-        // Run interactive wizard
-        return $this->runWizard($gatewayManager);
+        return $this->runWizard($gatewayManager, $registry);
     }
 
-    /**
-     * Check if user provided custom options.
-     */
     private function hasCustomOptions(): bool
     {
-        // Check if any option was explicitly set to a non-default value
         $tld = $this->option('tld');
         $phpVersions = $this->option('php-versions');
 
-        // If tld is not the default 'test', or php-versions is not the default
         if ($tld !== 'test') {
             return true;
         }
@@ -66,10 +54,7 @@ final class SetupCommand extends Command
         return false;
     }
 
-    /**
-     * Run the interactive setup wizard.
-     */
-    private function runWizard(GatewayManager $gatewayManager): int
+    private function runWizard(GatewayManager $gatewayManager, TemplateRegistry $registry): int
     {
         $this->info('🚀 Orbit Setup');
         $this->newLine();
@@ -77,34 +62,150 @@ final class SetupCommand extends Command
         $setupType = select(
             label: 'Where would you like to set up Orbit?',
             options: [
-                'local' => '🖥️  This machine (local development)',
-                'remote' => '🌐 Remote gateway server',
+                'local' => '🖥️  This machine',
+                'remote' => '🌐 Remote machine',
             ],
             default: 'local',
         );
 
-        if ($setupType === 'local') {
-            $this->newLine();
+        $this->newLine();
 
-            return $this->call('install');
+        if ($setupType === 'remote') {
+            return $this->setupRemote($gatewayManager, $registry);
         }
 
-        return $this->setupRemote($gatewayManager);
+        return $this->setupLocal($registry);
     }
 
-    /**
-     * Set up Orbit on a remote gateway.
-     */
-    private function setupRemote(GatewayManager $gatewayManager): int
+    private function setupLocal(TemplateRegistry $registry): int
+    {
+        $available = $registry->forPlatform(PHP_OS_FAMILY);
+        $choices = [];
+        foreach ($available as $t) {
+            $choices[$t->name()] = "{$t->label()} - {$t->description()}";
+        }
+
+        $templateName = select(
+            label: 'Select an installation template',
+            options: $choices,
+            default: 'php-dev',
+        );
+
+        $installArgs = ['--template' => $templateName];
+
+        if ($templateName === 'php-production') {
+            $services = multiselect(
+                label: 'Which Docker services do you need?',
+                options: [
+                    'postgres' => 'PostgreSQL',
+                    'redis' => 'Redis',
+                    'mailpit' => 'Mailpit',
+                    'reverb' => 'Reverb',
+                ],
+                hint: 'Leave empty for no Docker services',
+            );
+
+            if ($services !== []) {
+                $installArgs['--services'] = implode(',', $services);
+            }
+        }
+
+        if (in_array($templateName, ['php-dev', 'php-production'], true)) {
+            $nodePackages = multiselect(
+                label: 'Which Node package managers would you like to install?',
+                options: [
+                    'bun' => 'Bun',
+                    'npm' => 'NPM (includes Node)',
+                    'yarn' => 'Yarn (requires NPM)',
+                    'pnpm' => 'pnpm (requires NPM)',
+                ],
+                hint: 'Leave empty for none',
+            );
+
+            if ($nodePackages !== []) {
+                $installArgs['--node-packages'] = implode(',', $nodePackages);
+            }
+        }
+
+        $this->newLine();
+
+        return $this->call('install', $installArgs);
+    }
+
+    private function setupRemote(GatewayManager $gatewayManager, TemplateRegistry $registry): int
+    {
+        $available = $registry->forPlatform('Linux');
+        $choices = [];
+        foreach ($available as $t) {
+            $choices[$t->name()] = "{$t->label()} - {$t->description()}";
+        }
+
+        $templateName = select(
+            label: 'What do you want to install on the remote machine?',
+            options: $choices,
+            default: 'php-dev',
+        );
+
+        if ($templateName === 'gateway') {
+            return $this->setupGateway($gatewayManager);
+        }
+
+        $remoteArgs = ['--template' => $templateName];
+
+        if ($templateName === 'client') {
+            $gatewayId = $this->selectGatewayForClient($gatewayManager);
+            if ($gatewayId !== null) {
+                $remoteArgs['--gateway'] = $gatewayId;
+            }
+        }
+
+        if ($templateName === 'php-production') {
+            $services = multiselect(
+                label: 'Which Docker services do you need?',
+                options: [
+                    'postgres' => 'PostgreSQL',
+                    'redis' => 'Redis',
+                    'mailpit' => 'Mailpit',
+                    'reverb' => 'Reverb',
+                ],
+                hint: 'Leave empty for no Docker services',
+            );
+
+            if ($services !== []) {
+                $remoteArgs['--services'] = implode(',', $services);
+            }
+        }
+
+        if (in_array($templateName, ['php-dev', 'php-production'], true)) {
+            $nodePackages = multiselect(
+                label: 'Which Node package managers would you like to install?',
+                options: [
+                    'bun' => 'Bun',
+                    'npm' => 'NPM (includes Node)',
+                    'yarn' => 'Yarn (requires NPM)',
+                    'pnpm' => 'pnpm (requires NPM)',
+                ],
+                hint: 'Leave empty for none',
+            );
+
+            if ($nodePackages !== []) {
+                $remoteArgs['--node-packages'] = implode(',', $nodePackages);
+            }
+        }
+
+        $this->newLine();
+
+        return $this->call('setup:remote', $remoteArgs);
+    }
+
+    private function setupGateway(GatewayManager $gatewayManager): int
     {
         $this->newLine();
 
-        // If no gateways exist, go straight to setting up a new one
         if (! $gatewayManager->hasAny()) {
             return $this->call('setup:gateway');
         }
 
-        // Show available gateways
         $options = $gatewayManager->getOptions();
         $options['new'] = '➕ Set up a new gateway server';
 
@@ -131,7 +232,6 @@ final class SetupCommand extends Command
         $this->line("  IP: {$gateway['ip']}");
         $this->newLine();
 
-        // Ask what to do with this gateway
         $action = select(
             label: 'What would you like to do?',
             options: [
@@ -149,7 +249,6 @@ final class SetupCommand extends Command
             ]);
         }
 
-        // Show connection instructions
         $this->newLine();
         $this->info('To connect to this gateway:');
         $this->line("  <fg=cyan>ssh orbit@{$gateway['ip']}</>");
@@ -162,15 +261,39 @@ final class SetupCommand extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Run legacy setup mode (delegates to install command).
-     */
+    private function selectGatewayForClient(GatewayManager $gatewayManager): ?int
+    {
+        if (! $gatewayManager->hasAny()) {
+            $this->newLine();
+            $this->warn('⚠️  No gateways configured. Client node will not have VPN access.');
+            $this->line('   You can set up a gateway later with: <fg=cyan>orbit setup</> → Remote → Gateway');
+            $this->newLine();
+
+            return null;
+        }
+
+        $this->newLine();
+
+        $options = $gatewayManager->getOptions();
+        $options['skip'] = 'Skip VPN registration';
+
+        $gatewayId = select(
+            label: 'Which gateway should this client connect to?',
+            options: $options,
+        );
+
+        if ($gatewayId === 'skip') {
+            return null;
+        }
+
+        return (int) $gatewayId;
+    }
+
     private function runLegacySetup(): int
     {
         $this->warn('⚠️  Using legacy setup mode. Consider using `orbit install` instead.');
         $this->newLine();
 
-        // Forward to install command with the provided options
         $options = [];
 
         if ($this->option('tld') !== 'test') {

@@ -7,10 +7,10 @@ parameters:
 			path: app/Providers/NativeAppServiceProvider.php
 
 		-
-			message: '#^Return type \(array\<string, mixed\>\) of method Database\\Factories\\EnvironmentFactory\:\:definition\(\) should be compatible with return type \(array\<model property of HardImpact\\Orbit\\Core\\Models\\Environment, mixed\>\) of method Illuminate\\Database\\Eloquent\\Factories\\Factory\<HardImpact\\Orbit\\Core\\Models\\Environment\>\:\:definition\(\)$#'
+			message: '#^Return type \(array\<string, mixed\>\) of method Database\\Factories\\NodeFactory\:\:definition\(\) should be compatible with return type \(array\<model property of HardImpact\\Orbit\\Core\\Models\\Node, mixed\>\) of method Illuminate\\Database\\Eloquent\\Factories\\Factory\<HardImpact\\Orbit\\Core\\Models\\Node\>\:\:definition\(\)$#'
 			identifier: method.childReturnType
 			count: 1
-			path: database/factories/EnvironmentFactory.php
+			path: database/factories/NodeFactory.php
 
 		-
 			message: '#^Return type \(array\<string, mixed\>\) of method Database\\Factories\\UserFactory\:\:definition\(\) should be compatible with return type \(array\<model property of App\\Models\\User, mixed\>\) of method Illuminate\\Database\\Eloquent\\Factories\\Factory\<App\\Models\\User\>\:\:definition\(\)$#'

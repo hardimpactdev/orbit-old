@@ -6,7 +6,7 @@ namespace HardImpact\Orbit\App\Http\Controllers;
 
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\CreateProjectRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\DeleteProjectRequest;
-use HardImpact\Orbit\Core\Services\EnvironmentManager;
+use HardImpact\Orbit\Core\Services\NodeManager;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
 use Illuminate\Http\Request;
@@ -15,27 +15,27 @@ class ProjectController extends Controller
 {
     public function __construct(
         protected ConnectorService $connector,
-        protected EnvironmentManager $environments,
+        protected NodeManager $nodes,
         protected ConfigurationService $config,
     ) {}
 
     /**
-     * Create a new project in the active environment.
+     * Create a new project in the active node.
      * Always uses the Saloon API connector for consistency.
      */
     public function store(Request $request)
     {
-        $environment = $this->environments->current();
+        $node = $this->nodes->current();
 
-        if (! $environment) {
+        if (! $node) {
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'No active environment',
+                    'error' => 'No active node',
                 ], 400);
             }
 
-            return redirect()->back()->withErrors(['error' => 'No active environment']);
+            return redirect()->back()->withErrors(['error' => 'No active node']);
         }
 
         $validated = $request->validate([
@@ -53,7 +53,7 @@ class ProjectController extends Controller
         ]);
 
         $result = $this->connector->sendRequest(
-            $environment,
+            $node,
             new CreateProjectRequest($validated)
         );
 
@@ -68,15 +68,13 @@ class ProjectController extends Controller
             return redirect()->back()->withErrors(['error' => $result['error'] ?? 'Failed to create project']);
         }
 
-        // API requests get JSON response
         if ($request->wantsJson()) {
             return response()->json($result);
         }
 
-        // Web requests get redirect with provisioning slug for WebSocket tracking
         $slug = $result['slug'] ?? $result['data']['slug'] ?? null;
 
-        return redirect()->route('environments.projects', ['environment' => $environment->id])
+        return redirect()->route('nodes.projects', ['node' => $node->id])
             ->with([
                 'provisioning' => $slug,
                 'success' => "Project '{$validated['name']}' is being created...",
@@ -84,24 +82,24 @@ class ProjectController extends Controller
     }
 
     /**
-     * Delete a project from the active environment.
+     * Delete a project from the active node.
      * Always uses the Saloon API connector for consistency.
      */
     public function destroy(Request $request, string $slug)
     {
-        $environment = $this->environments->current();
+        $node = $this->nodes->current();
 
-        if (! $environment) {
+        if (! $node) {
             return response()->json([
                 'success' => false,
-                'error' => 'No active environment',
+                'error' => 'No active node',
             ], 400);
         }
 
         $keepDb = $request->boolean('keep_db', false);
 
         $result = $this->connector->sendRequest(
-            $environment,
+            $node,
             new DeleteProjectRequest($slug, $keepDb)
         );
 
@@ -116,16 +114,16 @@ class ProjectController extends Controller
     }
 
     /**
-     * Set the PHP version for a project in the active environment.
+     * Set the PHP version for a project in the active node.
      */
     public function setPhpVersion(Request $request, string $project)
     {
-        $environment = $this->environments->current();
+        $node = $this->nodes->current();
 
-        if (! $environment) {
+        if (! $node) {
             return response()->json([
                 'success' => false,
-                'error' => 'No active environment',
+                'error' => 'No active node',
             ], 400);
         }
 
@@ -133,7 +131,7 @@ class ProjectController extends Controller
             'version' => 'required|string',
         ]);
 
-        $result = $this->config->php($environment, $project, $validated['version']);
+        $result = $this->config->php($node, $project, $validated['version']);
 
         if (! $result['success']) {
             return response()->json([
@@ -146,20 +144,20 @@ class ProjectController extends Controller
     }
 
     /**
-     * Reset the PHP version for a project to the environment default.
+     * Reset the PHP version for a project to the node default.
      */
     public function resetPhpVersion(string $project)
     {
-        $environment = $this->environments->current();
+        $node = $this->nodes->current();
 
-        if (! $environment) {
+        if (! $node) {
             return response()->json([
                 'success' => false,
-                'error' => 'No active environment',
+                'error' => 'No active node',
             ], 400);
         }
 
-        $result = $this->config->phpReset($environment, $project);
+        $result = $this->config->phpReset($node, $project);
 
         if (! $result['success']) {
             return response()->json([

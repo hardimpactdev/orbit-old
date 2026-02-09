@@ -8,10 +8,10 @@ A Laravel package providing shared functionality for the Orbit ecosystem - manag
 
 Orbit Core is the shared foundation for both [orbit-desktop](https://github.com/hardimpactdev/orbit) (NativePHP desktop app) and [orbit-web](https://github.com/hardimpactdev/orbit-web) (web dashboard). It contains:
 
-- **Models**: Environment, Project, Deployment, Setting, SshKey, TemplateFavorite, UserPreference
+- **Models**: Node, Project, Deployment, Setting, SshKey, TemplateFavorite, UserPreference
 - **Services**: OrbitCli services (ProjectService, ConfigurationService, etc.), DoctorService, SshService
 - **Controllers**: All HTTP controllers for the Orbit UI
-- **Middleware**: HandleInertiaRequests, ImplicitEnvironment, DesktopOnly
+- **Middleware**: HandleInertiaRequests, ImplicitNode, DesktopOnly
 - **HTTP Integrations**: Saloon connectors for Orbit API communication
 - **Vue Frontend**: Pages, components, layouts, stores, and composables
 - **Routes**: Web and API routes with mode-aware registration
@@ -56,13 +56,13 @@ public function boot(): void
 In your `.env`:
 
 ```env
-# Web mode (single environment, flat routes)
+# Web mode (single node, flat routes)
 ORBIT_MODE=web
-MULTI_ENVIRONMENT_MANAGEMENT=false
+MULTI_NODE_MANAGEMENT=false
 
-# Desktop mode (multi-environment, prefixed routes)
+# Desktop mode (multi-node, prefixed routes)
 ORBIT_MODE=desktop
-MULTI_ENVIRONMENT_MANAGEMENT=true
+MULTI_NODE_MANAGEMENT=true
 ```
 
 ### Frontend Assets
@@ -105,13 +105,13 @@ HardImpact\Orbit\
 
 ### Mode-Aware Behavior
 
-The package supports two modes controlled by `config("orbit.multi_environment")`:
+The package supports two modes controlled by `config("orbit.multi_node")`:
 
 | Aspect | Web Mode | Desktop Mode |
 |--------|----------|--------------|
-| Routes | Flat (`/projects`) | Prefixed (`/environments/{id}/projects`) |
-| Environment | Single, implicit | Multiple, explicit |
-| Environment UI | Hidden | Visible |
+| Routes | Flat (`/projects`) | Prefixed (`/nodes/{id}/projects`) |
+| Node | Single, implicit | Multiple, explicit |
+| Node UI | Hidden | Visible |
 
 ### Service Pattern
 

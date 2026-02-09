@@ -21,14 +21,14 @@ src/
   Http/
     Controllers/             # All route handlers
       DashboardController.php
-      EnvironmentController.php
+      NodeController.php
       ProjectController.php
       ProvisioningController.php
       SettingsController.php
       SshKeyController.php
     Middleware/
       HandleInertiaRequests.php
-      ImplicitEnvironment.php
+      ImplicitNode.php
   OrbitAppServiceProvider.php      # Package service provider
 resources/
   views/
@@ -50,7 +50,7 @@ public/
 routes/
   web.php                    # Web routes
   api.php                    # API routes
-  environment.php            # Environment-scoped routes
+  node.php                   # Node-scoped routes
   mcp.php                    # MCP AI tool routes
 ```
 
@@ -59,14 +59,14 @@ routes/
 All classes use `HardImpact\Orbit\App` namespace:
 
 ```php
-use HardImpact\Orbit\App\Http\Controllers\EnvironmentController;
+use HardImpact\Orbit\App\Http\Controllers\NodeController;
 use HardImpact\Orbit\App\Http\Middleware\HandleInertiaRequests;
 ```
 
 Controllers import models/services from orbit-core:
 
 ```php
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
 ```
 
@@ -115,14 +115,14 @@ composer format         # Format with Pint
 
 ## Controller Naming Conventions
 
-Two patterns exist for environment-related controllers:
+Two patterns exist for node-related controllers:
 
 | Pattern | Example | When to Use |
 |---------|---------|-------------|
-| `EnvironmentXxxController` | `EnvironmentProjectController` | Explicit environment from route parameter |
-| `XxxController` | `ProjectController` | Uses "active environment" from Saloon connector |
+| `NodeXxxController` | `NodeProjectController` | Explicit node from route parameter |
+| `XxxController` | `ProjectController` | Uses "active node" from Saloon connector |
 
-When creating new controllers that operate on a specific environment passed as a route parameter, prefix with `Environment` to avoid conflicts with controllers using the implicit active environment pattern.
+When creating new controllers that operate on a specific node passed as a route parameter, prefix with `Node` to avoid conflicts with controllers using the implicit active node pattern.
 
 ## Horizon-Style Architecture
 
@@ -130,7 +130,7 @@ orbit-ui follows the Laravel Horizon pattern - a self-contained package that ser
 
 **What orbit-ui provides automatically:**
 - Blade view (`orbit::app`) - set as Inertia root view
-- Middleware (`HandleInertiaRequests`, `implicit.environment`) - auto-registered
+- Middleware (`HandleInertiaRequests`, `implicit.node`) - auto-registered
 - Vite configuration - hot file at `public/hot`, build at `vendor/orbit/build`
 - MCP routes for AI tool integration
 
@@ -146,14 +146,14 @@ orbit-ui follows the Laravel Horizon pattern - a self-contained package that ser
 When implementing settings or multi-section pages with vertical tabs:
 - Remove border dividers between tabs and content (let spacing create separation)
 - Don't duplicate category titles in content when tabs already show active state
-- Example: Environment Settings page (`/resources/js/pages/environments/Settings.vue`)
+- Example: Node Settings page (`/resources/js/pages/nodes/Settings.vue`)
 
 ## Mode Configuration
 
-The package supports two modes via `config("orbit.multi_environment")`:
+The package supports two modes via `config("orbit.multi_node")`:
 
-- **Web mode** (`false`): Single implicit environment, flat routes
-- **Desktop mode** (`true`): Multiple environments, prefixed routes
+- **Web mode** (`false`): Single implicit node, flat routes
+- **Desktop mode** (`true`): Multiple nodes, prefixed routes
 
 ## WebSocket (Echo/Reverb)
 
@@ -165,7 +165,7 @@ managed by the composables and automatically cleaned up when components unmount.
 Key files:
 - `resources/js/app.ts` configures Echo from the `reverb` page prop
 - `resources/js/composables/useSiteProvisioning.ts` subscribes via `useEchoPublic`
-- `resources/js/pages/environments/Services.vue` listens for service status updates
+- `resources/js/pages/nodes/Services.vue` listens for service status updates
 
 ## After Making Changes
 

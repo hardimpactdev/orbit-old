@@ -25,7 +25,7 @@ interface ServiceInfo {
 const props = defineProps<{
     show: boolean;
     serviceName: string | null;
-    environmentId: number;
+    nodeId: number;
     getApiUrl: (path: string) => string;
     csrfToken: string;
 }>();
@@ -140,7 +140,7 @@ onMounted(() => {
 
             <!-- DNS Service: Show DNS Mappings Management -->
             <div v-else-if="isDnsService">
-                <DnsSettings :environment-id="environmentId" />
+                <DnsSettings :node-id="nodeId" />
             </div>
 
             <form v-else @submit.prevent="saveConfig" class="space-y-6">

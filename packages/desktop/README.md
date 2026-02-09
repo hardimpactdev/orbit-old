@@ -10,7 +10,7 @@ Orbit Desktop provides a native macOS app to manage both local and remote Orbit 
 
 ### Features
 
-- **Multi-Environment Management**: Manage local and remote Orbit installations from one app
+- **Multi-Node Management**: Manage local and remote Orbit installations from one app
 - **Project Management**: Create, configure, and monitor Laravel projects
 - **Service Control**: Start/stop PHP-FPM, Caddy, Redis, PostgreSQL, etc.
 - **Real-time Status**: WebSocket-based updates via Laravel Reverb
@@ -46,7 +46,7 @@ php artisan native:serve
 
 ```env
 ORBIT_MODE=desktop
-MULTI_ENVIRONMENT_MANAGEMENT=true
+MULTI_NODE_MANAGEMENT=true
 ```
 
 ### Touch ID Setup

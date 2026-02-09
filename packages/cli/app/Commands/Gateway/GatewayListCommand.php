@@ -7,12 +7,9 @@ namespace App\Commands\Gateway;
 use App\Services\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
-/**
- * List configured gateway servers.
- */
 final class GatewayListCommand extends Command
 {
-    protected $signature = 'gateway:list';
+    protected $signature = 'list:gateways';
 
     protected $description = 'List configured gateway servers';
 
@@ -27,16 +24,21 @@ final class GatewayListCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->info('Configured Gateways:');
+        $active = $gatewayManager->detectActive();
+        $activeId = $active['gateway']['id'] ?? null;
+
         $this->newLine();
 
         foreach ($gateways as $gateway) {
-            $this->line("  <fg=green>{$gateway['name']}</>");
-            $this->line("    ID:     {$gateway['id']}");
-            $this->line("    IP:     {$gateway['ip']}");
-            $this->line("    Subnet: {$gateway['subnet']}");
-            $this->newLine();
+            $isActive = $gateway['id'] === $activeId;
+            $dot = $isActive ? '<fg=green>●</>' : '<fg=gray>○</>';
+            $nameColor = $isActive ? 'green' : 'white';
+            $badge = $isActive ? ' <fg=green>connected</>' : '';
+
+            $this->line("  {$dot}  <fg={$nameColor}>{$gateway['name']}</>  <fg=gray>{$gateway['ip']}</>  <fg=gray>{$gateway['subnet']}</>{$badge}");
         }
+
+        $this->newLine();
 
         return self::SUCCESS;
     }

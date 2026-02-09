@@ -200,8 +200,8 @@ class ProjectScanner
     /**
      * Clean up orphan projects (in DB but not found on disk).
      *
-     * Only deletes CLI-created projects (those with NULL environment_id).
-     * Projects with environment_id set were created via web UI and may be
+     * Only deletes CLI-created projects (those with NULL node_id).
+     * Projects with node_id set were created via web UI and may be
      * in provisioning state (directory not yet created).
      *
      * @param  array<string, bool>  $foundProjects
@@ -212,10 +212,9 @@ class ProjectScanner
 
         foreach ($dbSlugs as $slug) {
             if (! isset($foundProjects[$slug])) {
-                // Only delete if it's a CLI-created project (no environment_id)
-                // and not currently being provisioned
+                // Only delete if it's a CLI-created project (no node_id)
                 $project = \HardImpact\Orbit\Core\Models\Project::where('slug', $slug)->first();
-                if ($project && $project->environment_id === null && $project->status === 'active') {
+                if ($project && $project->node_id === null && $project->status === \HardImpact\Orbit\Core\Enums\ProjectStatus::Active) {
                     $this->databaseService->deleteSite($slug);
                 }
             }

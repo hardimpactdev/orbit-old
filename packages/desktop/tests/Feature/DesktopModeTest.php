@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,35 +16,35 @@ class DesktopModeTest extends TestCase
     {
         parent::setUp();
 
-        if (! config('orbit.multi_environment')) {
+        if (! config('orbit.multi_node')) {
             $this->markTestSkipped('Skipping DesktopModeTest in web mode.');
         }
 
         // Ensure desktop mode
-        config(['orbit.multi_environment' => true]);
+        config(['orbit.multi_node' => true]);
     }
 
     public function test_projects_page_loads_with_route_parameter(): void
     {
-        $environment = createEnvironment();
+        $node = createNode();
 
-        $response = $this->get("/environments/{$environment->id}/projects");
+        $response = $this->get("/nodes/{$node->id}/projects");
 
         $response->assertStatus(200);
     }
 
-    public function test_environment_management_accessible(): void
+    public function test_node_management_accessible(): void
     {
-        // Need more than one environment to avoid redirect to show page
-        createEnvironment(['name' => 'Env 1']);
-        createEnvironment(['name' => 'Env 2', 'is_default' => false]);
-        $this->get('/environments')->assertStatus(200);
-        $this->get('/environments/create')->assertStatus(200);
+        // Need more than one node to avoid redirect to show page
+        createNode(['name' => 'Node 1']);
+        createNode(['name' => 'Node 2', 'is_default' => false]);
+        $this->get('/nodes')->assertStatus(200);
+        $this->get('/nodes/create')->assertStatus(200);
     }
 
     public function test_all_desktop_features_accessible(): void
     {
-        $environment = createEnvironment();
+        $node = createNode();
 
         // Mock services to avoid real SSH/Process calls
         $this->mock(\HardImpact\Orbit\Core\Services\OrbitCli\StatusService::class, function ($mock) {
@@ -82,28 +82,28 @@ class DesktopModeTest extends TestCase
             ]);
         });
 
-        $this->get("/environments/{$environment->id}/services")->assertStatus(200);
-        $this->get("/environments/{$environment->id}/configuration")->assertStatus(200);
-        $this->get("/environments/{$environment->id}/workspaces")->assertStatus(200);
-        $this->get("/environments/{$environment->id}/doctor")->assertStatus(200);
+        $this->get("/nodes/{$node->id}/services")->assertStatus(200);
+        $this->get("/nodes/{$node->id}/configuration")->assertStatus(200);
+        $this->get("/nodes/{$node->id}/workspaces")->assertStatus(200);
+        $this->get("/nodes/{$node->id}/doctor")->assertStatus(200);
     }
 
-    public function test_inertia_props_multi_environment_true(): void
+    public function test_inertia_props_multi_node_true(): void
     {
-        $environment = createEnvironment();
+        $node = createNode();
 
-        $response = $this->get("/environments/{$environment->id}/projects");
+        $response = $this->get("/nodes/{$node->id}/projects");
 
-        $response->assertInertia(fn ($page) => $page->where('multi_environment', true)
-            ->where('currentEnvironment', null)
+        $response->assertInertia(fn ($page) => $page->where('multi_node', true)
+            ->has('currentNode')
         );
     }
 
-    public function test_dashboard_shows_environment_list(): void
+    public function test_dashboard_shows_node_list(): void
     {
-        createEnvironment(['name' => 'Env 1']);
-        createEnvironment(['name' => 'Env 2', 'is_default' => false]);
-        createEnvironment(['name' => 'Env 3', 'is_default' => false]);
+        createNode(['name' => 'Node 1']);
+        createNode(['name' => 'Node 2', 'is_default' => false]);
+        createNode(['name' => 'Node 3', 'is_default' => false]);
 
         $response = $this->get('/');
 

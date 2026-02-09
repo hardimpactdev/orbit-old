@@ -9,7 +9,7 @@ use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\CreateWorkspaceReques
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\DeleteWorkspaceRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\GetWorkspacesRequest;
 use HardImpact\Orbit\Core\Http\Integrations\Orbit\Requests\RemoveWorkspaceProjectRequest;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
 use HardImpact\Orbit\Core\Services\WorkspaceDbService;
@@ -29,9 +29,9 @@ class WorkspaceService
     /**
      * Check if CLI is available for local environments.
      */
-    protected function shouldUseCli(Environment $environment): bool
+    protected function shouldUseCli(Node $node): bool
     {
-        if (! $environment->is_local) {
+        if (! $node->isLocal()) {
             return true; // Remote always uses CLI/API
         }
 
@@ -41,90 +41,90 @@ class WorkspaceService
     /**
      * List all workspaces.
      */
-    public function workspacesList(Environment $environment): array
+    public function workspacesList(Node $node): array
     {
-        if ($environment->is_local && ! $this->shouldUseCli($environment)) {
-            return $this->dbService->workspacesList($environment);
+        if ($node->isLocal() && ! $this->shouldUseCli($node)) {
+            return $this->dbService->workspacesList($node);
         }
 
-        if ($environment->is_local) {
-            return $this->command->executeCommand($environment, 'workspaces --json');
+        if ($node->isLocal()) {
+            return $this->command->executeCommand($node, 'workspaces --json');
         }
 
-        return $this->connector->sendRequest($environment, new GetWorkspacesRequest);
+        return $this->connector->sendRequest($node, new GetWorkspacesRequest);
     }
 
     /**
      * Create a new workspace.
      */
-    public function workspaceCreate(Environment $environment, string $name): array
+    public function workspaceCreate(Node $node, string $name): array
     {
-        if ($environment->is_local && ! $this->shouldUseCli($environment)) {
-            return $this->dbService->workspaceCreate($environment, $name);
+        if ($node->isLocal() && ! $this->shouldUseCli($node)) {
+            return $this->dbService->workspaceCreate($node, $name);
         }
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $escapedName = escapeshellarg($name);
 
-            return $this->command->executeCommand($environment, "workspace:create {$escapedName} --json");
+            return $this->command->executeCommand($node, "workspace:create {$escapedName} --json");
         }
 
-        return $this->connector->sendRequest($environment, new CreateWorkspaceRequest($name));
+        return $this->connector->sendRequest($node, new CreateWorkspaceRequest($name));
     }
 
     /**
      * Delete a workspace.
      */
-    public function workspaceDelete(Environment $environment, string $name): array
+    public function workspaceDelete(Node $node, string $name): array
     {
-        if ($environment->is_local && ! $this->shouldUseCli($environment)) {
-            return $this->dbService->workspaceDelete($environment, $name);
+        if ($node->isLocal() && ! $this->shouldUseCli($node)) {
+            return $this->dbService->workspaceDelete($node, $name);
         }
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $escapedName = escapeshellarg($name);
 
-            return $this->command->executeCommand($environment, "workspace:delete {$escapedName} --force --json");
+            return $this->command->executeCommand($node, "workspace:delete {$escapedName} --force --json");
         }
 
-        return $this->connector->sendRequest($environment, new DeleteWorkspaceRequest($name));
+        return $this->connector->sendRequest($node, new DeleteWorkspaceRequest($name));
     }
 
     /**
      * Add a project to a workspace.
      */
-    public function workspaceAddProject(Environment $environment, string $workspace, string $project): array
+    public function workspaceAddProject(Node $node, string $workspace, string $project): array
     {
-        if ($environment->is_local && ! $this->shouldUseCli($environment)) {
-            return $this->dbService->workspaceAddProject($environment, $workspace, $project);
+        if ($node->isLocal() && ! $this->shouldUseCli($node)) {
+            return $this->dbService->workspaceAddProject($node, $workspace, $project);
         }
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $escapedWorkspace = escapeshellarg($workspace);
             $escapedProject = escapeshellarg($project);
 
-            return $this->command->executeCommand($environment, "workspace:add {$escapedWorkspace} {$escapedProject} --json");
+            return $this->command->executeCommand($node, "workspace:add {$escapedWorkspace} {$escapedProject} --json");
         }
 
-        return $this->connector->sendRequest($environment, new AddWorkspaceProjectRequest($workspace, $project));
+        return $this->connector->sendRequest($node, new AddWorkspaceProjectRequest($workspace, $project));
     }
 
     /**
      * Remove a project from a workspace.
      */
-    public function workspaceRemoveProject(Environment $environment, string $workspace, string $project): array
+    public function workspaceRemoveProject(Node $node, string $workspace, string $project): array
     {
-        if ($environment->is_local && ! $this->shouldUseCli($environment)) {
-            return $this->dbService->workspaceRemoveProject($environment, $workspace, $project);
+        if ($node->isLocal() && ! $this->shouldUseCli($node)) {
+            return $this->dbService->workspaceRemoveProject($node, $workspace, $project);
         }
 
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $escapedWorkspace = escapeshellarg($workspace);
             $escapedProject = escapeshellarg($project);
 
-            return $this->command->executeCommand($environment, "workspace:remove {$escapedWorkspace} {$escapedProject} --json");
+            return $this->command->executeCommand($node, "workspace:remove {$escapedWorkspace} {$escapedProject} --json");
         }
 
-        return $this->connector->sendRequest($environment, new RemoveWorkspaceProjectRequest($workspace, $project));
+        return $this->connector->sendRequest($node, new RemoveWorkspaceProjectRequest($workspace, $project));
     }
 }

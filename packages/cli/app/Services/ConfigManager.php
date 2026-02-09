@@ -33,6 +33,12 @@ class ConfigManager
         if (File::exists($this->configPath)) {
             $this->config = json_decode(File::get($this->configPath), true) ?? [];
         }
+
+        $template = $this->config['template'] ?? null;
+        if ($template === 'development' || $template === 'php') {
+            $this->config['template'] = 'php-dev';
+            $this->save();
+        }
     }
 
     public function save(): void
@@ -57,7 +63,7 @@ class ConfigManager
 
     public function getTemplate(): string
     {
-        return $this->get('template', 'development');
+        return $this->get('template', 'php-dev');
     }
 
     public function setTemplate(string $template): void

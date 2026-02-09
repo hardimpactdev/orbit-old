@@ -1,11 +1,11 @@
 # Configuration Navigation Flow
 
 ## Overview
-All environment settings are consolidated into a single Configuration page with organized tabs.
+All node settings are consolidated into a single Configuration page with organized tabs.
 
 ## Navigation Path
 1. **From Sidebar**: Click "Configuration" link (uses Settings2 icon)
-2. **Direct URL**: Navigate to `/configuration` (redirects to `/environments/{id}/configuration`)
+2. **Direct URL**: Navigate to `/configuration` (redirects to `/nodes/{id}/configuration`)
 3. **Legacy URLs**: `/settings` redirects to `/configuration` for backwards compatibility
 
 ## Page Structure
@@ -16,10 +16,10 @@ Configuration → DNS → Templates → Advanced
 ```
 
 ### Configuration Tab (default)
-Contains core environment settings:
-- **Environment Name** - Display name for the environment
+Contains core node settings:
+- **Node Name** - Display name for the node
 - **Code Editor** - Select preferred editor (Cursor, VS Code, etc.)
-- **SSH Connection** (remote environments only) - Host, user, port
+- **SSH Connection** (remote nodes only) - Host, user, port
 - **Project Paths** - Directories where projects are located
 - **TLD** - Top-level domain for local projects
 - **Default PHP Version** - Version used for new projects
@@ -40,7 +40,7 @@ Contains core environment settings:
   - Desktop Notifications toggle
   - Menu Bar Icon toggle
 - **Health Check** - Run diagnostics with fix capabilities
-- **Danger Zone** (desktop mode only) - Delete environment
+- **Danger Zone** (desktop mode only) - Delete node
 
 ## Mode Differences
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Resources;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
 use Laravel\Mcp\Request;
@@ -39,17 +39,17 @@ class ProjectsResource extends Resource
 
     public function handle(Request $request): Response
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if (! $environment) {
+        if (! $node) {
             return Response::json([
-                'error' => 'No local environment configured',
+                'error' => 'No local node configured',
             ]);
         }
 
         // Get projects from CLI
-        $projectsResult = $this->statusService->projects($environment);
-        $configResult = $this->configService->getConfig($environment);
+        $projectsResult = $this->statusService->projects($node);
+        $configResult = $this->configService->getConfig($node);
 
         if (! $projectsResult['success']) {
             return Response::json([

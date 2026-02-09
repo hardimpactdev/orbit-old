@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Services\OrbitCli\Shared;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\SshService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 /**
@@ -34,15 +35,15 @@ class CommandService
      *
      * @param  int  $timeout  Timeout in seconds (default 60, use 600 for provisioning)
      */
-    public function executeCommand(Environment $environment, string $command, int $timeout = 60): array
+    public function executeCommand(Node $node, string $command, int $timeout = 60): array
     {
         // For local servers, use the bundled CLI directly
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             return $this->executeLocalCommand($command, $timeout);
         }
 
         // For remote servers, use SSH
-        return $this->executeRemoteCommand($environment, $command);
+        return $this->executeRemoteCommand($node, $command);
     }
 
     /**
@@ -65,12 +66,12 @@ class CommandService
         $fullCommand = "{$cliPath} {$command}";
 
         try {
-            \Illuminate\Support\Facades\Log::info("CommandService executing: {$fullCommand}");
+            Log::debug("CommandService executing: {$fullCommand}");
             $result = Process::timeout($timeout)->run($fullCommand);
 
             if (! $result->successful()) {
                 $error = $result->errorOutput() ?: $result->output() ?: 'Command failed';
-                \Illuminate\Support\Facades\Log::error("CommandService failed: {$error}", [
+                Log::error("CommandService failed: {$error}", [
                     'exit_code' => $result->exitCode(),
                     'stdout' => $result->output(),
                     'stderr' => $result->errorOutput(),
@@ -84,15 +85,14 @@ class CommandService
             }
 
             $output = $result->output();
-            \Illuminate\Support\Facades\Log::info("CommandService success: {$fullCommand}", [
+            Log::debug("CommandService success: {$fullCommand}", [
                 'output_length' => strlen($output),
-                'output_preview' => substr($output, 0, 500),
             ]);
 
             $decoded = json_decode($output, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
-                \Illuminate\Support\Facades\Log::error("CommandService JSON parse failed: " . json_last_error_msg(), [
+                Log::error('CommandService JSON parse failed: '.json_last_error_msg(), [
                     'command' => $fullCommand,
                     'output' => $output,
                 ]);
@@ -103,14 +103,6 @@ class CommandService
                     'exit_code' => $result->exitCode(),
                 ];
             }
-
-            \Illuminate\Support\Facades\Log::info("CommandService decoded successfully", [
-                'command' => $fullCommand,
-                'has_success' => isset($decoded['success']),
-                'has_data' => isset($decoded['data']),
-                'has_services' => isset($decoded['data']['services']),
-                'services_count' => isset($decoded['data']['services']) ? count($decoded['data']['services']) : 0,
-            ]);
 
             return $decoded;
         } catch (\Exception $e) {
@@ -125,13 +117,13 @@ class CommandService
     /**
      * Execute a command on a remote environment via SSH.
      */
-    public function executeRemoteCommand(Environment $environment, string $command): array
+    public function executeRemoteCommand(Node $node, string $command): array
     {
         // Use configured path or default to installed phar
-        $cliPath = $environment->cli_path ?? '$HOME/.local/bin/orbit';
+        $cliPath = $node->cli_path ?? '$HOME/.local/bin/orbit';
         $fullCommand = "{$cliPath} {$command}";
 
-        $result = $this->ssh->executeJson($environment, $fullCommand);
+        $result = $this->ssh->executeJson($node, $fullCommand);
 
         if (! $result['success']) {
             return [
@@ -148,7 +140,7 @@ class CommandService
     /**
      * Find the orbit binary on a remote environment.
      */
-    public function findBinary(Environment $environment): ?string
+    public function findBinary(Node $node): ?string
     {
         // Single SSH call to find orbit binary
         // Check paths in order of preference (installed phar first)
@@ -159,7 +151,7 @@ done
 exit 1
 BASH;
 
-        $result = $this->ssh->execute($environment, $command);
+        $result = $this->ssh->execute($node, $command);
         if ($result['success'] && ! in_array(trim((string) $result['output']), ['', '0'], true)) {
             return trim((string) $result['output']);
         }
@@ -189,9 +181,9 @@ BASH;
      * Execute a command without expecting JSON output.
      * Used for operations where we just need success/failure.
      */
-    public function executeRawCommand(Environment $environment, string $command, int $timeout = 120): array
+    public function executeRawCommand(Node $node, string $command, int $timeout = 120): array
     {
-        if ($environment->is_local) {
+        if ($node->isLocal()) {
             $cliPath = $this->getCliPath();
 
             if (! $cliPath || ! file_exists($cliPath)) {
@@ -208,12 +200,12 @@ BASH;
         }
 
         // Remote server
-        $path = $this->findBinary($environment);
+        $path = $this->findBinary($node);
         if (! $path) {
             return ['success' => false, 'error' => 'Orbit CLI not found on remote server'];
         }
 
-        $result = $this->ssh->execute($environment, "{$path} {$command}", $timeout);
+        $result = $this->ssh->execute($node, "{$path} {$command}", $timeout);
 
         return [
             'success' => $result['success'],

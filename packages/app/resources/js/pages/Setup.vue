@@ -7,7 +7,7 @@ interface SetupStatus {
     needs_setup: boolean;
     cli_installed: boolean;
     cli_version: string | null;
-    has_local_environment: boolean;
+    has_local_node: boolean;
     has_services: boolean;
     has_tld: boolean;
     steps: Record<string, string>;
@@ -30,7 +30,7 @@ const isComplete = ref(false);
 const hasError = ref(false);
 const currentStep = ref(0);
 const totalSteps = ref(6);
-const currentMessage = ref('Ready to set up your local environment');
+const currentMessage = ref('Ready to set up your local node');
 const errorMessage = ref<string | null>(null);
 const completedSteps = ref<Record<string, StepResult>>({});
 const tld = ref('test');
@@ -46,7 +46,7 @@ const stepList = computed(() => {
         { id: 'install_cli', label: 'Installing CLI', order: 3 },
         { id: 'init_services', label: 'Initializing Docker services', order: 4 },
         { id: 'configure_tld', label: 'Configuring TLD', order: 5 },
-        { id: 'create_environment', label: 'Creating local environment', order: 6 },
+        { id: 'create_node', label: 'Creating local node', order: 6 },
     ];
 });
 
@@ -144,7 +144,7 @@ onMounted(() => {
                 </div>
                 <h1 class="text-2xl font-semibold text-white mb-2">Welcome to Orbit</h1>
                 <p class="text-zinc-400">
-                    Let's set up your local development environment
+                    Let's set up your local development node
                 </p>
             </div>
 
@@ -265,7 +265,7 @@ onMounted(() => {
                             </li>
                             <li class="flex items-center gap-2">
                                 <div class="w-1.5 h-1.5 rounded-full bg-lime-400" />
-                                Local environment configuration
+                                Local node configuration
                             </li>
                         </ul>
                     </div>
@@ -286,7 +286,7 @@ onMounted(() => {
                         class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-lime-500 hover:bg-lime-600 disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 font-medium rounded-lg transition-colors"
                     >
                         <Rocket class="w-5 h-5" />
-                        Setup Local Environment
+                        Setup Local Node
                     </button>
                 </div>
             </div>

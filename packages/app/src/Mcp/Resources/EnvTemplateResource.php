@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Resources;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -139,10 +139,10 @@ ENV;
 
     protected function getReverbConfig(): array
     {
-        $environment = Environment::getLocal();
+        $node = Node::getSelf();
 
-        if ($environment) {
-            $result = $this->configService->getReverbConfig($environment);
+        if ($node) {
+            $result = $this->configService->getReverbConfig($node);
             if ($result['success'] && $result['enabled']) {
                 return [
                     'app_id' => '1',

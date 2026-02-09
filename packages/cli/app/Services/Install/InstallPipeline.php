@@ -13,13 +13,9 @@ final readonly class InstallPipeline
     public function run(Template $template, string $osFamily, InstallContext $context, InstallLogger $logger): StepResult
     {
         // Phase 1: Preparation (read-only validation)
-        $prepareSteps = $template->prepareSteps($osFamily);
+        $prepareSteps = $template->prepareSteps($osFamily, $context);
 
         if (count($prepareSteps) > 0) {
-            $logger->newLine();
-            $logger->info('Checking prerequisites...');
-            $logger->newLine();
-
             foreach ($prepareSteps as $step) {
                 $result = $logger->spinner(
                     $step['name'],
@@ -30,18 +26,10 @@ final readonly class InstallPipeline
                     return $result;
                 }
             }
-
-            $logger->newLine();
-            $logger->success('All prerequisites verified');
-            $logger->newLine();
         }
 
         // Phase 2: Installation
-        $steps = $template->installSteps($osFamily);
-
-        $logger->newLine();
-        $logger->info('Installing components...');
-        $logger->newLine();
+        $steps = $template->installSteps($osFamily, $context);
 
         foreach ($steps as $step) {
             $result = $logger->spinner(

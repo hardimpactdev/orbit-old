@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Models;
 
+use HardImpact\Orbit\Core\Enums\ProjectStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
- * @property int|null $environment_id
+ * @property int|null $node_id
  * @property string $name
  * @property string|null $display_name
  * @property string $slug
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $has_public_folder
  * @property string|null $domain
  * @property string|null $url
- * @property string|null $status
+ * @property ProjectStatus|null $status
  * @property string|null $error_message
  * @property string|null $job_id
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -30,30 +31,11 @@ class Project extends Model
 {
     protected $casts = [
         'has_public_folder' => 'boolean',
+        'status' => ProjectStatus::class,
     ];
 
-    public const STATUS_QUEUED = 'queued';
-
-    public const STATUS_CREATING_REPO = 'creating_repo';
-
-    public const STATUS_CLONING = 'cloning';
-
-    public const STATUS_SETTING_UP = 'setting_up';
-
-    public const STATUS_INSTALLING_COMPOSER = 'installing_composer';
-
-    public const STATUS_INSTALLING_NPM = 'installing_npm';
-
-    public const STATUS_BUILDING = 'building';
-
-    public const STATUS_FINALIZING = 'finalizing';
-
-    public const STATUS_READY = 'ready';
-
-    public const STATUS_FAILED = 'failed';
-
     protected $fillable = [
-        'environment_id',
+        'node_id',
         'name',
         'display_name',
         'slug',
@@ -69,32 +51,23 @@ class Project extends Model
         'job_id',
     ];
 
-    public function environment(): BelongsTo
+    public function node(): BelongsTo
     {
-        return $this->belongsTo(Environment::class);
+        return $this->belongsTo(Node::class);
     }
 
     public function isProvisioning(): bool
     {
-        return in_array($this->status, [
-            self::STATUS_QUEUED,
-            self::STATUS_CREATING_REPO,
-            self::STATUS_CLONING,
-            self::STATUS_SETTING_UP,
-            self::STATUS_INSTALLING_COMPOSER,
-            self::STATUS_INSTALLING_NPM,
-            self::STATUS_BUILDING,
-            self::STATUS_FINALIZING,
-        ], true);
+        return $this->status?->isProvisioning() ?? false;
     }
 
     public function isReady(): bool
     {
-        return $this->status === self::STATUS_READY;
+        return $this->status === ProjectStatus::Ready;
     }
 
     public function isFailed(): bool
     {
-        return $this->status === self::STATUS_FAILED;
+        return $this->status === ProjectStatus::Failed;
     }
 }

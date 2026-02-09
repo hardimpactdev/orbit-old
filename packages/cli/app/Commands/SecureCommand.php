@@ -138,24 +138,23 @@ final class SecureCommand extends Command
     {
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
 
-        // Target directories (Herd and Valet)
-        $targets = [
-            'Herd' => $home.'/Library/Application Support/Herd/config/valet/Certificates',
-            'Valet' => $home.'/.config/valet/Certificates',
+        $configDirs = [
+            'Herd' => $home.'/Library/Application Support/Herd/config/valet',
+            'Valet' => $home.'/.config/valet',
         ];
 
-        foreach ($targets as $name => $targetDir) {
-            if (! is_dir($targetDir)) {
+        foreach ($configDirs as $name => $configDir) {
+            $certDir = $configDir.'/Certificates';
+
+            if (! is_dir($certDir)) {
                 continue;
             }
 
-            $this->line("Updating: {$targetDir}");
+            $this->line("Updating: {$certDir}");
 
-            // Create symlinks
-            $certLink = "{$targetDir}/{$domain}.crt";
-            $keyLink = "{$targetDir}/{$domain}.key";
+            $certLink = "{$certDir}/{$domain}.crt";
+            $keyLink = "{$certDir}/{$domain}.key";
 
-            // Remove existing files/symlinks
             if (file_exists($certLink) || is_link($certLink)) {
                 unlink($certLink);
             }
@@ -163,12 +162,21 @@ final class SecureCommand extends Command
                 unlink($keyLink);
             }
 
-            // Create symlinks
             symlink($caddyCert['cert'], $certLink);
             symlink($caddyCert['key'], $keyLink);
             $this->line("  ✓ {$domain}.crt");
             $this->line("  ✓ {$domain}.key");
+
+            $this->ensureValetConfig($configDir);
         }
+    }
+
+    private function ensureValetConfig(string $configDir): void
+    {
+        $configFile = $configDir.'/config.json';
+        $tld = app(ConfigManager::class)->getTld();
+
+        file_put_contents($configFile, json_encode(['tld' => $tld], JSON_PRETTY_PRINT));
     }
 
     /**

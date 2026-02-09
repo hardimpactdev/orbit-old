@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Install\Brew;
 use App\Actions\Install\Linux;
 use App\Actions\Install\Mac;
 use App\Actions\Install\Shared;
@@ -7,12 +8,14 @@ use App\Components\CaddyComponent;
 use App\Components\DnsComponent;
 use App\Components\DockerComponent;
 use App\Components\PhpComponent;
+use App\Data\Install\InstallContext;
 use App\Services\TemplateRegistry;
-use App\Templates\DevelopmentTemplate;
+use App\Templates\PhpDevTemplate;
+use App\Templates\PhpProductionTemplate;
 
-describe('DevelopmentTemplate', function () {
+describe('PhpDevTemplate', function () {
     beforeEach(function () {
-        $this->template = new DevelopmentTemplate(
+        $this->template = new PhpDevTemplate(
             new DockerComponent,
             new PhpComponent,
             new CaddyComponent,
@@ -21,11 +24,11 @@ describe('DevelopmentTemplate', function () {
     });
 
     it('returns correct mac step count', function () {
-        expect($this->template->installSteps('Darwin'))->toHaveCount(19);
+        expect($this->template->installSteps('Darwin'))->toHaveCount(20);
     });
 
     it('returns correct linux step count', function () {
-        expect($this->template->installSteps('Linux'))->toHaveCount(19);
+        expect($this->template->installSteps('Linux'))->toHaveCount(20);
     });
 
     it('starts mac steps with CheckPrerequisites', function () {
@@ -61,6 +64,14 @@ describe('DevelopmentTemplate', function () {
 
         expect($linuxActions)->toContain(Linux\InstallDocker::class);
         expect($linuxActions)->not->toContain(Mac\InstallOrbStack::class);
+    });
+
+    it('includes InstallNodePackageManagers for both platforms', function () {
+        foreach (['Darwin', 'Linux'] as $platform) {
+            $actions = collect($this->template->installSteps($platform))->pluck('action');
+
+            expect($actions)->toContain(Brew\InstallNodePackageManagers::class);
+        }
     });
 
     it('includes all shared actions for both platforms', function () {
@@ -112,17 +123,159 @@ describe('DevelopmentTemplate', function () {
     });
 });
 
+describe('PhpProductionTemplate', function () {
+    beforeEach(function () {
+        $this->template = new PhpProductionTemplate(
+            new DockerComponent,
+            new PhpComponent,
+            new CaddyComponent,
+        );
+    });
+
+    it('returns base mac steps without services', function () {
+        $steps = $this->template->installSteps('Darwin');
+
+        expect($steps)->toHaveCount(12);
+        expect($steps[0]['action'])->toBe(Mac\CheckPrerequisites::class);
+        expect($steps[count($steps) - 1]['action'])->toBe(Shared\HealthCheck::class);
+    });
+
+    it('returns base linux steps without services', function () {
+        $steps = $this->template->installSteps('Linux');
+
+        expect($steps)->toHaveCount(13);
+        expect($steps[0]['action'])->toBe(Linux\CheckPrerequisites::class);
+        expect($steps[count($steps) - 1]['action'])->toBe(Shared\HealthCheck::class);
+    });
+
+    it('includes InstallNodePackageManagers for both platforms', function () {
+        foreach (['Darwin', 'Linux'] as $platform) {
+            $actions = collect($this->template->installSteps($platform))->pluck('action');
+
+            expect($actions)->toContain(Brew\InstallNodePackageManagers::class);
+        }
+    });
+
+    it('includes Docker steps when services are selected', function () {
+        $context = new InstallContext(services: ['postgres', 'redis']);
+
+        $macSteps = $this->template->installSteps('Darwin', $context);
+        $linuxSteps = $this->template->installSteps('Linux', $context);
+
+        expect($macSteps)->toHaveCount(17);
+        expect($linuxSteps)->toHaveCount(18);
+
+        $macActions = collect($macSteps)->pluck('action');
+        $linuxActions = collect($linuxSteps)->pluck('action');
+
+        expect($macActions)->toContain(Mac\InstallOrbStack::class);
+        expect($macActions)->toContain(Shared\CreateDockerNetwork::class);
+        expect($macActions)->toContain(Shared\StartServices::class);
+
+        expect($linuxActions)->toContain(Linux\InstallDocker::class);
+        expect($linuxActions)->toContain(Shared\CreateDockerNetwork::class);
+        expect($linuxActions)->toContain(Shared\StartServices::class);
+    });
+
+    it('excludes DNS steps regardless of context', function () {
+        $context = new InstallContext(services: ['postgres']);
+
+        foreach (['Darwin', 'Linux'] as $platform) {
+            $actions = collect($this->template->installSteps($platform, $context))->pluck('action');
+
+            expect($actions)->not->toContain(Shared\GenerateDnsConfig::class);
+            expect($actions)->not->toContain(Shared\BuildDockerImages::class);
+            expect($actions)->not->toContain(Shared\ConfigureHostsFile::class);
+        }
+    });
+
+    it('returns only PHP and Caddy components without services', function () {
+        $components = $this->template->components('Darwin');
+
+        expect($components)->toHaveCount(2);
+        expect($components[0])->toBeInstanceOf(PhpComponent::class);
+        expect($components[1])->toBeInstanceOf(CaddyComponent::class);
+    });
+
+    it('includes Docker component when services are selected', function () {
+        $context = new InstallContext(services: ['postgres']);
+        $components = $this->template->components('Darwin', $context);
+
+        expect($components)->toHaveCount(3);
+        expect($components[2])->toBeInstanceOf(DockerComponent::class);
+    });
+
+    it('supports Darwin and Linux', function () {
+        expect($this->template->supportsPlatform('Darwin'))->toBeTrue();
+        expect($this->template->supportsPlatform('Linux'))->toBeTrue();
+        expect($this->template->supportsPlatform('Windows'))->toBeFalse();
+    });
+
+    it('throws on unsupported platform', function () {
+        $this->template->installSteps('Windows');
+    })->throws(InvalidArgumentException::class);
+});
+
+describe('InstallContext', function () {
+    it('parses services from options', function () {
+        $context = InstallContext::fromOptions(['services' => 'postgres,redis,mailpit']);
+
+        expect($context->services)->toBe(['postgres', 'redis', 'mailpit']);
+        expect($context->needsDocker())->toBeTrue();
+    });
+
+    it('returns empty services when not provided', function () {
+        $context = InstallContext::fromOptions([]);
+
+        expect($context->services)->toBe([]);
+        expect($context->needsDocker())->toBeFalse();
+    });
+
+    it('parses node package managers from options', function () {
+        $context = InstallContext::fromOptions(['node-packages' => 'bun,npm,yarn']);
+
+        expect($context->nodePackageManagers)->toBe(['bun', 'npm', 'yarn']);
+    });
+
+    it('returns empty node package managers when not provided', function () {
+        $context = InstallContext::fromOptions([]);
+
+        expect($context->nodePackageManagers)->toBe([]);
+    });
+
+    it('detects when Node is needed', function () {
+        expect((new InstallContext(nodePackageManagers: ['npm']))->needsNode())->toBeTrue();
+        expect((new InstallContext(nodePackageManagers: ['yarn']))->needsNode())->toBeTrue();
+        expect((new InstallContext(nodePackageManagers: ['pnpm']))->needsNode())->toBeTrue();
+        expect((new InstallContext(nodePackageManagers: ['bun']))->needsNode())->toBeFalse();
+        expect((new InstallContext(nodePackageManagers: []))->needsNode())->toBeFalse();
+    });
+});
+
 describe('TemplateRegistry', function () {
-    it('returns DevelopmentTemplate by name', function () {
+    it('returns PhpDevTemplate by name', function () {
         $registry = new TemplateRegistry;
 
-        expect($registry->get('development'))->toBeInstanceOf(DevelopmentTemplate::class);
+        expect($registry->get('php-dev'))->toBeInstanceOf(PhpDevTemplate::class);
+    });
+
+    it('resolves development alias to php-dev', function () {
+        $registry = new TemplateRegistry;
+
+        expect($registry->get('development'))->toBeInstanceOf(PhpDevTemplate::class);
+    });
+
+    it('resolves php alias to php-dev', function () {
+        $registry = new TemplateRegistry;
+
+        expect($registry->get('php'))->toBeInstanceOf(PhpDevTemplate::class);
     });
 
     it('checks template existence', function () {
         $registry = new TemplateRegistry;
 
-        expect($registry->has('development'))->toBeTrue();
+        expect($registry->has('php-dev'))->toBeTrue();
+        expect($registry->has('php'))->toBeTrue();
         expect($registry->has('nonexistent'))->toBeFalse();
     });
 
@@ -139,15 +292,19 @@ describe('TemplateRegistry', function () {
         $linux = $registry->forPlatform('Linux');
         $windows = $registry->forPlatform('Windows');
 
-        expect($darwin)->toHaveKey('development');
-        expect($linux)->toHaveKey('development');
+        expect($darwin)->toHaveKey('php-dev');
+        expect($darwin)->toHaveKey('php-production');
+        expect($linux)->toHaveKey('php-dev');
+        expect($linux)->toHaveKey('php-production');
         expect($windows)->toBeEmpty();
     });
 
     it('lists all registered templates', function () {
         $registry = new TemplateRegistry;
 
-        expect($registry->all())->toHaveCount(1);
-        expect($registry->all())->toHaveKey('development');
+        expect($registry->all())->toHaveCount(3);
+        expect($registry->all())->toHaveKey('php-dev');
+        expect($registry->all())->toHaveKey('php-production');
+        expect($registry->all())->toHaveKey('gateway');
     });
 });

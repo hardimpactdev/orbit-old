@@ -10,8 +10,9 @@ use App\Services\ConfigManager;
 use App\Services\ProvisionLogger;
 use App\Services\ReverbBroadcaster;
 use HardImpact\Orbit\Core\Data\ProvisionContext;
+use HardImpact\Orbit\Core\Enums\ProjectStatus;
 use HardImpact\Orbit\Core\Enums\RepoIntent;
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
 use Illuminate\Support\Str;
@@ -62,10 +63,9 @@ final class ProjectCreateCommand extends Command
             return $this->failWithMessage('The name "orbit" is reserved for the system.');
         }
 
-        // Get the local environment
-        $environment = Environment::getLocal();
-        if (! $environment) {
-            return $this->failWithMessage('No local environment found. Run "orbit init" first.');
+        $node = Node::getSelf();
+        if (! $node) {
+            return $this->failWithMessage('No node found. Run "orbit init" first.');
         }
 
         // Check if project already exists
@@ -81,13 +81,13 @@ final class ProjectCreateCommand extends Command
 
         // Create the project record
         $project = Project::create([
-            'environment_id' => $environment->id,
+            'node_id' => $node->id,
             'name' => $slug,
             'display_name' => $name,
             'slug' => $slug,
             'path' => $projectPath,
             'php_version' => $phpVersion,
-            'status' => Project::STATUS_QUEUED,
+            'status' => ProjectStatus::Queued,
         ]);
 
         // Initialize logger with broadcaster for Reverb updates
@@ -110,7 +110,7 @@ final class ProjectCreateCommand extends Command
             }
 
             // Build provision context
-            $context = $this->buildContext($slug, $projectPath, $project->id, $environment);
+            $context = $this->buildContext($slug, $projectPath, $project->id, $node);
 
             // Build options array for RepoIntent
             $options = $this->buildOptions($name);
@@ -148,7 +148,7 @@ final class ProjectCreateCommand extends Command
 
             // Update project with final details
             $project->update([
-                'status' => Project::STATUS_READY,
+                'status' => ProjectStatus::Ready,
                 'github_repo' => $context->githubRepo,
                 'url' => "https://{$slug}.{$tld}",
                 'domain' => "{$slug}.{$tld}",
@@ -178,7 +178,7 @@ final class ProjectCreateCommand extends Command
 
         } catch (\Throwable $e) {
             $project->update([
-                'status' => Project::STATUS_FAILED,
+                'status' => ProjectStatus::Failed,
                 'error_message' => $e->getMessage(),
             ]);
 
@@ -218,9 +218,9 @@ final class ProjectCreateCommand extends Command
     /**
      * Build the provision context from command options.
      */
-    private function buildContext(string $slug, string $projectPath, int $projectId, Environment $environment): ProvisionContext
+    private function buildContext(string $slug, string $projectPath, int $projectId, Node $node): ProvisionContext
     {
-        $tld = $environment->tld ?? 'ccc';
+        $tld = $node->tld ?? 'ccc';
 
         // Parse clone URL if provided
         $cloneUrl = $this->option('clone') ?? $this->option('template');

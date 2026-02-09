@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Contracts;
 
+use App\Data\Install\InstallContext;
+
 interface Template
 {
     public function name(): string;
@@ -22,15 +24,15 @@ interface Template
     /**
      * @return array<array{action: class-string, name: string}>
      */
-    public function installSteps(string $osFamily): array;
+    public function installSteps(string $osFamily, ?InstallContext $context = null): array;
 
     /**
      * @return array<Component>
      */
-    public function components(string $osFamily): array;
+    public function components(string $osFamily, ?InstallContext $context = null): array;
 
     /**
      * @return array<array{action: class-string, name: string}>
      */
-    public function prepareSteps(string $osFamily): array;
+    public function prepareSteps(string $osFamily, ?InstallContext $context = null): array;
 }

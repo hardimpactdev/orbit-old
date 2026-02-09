@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Setting;
 use HardImpact\Orbit\Core\Models\SshKey;
 use HardImpact\Orbit\Core\Models\TemplateFavorite;
@@ -30,11 +30,11 @@ class SettingsController extends Controller
         $terminalOptions = Setting::getTerminalOptions();
         $cliStatus = $this->cliUpdate->getStatus();
         $sshKeys = SshKey::orderBy('is_default', 'desc')->orderBy('name')->get();
-        $availableSshKeys = Setting::getAvailableSshKeys();
+        $availableSshKeys = SshKey::getAvailableLocalKeys();
         $templateFavorites = TemplateFavorite::orderByDesc('usage_count')->get();
         $notificationsEnabled = $this->notifications->isEnabled();
         $menuBarEnabled = UserPreference::getValue('menu_bar_enabled', false);
-        $environment = Environment::getLocal() ?? Environment::first();
+        $node = Node::getSelf() ?? Node::first();
 
         return Inertia::render('Settings', [
             'editor' => $editor,
@@ -47,7 +47,7 @@ class SettingsController extends Controller
             'templateFavorites' => $templateFavorites,
             'notificationsEnabled' => $notificationsEnabled,
             'menuBarEnabled' => $menuBarEnabled,
-            'environment' => $environment,
+            'node' => $node,
         ]);
     }
 
@@ -166,10 +166,10 @@ class SettingsController extends Controller
             'external_host' => 'nullable|string|max:255',
         ]);
 
-        $environment = Environment::getLocal() ?? Environment::first();
+        $node = Node::getSelf() ?? Node::first();
 
-        if ($environment) {
-            $environment->update([
+        if ($node) {
+            $node->update([
                 'external_access' => $validated['external_access'],
                 'external_host' => $validated['external_host'] ?: null,
             ]);

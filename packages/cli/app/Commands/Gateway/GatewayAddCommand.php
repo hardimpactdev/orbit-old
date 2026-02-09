@@ -59,27 +59,12 @@ final class GatewayAddCommand extends Command
             );
         }
 
-        $baseId = $gatewayManager->generateId($name);
-        $id = $baseId;
-        $counter = 1;
-        while ($gatewayManager->idExists($id)) {
-            $id = $baseId.'-'.$counter;
-            $counter++;
-        }
-
-        // If ID was modified, append suffix to name temporarily for storage
-        $originalName = $name;
-        if ($id !== $baseId) {
-            $name = $name.' ('.$counter.')';
-        }
-
         $gateway = $gatewayManager->add($name, $ip, $subnet);
 
         $this->newLine();
         $this->info('Gateway added successfully!');
         $this->newLine();
-        $this->line("  Name:   {$originalName}");
-        $this->line("  ID:     {$gateway['id']}");
+        $this->line("  Name:   {$gateway['name']}");
         $this->line("  IP:     {$gateway['ip']}");
         $this->line("  Subnet: {$gateway['subnet']}");
         $this->newLine();

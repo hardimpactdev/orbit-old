@@ -55,14 +55,15 @@ final readonly class ConfigurePhpFpm
 
     private function isPhpVersionInstalled(string $version): bool
     {
-        $result = Process::run("dpkg -l | grep php{$version}-fpm 2>&1");
+        // Check for shivammathur tap formula (Homebrew)
+        $result = Process::run("brew list shivammathur/php/php@{$version} 2>&1");
 
         return $result->successful();
     }
 
     private function disableDefaultPool(string $version, InstallLogger $logger): bool
     {
-        $poolDir = "/etc/php/{$version}/fpm/pool.d";
+        $poolDir = "/home/linuxbrew/.linuxbrew/etc/php/{$version}/php-fpm.d";
         $wwwConf = "{$poolDir}/www.conf";
         $wwwConfDisabled = "{$poolDir}/www.conf.disabled";
 
@@ -70,9 +71,7 @@ final readonly class ConfigurePhpFpm
         if (File::exists($wwwConf)) {
             $logger->step("Disabling default www.conf pool for PHP {$version}...");
 
-            // Use sudo to move the file since it's in /etc
-            $result = Process::run("sudo mv '{$wwwConf}' '{$wwwConfDisabled}'");
-            if (! $result->successful()) {
+            if (! File::move($wwwConf, $wwwConfDisabled)) {
                 return false;
             }
         } elseif (File::exists($wwwConfDisabled)) {
@@ -84,7 +83,7 @@ final readonly class ConfigurePhpFpm
 
     private function createOrbitPool(string $version, InstallContext $context, InstallLogger $logger): bool
     {
-        $poolDir = "/etc/php/{$version}/fpm/pool.d";
+        $poolDir = "/home/linuxbrew/.linuxbrew/etc/php/{$version}/php-fpm.d";
         $poolConfigPath = "{$poolDir}/orbit.conf";
         // Use normalized version (no dot) for socket path and pool name consistency
         $normalizedVersion = str_replace('.', '', $version);
@@ -130,27 +129,31 @@ final readonly class ConfigurePhpFpm
             $home,
         ], $stub);
 
-        // Write pool configuration using sudo since it's in /etc
-        $tempFile = tempnam(sys_get_temp_dir(), 'orbit-pool-');
-        if (File::put($tempFile, $config) === false) {
-            return false;
-        }
-
-        $result = Process::run("sudo cp '{$tempFile}' '{$poolConfigPath}' && sudo chown root:root '{$poolConfigPath}' && sudo chmod 644 '{$poolConfigPath}'");
-        unlink($tempFile);
-
-        return $result->successful();
+        // Write pool configuration (no sudo needed for Homebrew paths)
+        return File::put($poolConfigPath, $config) !== false;
     }
 
     private function validateConfiguration(string $version, InstallLogger $logger): bool
     {
         $logger->step("Validating PHP-FPM configuration for PHP {$version}...");
 
+        // Get the correct php-fpm binary path for this version (Homebrew on Linux)
+        $formula = "php@{$version}";
+        $fpmBinary = "/home/linuxbrew/.linuxbrew/opt/{$formula}/sbin/php-fpm";
+
         // Test configuration syntax
-        $result = Process::run("sudo php-fpm{$version} -t");
+        $result = Process::run("{$fpmBinary} -t 2>&1");
 
         if (! $result->successful()) {
-            $logger->error('PHP-FPM configuration test failed: '.$result->errorOutput());
+            $output = $result->output();
+            $errorOutput = $result->errorOutput();
+            $logger->error('PHP-FPM configuration test failed:');
+            if ($output) {
+                $logger->error($output);
+            }
+            if ($errorOutput) {
+                $logger->error($errorOutput);
+            }
 
             return false;
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Services\ConfigManager;
 use LaravelZero\Framework\Commands\Command;
 
 /**
@@ -17,28 +18,34 @@ final class SetupLaravelViteCommand extends Command
 
     protected $description = 'Setup certificate directories for Vite valetTls support';
 
-    public function handle(): int
+    public function handle(ConfigManager $configManager): int
     {
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
 
-        // Target directories (Herd and Valet)
-        $targets = [
-            'Herd' => $home.'/Library/Application Support/Herd/config/valet/Certificates',
-            'Valet' => $home.'/.config/valet/Certificates',
+        $configDirs = [
+            'Herd' => $home.'/Library/Application Support/Herd/config/valet',
+            'Valet' => $home.'/.config/valet',
         ];
 
         $this->info('Setting up certificate directories for Vite valetTls support');
         $this->newLine();
 
-        foreach ($targets as $name => $targetDir) {
-            $this->line("{$name}: {$targetDir}");
+        $tld = $configManager->getTld();
 
-            if (is_dir($targetDir)) {
-                $this->line('  ✓ Already exists');
+        foreach ($configDirs as $name => $configDir) {
+            $certDir = $configDir.'/Certificates';
+            $this->line("{$name}: {$certDir}");
+
+            if (is_dir($certDir)) {
+                $this->line('  ✓ Directory exists');
             } else {
-                mkdir($targetDir, 0755, true);
-                $this->line('  ✓ Created');
+                mkdir($certDir, 0755, true);
+                $this->line('  ✓ Directory created');
             }
+
+            $configFile = $configDir.'/config.json';
+            file_put_contents($configFile, json_encode(['tld' => $tld], JSON_PRETTY_PRINT));
+            $this->line("  ✓ config.json (tld: {$tld})");
         }
 
         $this->newLine();

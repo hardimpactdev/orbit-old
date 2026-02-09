@@ -19,7 +19,7 @@
 ```
 src/
   Models/                    # Eloquent models
-    Environment.php          # Has editor_scheme for per-env editor preference
+    Node.php                 # Has editor_scheme for per-node editor preference
     Project.php
     Site.php                 # Site model for local dev sites
     TrackedJob.php           # Job tracking
@@ -89,7 +89,7 @@ database/
 All classes use `HardImpact\Orbit\Core` namespace:
 
 ```php
-use HardImpact\Orbit\Core\Models\Environment;
+use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\SiteCliService;
 use HardImpact\Orbit\Core\Data\ProvisionContext;
 use HardImpact\Orbit\Core\Contracts\ProvisionLoggerContract;
@@ -136,7 +136,7 @@ composer format         # Format with Pint
 orbit-core is a business logic package that provides models, services, jobs, and data structures. It contains no UI components.
 
 **What orbit-core provides:**
-- Eloquent Models (Project, Environment, etc.)
+- Eloquent Models (Project, Node, etc.)
 - Services (ProvisionPipeline, DeletionPipeline, etc.)
 - Jobs (CreateProjectJob, DeleteProjectJob)
 - Data Transfer Objects (ProvisionContext, DeletionContext)
@@ -331,7 +331,7 @@ managed by the composables and automatically cleaned up when components unmount.
 Key files:
 - `resources/js/app.ts` configures Echo from the `reverb` page prop
 - `resources/js/composables/useSiteProvisioning.ts` subscribes via `useEchoPublic`
-- `resources/js/pages/environments/Services.vue` listens for service status updates
+- `resources/js/pages/nodes/Services.vue` listens for service status updates
 
 ## Host Services
 
