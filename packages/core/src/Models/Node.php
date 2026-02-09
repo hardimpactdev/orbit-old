@@ -36,6 +36,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $vpn_ip
  * @property int|null $gateway_id
  * @property \Carbon\Carbon|null $vpn_registered_at
+ * @property string|null $custom_tld
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read bool $is_local
@@ -71,6 +72,7 @@ class Node extends Model
         'vpn_ip',
         'gateway_id',
         'vpn_registered_at',
+        'custom_tld',
     ];
 
     protected $casts = [
