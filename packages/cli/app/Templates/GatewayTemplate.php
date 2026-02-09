@@ -7,11 +7,14 @@ namespace App\Templates;
 use App\Actions\Install\Linux;
 use App\Actions\Install\Mac;
 use App\Actions\Install\Shared;
+use App\Components\CaddyComponent;
 use App\Components\DockerComponent;
 use App\Components\GatewayDnsComponent;
+use App\Components\PhpComponent;
 use App\Components\VpnComponent;
 use App\Contracts\Component;
 use App\Contracts\Template;
+use App\Data\Install\InstallContext;
 
 /**
  * Gateway template - Central hub for Orbit machines to communicate.
@@ -24,6 +27,8 @@ use App\Contracts\Template;
 final readonly class GatewayTemplate implements Template
 {
     public function __construct(
+        private PhpComponent $php,
+        private CaddyComponent $caddy,
         private DockerComponent $docker,
         private VpnComponent $vpn,
         private GatewayDnsComponent $dns,
@@ -41,7 +46,7 @@ final readonly class GatewayTemplate implements Template
 
     public function description(): string
     {
-        return 'Central hub with VPN (WG Easy) and DNS for machine-to-machine communication';
+        return 'Central hub with PHP, Caddy, Horizon, VPN, and DNS for orchestrating client nodes';
     }
 
     public function platforms(): array
@@ -54,7 +59,7 @@ final readonly class GatewayTemplate implements Template
         return in_array($osFamily, $this->platforms(), true);
     }
 
-    public function installSteps(string $osFamily): array
+    public function installSteps(string $osFamily, ?InstallContext $context = null): array
     {
         return match ($osFamily) {
             'Darwin' => $this->macSteps(),
@@ -103,16 +108,19 @@ final readonly class GatewayTemplate implements Template
         return [
             ['action' => Linux\CheckPrerequisites::class, 'name' => 'Checking prerequisites'],
             ['action' => Linux\InstallDocker::class, 'name' => 'Installing Docker'],
-            // Skip InstallSupportTools - gateway doesn't need Bun/Composer
+            ['action' => Linux\InstallPhp::class, 'name' => 'Installing PHP'],
+            ['action' => Linux\InstallCaddy::class, 'name' => 'Installing Caddy'],
+            ['action' => Linux\ConfigurePhpFpm::class, 'name' => 'Configuring PHP-FPM'],
+            ['action' => Linux\InstallHorizon::class, 'name' => 'Installing Horizon'],
 
             ['action' => Shared\CreateDirectories::class, 'name' => 'Creating directories'],
             ['action' => Shared\CopyConfigurationFiles::class, 'name' => 'Copying configuration'],
+            ['action' => Shared\InitializeNode::class, 'name' => 'Initializing node'],
 
             ['action' => Shared\GenerateDnsConfig::class, 'name' => 'Generating DNS config'],
             ['action' => Shared\InitializeServices::class, 'name' => 'Initializing services'],
 
             ['action' => Shared\CreateDockerNetwork::class, 'name' => 'Creating Docker network'],
-            // Skip BuildDockerImages - gateway doesn't need custom PHP images
             ['action' => Shared\PullServiceImages::class, 'name' => 'Pulling service images'],
 
             ['action' => Linux\ConfigureDns::class, 'name' => 'Configuring DNS'],
@@ -130,10 +138,10 @@ final readonly class GatewayTemplate implements Template
     /**
      * @return array<Component>
      */
-    public function components(string $osFamily): array
+    public function components(string $osFamily, ?InstallContext $context = null): array
     {
         return array_filter(
-            [$this->docker, $this->vpn, $this->dns],
+            [$this->php, $this->caddy, $this->docker, $this->vpn, $this->dns],
             fn (Component $c) => $c->supportsPlatform($osFamily),
         );
     }
@@ -141,7 +149,7 @@ final readonly class GatewayTemplate implements Template
     /**
      * @return array<array{action: class-string, name: string}>
      */
-    public function prepareSteps(string $osFamily): array
+    public function prepareSteps(string $osFamily, ?InstallContext $context = null): array
     {
         $steps = [];
 
