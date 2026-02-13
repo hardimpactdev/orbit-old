@@ -37,7 +37,7 @@ final class GatewayClientsCommand extends Command
         $tldMap = $this->buildTldMap();
 
         $enriched = array_map(function (array $client) use ($tldMap) {
-            $ip = rtrim($client['ip'], '/');
+            $ip = rtrim((string) $client['ip'], '/');
             $ip = explode('/', $ip)[0];
 
             return [
