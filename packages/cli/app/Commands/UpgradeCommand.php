@@ -284,10 +284,14 @@ final class UpgradeCommand extends Command
             return true;
         }
 
-        // Mach-O binary (macOS) - both 64-bit and universal
+        // Mach-O binary (macOS) - 32/64-bit, both endiannesses, and universal
         $magic = unpack('N', substr($content, 0, 4));
 
-        return $magic && in_array($magic[1], [0xFEEDFACF, 0xCAFEBABE, 0xBEBAFECA], true);
+        return $magic && in_array($magic[1], [
+            0xFEEDFACE, 0xCEFAEDFE, // MH_MAGIC / MH_CIGAM (32-bit)
+            0xFEEDFACF, 0xCFFAEDFE, // MH_MAGIC_64 / MH_CIGAM_64 (64-bit)
+            0xCAFEBABE, 0xBEBAFECA, // FAT_MAGIC / FAT_CIGAM (universal)
+        ], true);
     }
 
     private function handleCheckResult(string $currentVersion, string $latestVersion, bool $isUpToDate): int
