@@ -100,6 +100,8 @@ jobs:
         run: ./spc doctor --auto-fix
 
       - name: Download PHP and extension sources
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./spc download \
             --with-php=8.4 \
@@ -134,7 +136,8 @@ jobs:
           retention-days: 1
 
   release:
-    needs: build-static
+    needs: [build-phar, build-static]
+    if: always() && needs.build-phar.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -144,12 +147,22 @@ jobs:
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Generate checksums
+      - name: Collect available assets
+        id: assets
         run: |
-          cd orbit-linux-x86_64 && sha256sum orbit-linux-x86_64 >> ../checksums.txt && cd ..
-          cd orbit-linux-aarch64 && sha256sum orbit-linux-aarch64 >> ../checksums.txt && cd ..
-          cd orbit-macos-aarch64 && sha256sum orbit-macos-aarch64 >> ../checksums.txt && cd ..
-          cd orbit-phar && sha256sum orbit.phar >> ../checksums.txt && cd ..
+          FILES=""
+          for name in orbit-linux-x86_64 orbit-linux-aarch64 orbit-macos-aarch64; do
+            if [ -f "$name/$name" ]; then
+              cd "$name" && sha256sum "$name" >> ../checksums.txt && cd ..
+              FILES="$FILES $name/$name"
+            fi
+          done
+          if [ -f orbit-phar/orbit.phar ]; then
+            cd orbit-phar && sha256sum orbit.phar >> ../checksums.txt && cd ..
+            FILES="$FILES orbit-phar/orbit.phar"
+          fi
+          echo "files=$FILES checksums.txt" >> $GITHUB_OUTPUT
+          echo "Available assets:$FILES"
           cat checksums.txt
 
       - name: Create release on orbit-cli repo
@@ -161,11 +174,7 @@ jobs:
             --repo hardimpactdev/orbit-cli \
             --title "Orbit $VERSION" \
             --generate-notes \
-            orbit-linux-x86_64/orbit-linux-x86_64 \
-            orbit-linux-aarch64/orbit-linux-aarch64 \
-            orbit-macos-aarch64/orbit-macos-aarch64 \
-            orbit-phar/orbit.phar \
-            checksums.txt
+            ${{ steps.assets.outputs.files }}
 
       - name: Verify release
         env:
