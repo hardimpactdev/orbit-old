@@ -139,7 +139,7 @@ final class UpgradeCommand extends Command
             $scriptContent = sprintf(
                 "#!/bin/sh\nsleep 1\nmv %s %s\nrm -f %s\nrm -f \$0\n",
                 escapeshellarg($tempFile),
-                escapeshellarg($binaryPath),
+                escapeshellarg((string) $binaryPath),
                 escapeshellarg($binaryPath.'.bak')
             );
 

@@ -215,8 +215,7 @@ final class NodeRegisterTldCommand extends Command
                 ->get();
 
             // Build Caddy proxy config
-            $proxyBlocks = $nodes->map(function (Node $node) {
-                return <<<CADDY
+            $proxyBlocks = $nodes->map(fn (Node $node) => <<<CADDY
 *.{$node->custom_tld} {
     reverse_proxy {$node->vpn_ip}:80 {
         header_up Host {host}
@@ -226,8 +225,7 @@ final class NodeRegisterTldCommand extends Command
     }
 }
 
-CADDY;
-            })->implode("\n");
+CADDY)->implode("\n");
 
             // Write Caddy config and reload
             $result = \Illuminate\Support\Facades\Process::run(

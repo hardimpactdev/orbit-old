@@ -38,9 +38,12 @@ final class NodeAddCommand extends Command
         }
 
         if (! filter_var($host, FILTER_VALIDATE_IP)) {
-            return $this->wantsJson()
-                ? $this->outputJsonError('Invalid IP address format')
-                : $this->error('Invalid IP address format') && self::FAILURE;
+            if ($this->wantsJson()) {
+                return $this->outputJsonError('Invalid IP address format');
+            }
+            $this->error('Invalid IP address format');
+
+            return self::FAILURE;
         }
 
         $user = $this->option('user');
@@ -53,9 +56,12 @@ final class NodeAddCommand extends Command
         } catch (\ValueError) {
             $message = "Invalid node type: {$typeInput}. Must be 'client' or 'gateway'";
 
-            return $this->wantsJson()
-                ? $this->outputJsonError($message)
-                : $this->error($message) && self::FAILURE;
+            if ($this->wantsJson()) {
+                return $this->outputJsonError($message);
+            }
+            $this->error($message);
+
+            return self::FAILURE;
         }
 
         $node = $nodeService->addNode($host, $user, $port, $type, $name);

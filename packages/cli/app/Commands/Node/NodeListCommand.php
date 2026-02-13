@@ -35,9 +35,12 @@ final class NodeListCommand extends Command
             } catch (\ValueError) {
                 $message = "Invalid node type: {$typeFilter}. Must be 'local', 'gateway', or 'client'";
 
-                return $this->wantsJson()
-                    ? $this->outputJsonError($message)
-                    : $this->error($message) && self::FAILURE;
+                if ($this->wantsJson()) {
+                    return $this->outputJsonError($message);
+                }
+                $this->error($message);
+
+                return self::FAILURE;
             }
 
             $nodes = Node::where('node_type', $type->value)->get();
@@ -149,7 +152,7 @@ final class NodeListCommand extends Command
                         'name' => $client['name'],
                     ];
                 }
-            } catch (\Exception $e) {
+            } catch (\Exception) {
                 // Gateway unreachable, skip
             }
         }

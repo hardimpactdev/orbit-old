@@ -512,7 +512,7 @@ SCRIPT;
     public function installPhp(string $ip, string $user, string $versions): array
     {
         $brewPath = '/home/linuxbrew/.linuxbrew';
-        $versionsArray = array_map('trim', explode(',', $versions));
+        $versionsArray = array_map(trim(...), explode(',', $versions));
 
         // Tap shivammathur/php
         $tapResult = $this->ssh($user, $ip, "{$brewPath}/bin/brew tap shivammathur/php", 120);

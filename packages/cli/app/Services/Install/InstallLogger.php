@@ -18,7 +18,7 @@ final class InstallLogger
     private bool $buffering = false;
 
     public function __construct(
-        private Command $command,
+        private readonly Command $command,
     ) {}
 
     public function title(string $message): void
@@ -52,9 +52,7 @@ final class InstallLogger
         $this->buffering = true;
         $this->buffer = [];
 
-        $result = spin(function () use ($callback) {
-            return $callback();
-        }, $message);
+        $result = spin(fn () => $callback(), $message);
 
         $this->buffering = false;
 

@@ -6,7 +6,7 @@ namespace App\Data\Install;
 
 use HardImpact\Orbit\Core\Enums\NodeType;
 
-final readonly class InstallContext
+final class InstallContext
 {
     /**
      * @param  array<int, string>  $phpVersions
@@ -15,21 +15,21 @@ final readonly class InstallContext
      * @param  array<string, mixed>  $metadata
      */
     public function __construct(
-        public string $tld = 'test',
-        public array $phpVersions = ['8.5'],
-        public bool $skipDocker = false,
-        public bool $skipTrust = false,
-        public bool $nonInteractive = false,
-        public string $configDir = '',
-        public string $homeDir = '',
-        public string $template = 'php-dev',
-        public array $services = [],
-        public array $nodePackageManagers = [],
-        public NodeType $nodeType = NodeType::Local,
-        public bool $skipOrbitCli = false,
-        public ?int $gatewayId = null,
-        public ?string $nodeName = null,
-        public ?string $hostIp = null,
+        public readonly string $tld = 'test',
+        public readonly array $phpVersions = ['8.5'],
+        public readonly bool $skipDocker = false,
+        public readonly bool $skipTrust = false,
+        public readonly bool $nonInteractive = false,
+        public readonly string $configDir = '',
+        public readonly string $homeDir = '',
+        public readonly string $template = 'php-dev',
+        public readonly array $services = [],
+        public readonly array $nodePackageManagers = [],
+        public readonly NodeType $nodeType = NodeType::Local,
+        public readonly bool $skipOrbitCli = false,
+        public readonly ?int $gatewayId = null,
+        public readonly ?string $nodeName = null,
+        public readonly ?string $hostIp = null,
         public array $metadata = [],
     ) {}
 

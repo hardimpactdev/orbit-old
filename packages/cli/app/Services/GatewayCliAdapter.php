@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Process;
  * CLI-specific gateway operations that require Process (SSH, Docker, ifconfig).
  * Wraps the core GatewayManager for pure business logic.
  */
-final class GatewayCliAdapter
+final readonly class GatewayCliAdapter
 {
     public function __construct(
         private GatewayManager $gatewayManager,
@@ -60,8 +60,8 @@ final class GatewayCliAdapter
         $result = Process::timeout($timeout)->run(
             sprintf(
                 'ssh -o ServerAliveInterval=30 -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s',
-                escapeshellarg($user),
-                escapeshellarg($ip),
+                escapeshellarg((string) $user),
+                escapeshellarg((string) $ip),
                 escapeshellarg("export PATH=/home/linuxbrew/.linuxbrew/bin:\$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:\$PATH && orbit {$command}"),
             )
         );

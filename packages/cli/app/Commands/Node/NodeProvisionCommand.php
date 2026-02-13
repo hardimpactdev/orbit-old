@@ -106,12 +106,12 @@ final class NodeProvisionCommand extends Command
         }
 
         $phpVersions = array_map(
-            'trim',
+            trim(...),
             explode(',', $this->option('php-versions'))
         );
 
         $services = $this->option('services')
-            ? array_map('trim', explode(',', $this->option('services')))
+            ? array_map(trim(...), explode(',', $this->option('services')))
             : $this->getDefaultServicesForNodeType($node->node_type);
 
         $context = InstallContext::fromOptions([
@@ -127,14 +127,16 @@ final class NodeProvisionCommand extends Command
         $this->info('Starting installation...');
         $this->newLine();
 
+        $logger = new \App\Services\Install\InstallLogger($this);
+
         $result = $pipeline->run(
             template: $template,
             context: $context,
             osFamily: 'Linux',
-            output: $this->output,
+            logger: $logger,
         );
 
-        if (! $result->successful) {
+        if (! $result->success) {
             $this->newLine();
             $this->error('Provisioning failed: '.$result->error);
 

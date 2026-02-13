@@ -335,7 +335,7 @@ final class GatewayMakeClientCommand extends Command
      */
     private function normalizeClientName(string $name): string
     {
-        return strtolower(preg_replace('/[^a-zA-Z0-9_-]/', '-', $name));
+        return strtolower((string) preg_replace('/[^a-zA-Z0-9_-]/', '-', $name));
     }
 
     /**
