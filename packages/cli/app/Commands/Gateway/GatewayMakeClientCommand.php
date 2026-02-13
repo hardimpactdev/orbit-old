@@ -5,23 +5,15 @@ declare(strict_types=1);
 namespace App\Commands\Gateway;
 
 use App\Services\ConfigManager;
-use App\Services\GatewayDnsService;
-use App\Services\WgEasyService;
+use App\Services\GatewayCliAdapter;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayDnsService;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\text;
 
-/**
- * Create a new WireGuard VPN client for the gateway.
- *
- * This command:
- * 1. Creates a client in WG Easy
- * 2. Assigns a VPN IP to the client
- * 3. Configures a custom TLD to route to the client
- * 4. Stores the mapping in the configuration
- */
 final class GatewayMakeClientCommand extends Command
 {
     protected $signature = 'gateway:make:client
@@ -34,6 +26,7 @@ final class GatewayMakeClientCommand extends Command
         private readonly ConfigManager $configManager,
         private readonly WgEasyService $wgEasyService,
         private readonly GatewayDnsService $dnsService,
+        private readonly GatewayCliAdapter $cliAdapter,
     ) {
         parent::__construct();
     }
@@ -48,7 +41,7 @@ final class GatewayMakeClientCommand extends Command
         }
 
         // Check if WG Easy is running
-        if (! $this->wgEasyService->isRunning()) {
+        if (! $this->cliAdapter->isWgEasyRunning()) {
             $this->error('WG Easy is not running. Start it with: orbit start');
 
             return self::FAILURE;
@@ -131,7 +124,10 @@ final class GatewayMakeClientCommand extends Command
         // Configure DNS only if TLD is provided
         if ($tld !== '') {
             $this->info('Configuring DNS...');
-            $this->dnsService->addTldMapping($tld, $client['ip']);
+            $needsRestart = $this->dnsService->addTldMapping($tld, $client['ip']);
+            if ($needsRestart) {
+                $this->cliAdapter->restartDns();
+            }
             $this->info("✓ DNS mapping added: *.{$tld} -> {$client['ip']}");
             $this->newLine();
         }

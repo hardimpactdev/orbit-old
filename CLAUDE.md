@@ -11,10 +11,11 @@ A NativePHP/Electron desktop application for managing local and remote orbit CLI
 3. **Fix issues on the remote server** - Caddy configs, project files, and orbit CLI are there
 
 **Current environments:**
-| Environment | SSH Command | TLD | Notes |
-|-------------|-------------|-----|-------|
-| Ubuntu VPS | `ssh orbit@ai` | `.ccc` | Main dev server, CLI source at `~/projects/orbit-cli/` |
-| Local | N/A (localhost) | `.test` | Local machine |
+| Environment | SSH Command | TLD | MCP Endpoint | Notes |
+|-------------|-------------|-----|--------------|-------|
+| Ubuntu VPS | `ssh orbit@ai` | `.ccc` | `POST https://orbit.ccc/mcp/orbit` | Main dev server, CLI source at `~/projects/orbit-cli/` |
+| Gateway | `ssh orbit@gateway` | N/A | `POST https://orbit.gateway/mcp/gateway` | VPN hub, DNS routing |
+| Local | N/A (localhost) | `.test` | N/A | Local machine |
 
 **Key paths on remote servers:**
 
@@ -760,6 +761,69 @@ CLI (ReverbBroadcaster) -> Pusher HTTP API -> Reverb container -> Caddy -> WebSo
     - Source: `ssh orbit@ai:~/projects/orchestrator/`
     - Provides MCP tools for git, project, and task management
     - Desktop connects via `orchestrator_url` setting
+
+## MCP Servers
+
+The orbit web app (`packages/app`) exposes two MCP servers for AI tool integration. Both support CLI (stdio) and HTTP transports.
+
+### OrbitServer (`orbit`)
+
+Site management, Docker infrastructure, environment config. Registers only on Local/Client nodes.
+
+**Connect from Claude Code:**
+```json
+{
+  "mcpServers": {
+    "orbit": {
+      "command": "php",
+      "args": ["artisan", "mcp:start", "orbit"],
+      "cwd": "/path/to/orbit-app"
+    }
+  }
+}
+```
+
+**HTTP endpoint:** `POST https://orbit.{tld}/mcp/orbit`
+
+### GatewayServer (`gateway`)
+
+VPN client management, DNS/TLD routing. Registers only on Gateway nodes (via `shouldRegister()` on each tool).
+
+**Tools:**
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `gateway_status` | read-only | Node info, VPN client count, DNS mappings, services status |
+| `gateway_clients` | read-only | All VPN clients with online status, TLD mappings, IPs |
+| `gateway_create_client` | mutating | Create VPN client + optional TLD mapping |
+| `gateway_dns_mappings` | read-only | All TLD-to-IP mappings |
+| `gateway_add_tld` | mutating | Add DNS mapping for a TLD to a VPN IP |
+| `gateway_remove_tld` | destructive | Remove a DNS mapping |
+
+**Resources:** `gateway://clients`, `gateway://dns`
+
+**Connect from Claude Code:**
+```json
+{
+  "mcpServers": {
+    "gateway": {
+      "command": "php",
+      "args": ["artisan", "mcp:start", "gateway"],
+      "cwd": "/path/to/orbit-app"
+    }
+  }
+}
+```
+
+**HTTP endpoint:** `POST https://orbit.{tld}/mcp/gateway`
+
+### Conditional Registration
+
+Gateway tools only register when the current node is a Gateway (`Node::getSelf()?->isGateway()`). OrbitServer tools only register on Local/Client nodes. This prevents tools from appearing on the wrong node type.
+
+### Gateway Deployment
+
+A gateway node needs minimal orbit-app deployment: PHP-FPM + Caddy serving MCP HTTP routes. No frontend, no NativePHP — just the API/MCP endpoints.
 
 ## Known Issues
 

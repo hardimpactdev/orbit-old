@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Commands\Gateway;
 
-use App\Services\GatewayManager;
+use App\Services\GatewayCliAdapter;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
 final class GatewayListCommand extends Command
@@ -13,7 +14,7 @@ final class GatewayListCommand extends Command
 
     protected $description = 'List configured gateway servers';
 
-    public function handle(GatewayManager $gatewayManager): int
+    public function handle(GatewayManager $gatewayManager, GatewayCliAdapter $adapter): int
     {
         $gateways = $gatewayManager->all();
 
@@ -24,7 +25,7 @@ final class GatewayListCommand extends Command
             return self::SUCCESS;
         }
 
-        $active = $gatewayManager->detectActive();
+        $active = $adapter->detectActive();
         $activeId = $active['gateway']['id'] ?? null;
 
         $this->newLine();

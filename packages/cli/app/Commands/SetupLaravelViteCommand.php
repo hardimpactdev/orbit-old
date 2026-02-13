@@ -9,8 +9,6 @@ use LaravelZero\Framework\Commands\Command;
 
 /**
  * One-time setup to create certificate directories for Vite valetTls support.
- *
- * Creates the Herd/Valet certificate directories that `orbit secure` will use.
  */
 final class SetupLaravelViteCommand extends Command
 {
@@ -23,7 +21,6 @@ final class SetupLaravelViteCommand extends Command
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
 
         $configDirs = [
-            'Herd' => $home.'/Library/Application Support/Herd/config/valet',
             'Valet' => $home.'/.config/valet',
         ];
 

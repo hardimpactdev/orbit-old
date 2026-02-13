@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Commands\Gateway;
 
 use App\Concerns\WithJsonOutput;
-use App\Services\GatewayManager;
+use App\Services\GatewayCliAdapter;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
 final class GatewayListClientsCommand extends Command
@@ -16,13 +17,13 @@ final class GatewayListClientsCommand extends Command
 
     protected $description = 'List WireGuard clients on the active gateway';
 
-    public function handle(GatewayManager $gatewayManager): int
+    public function handle(GatewayManager $gatewayManager, GatewayCliAdapter $adapter): int
     {
         if (! $gatewayManager->hasAny()) {
             return $this->failWithMessage('No gateways configured. Add one with: orbit gateway:add');
         }
 
-        $active = $gatewayManager->detectActive();
+        $active = $adapter->detectActive();
 
         if ($active === null) {
             return $this->failWithMessage('No active WireGuard connection found matching a configured gateway subnet.');
@@ -30,7 +31,7 @@ final class GatewayListClientsCommand extends Command
 
         $gateway = $active['gateway'];
 
-        $output = $gatewayManager->sshCommand($gateway['id'], 'gateway:clients --json');
+        $output = $adapter->sshCommand($gateway['id'], 'gateway:clients --json');
 
         if ($output === null) {
             return $this->failWithMessage("Failed to connect to gateway '{$gateway['name']}' via SSH.");

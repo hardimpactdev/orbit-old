@@ -42,6 +42,11 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
 
         $caddyfile = '{
     local_certs
+    pki {
+        ca local {
+            intermediate_lifetime 3599d
+        }
+    }
 }
 
 ';
@@ -50,7 +55,11 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
         $webAppPath = $this->configManager->getWebAppPath();
         if (is_dir($webAppPath)) {
             $caddyfile .= "orbit.{$tld} {
-    tls internal
+    tls {
+        issuer internal {
+            lifetime 3598d
+        }
+    }
     root * {$webAppPath}/public
     encode gzip
     php_fastcgi unix/{$defaultSocket}
@@ -74,7 +83,11 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
             $root = $project['path'].'/public';
 
             $caddyfile .= "{$project['domain']} {
-    tls internal
+    tls {
+        issuer internal {
+            lifetime 3598d
+        }
+    }
     root * {$root}
     encode gzip
 
@@ -106,7 +119,11 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
             $root = $worktree['path'].'/public';
 
             $caddyfile .= "{$worktree['domain']} {
-    tls internal
+    tls {
+        issuer internal {
+            lifetime 3598d
+        }
+    }
     root * {$root}
     encode gzip
     php_fastcgi unix/{$socket}
@@ -120,7 +137,11 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
         // NOTE: ServiceManager is resolved lazily to avoid early file reads during DI resolution
         if (app(ServiceManager::class)->isEnabled('reverb')) {
             $caddyfile .= "reverb.{$tld} {
-    tls internal
+    tls {
+        issuer internal {
+            lifetime 3598d
+        }
+    }
     @websocket {
         path /app /app/*
         header Connection *Upgrade*

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
-use App\Services\GatewayManager;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use App\Services\TemplateRegistry;
 use LaravelZero\Framework\Commands\Command;
 

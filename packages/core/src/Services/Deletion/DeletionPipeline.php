@@ -22,7 +22,7 @@ use HardImpact\Orbit\Core\Services\Deletion\Actions\RegenerateCaddyConfig;
  * Note: Project model deletion is handled by the caller (CLI or Job)
  * to allow for transaction control.
  */
-readonly class DeletionPipeline
+class DeletionPipeline
 {
     public function __construct(
         private DropPostgresDatabase $dropPostgresDatabase,

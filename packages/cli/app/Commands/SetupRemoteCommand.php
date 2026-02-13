@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\HasStepOutput;
-use App\Services\GatewayManager;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use App\Services\IpValidator;
 use App\Services\RemoteProvisioner;
 use HardImpact\Orbit\Core\Enums\NodeType;

@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Services;
+namespace HardImpact\Orbit\Core\Services\Gateway;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Process;
 
 /**
  * Service for interacting with WG Easy (WireGuard) API.
@@ -17,39 +16,17 @@ final class WgEasyService
     private string $password;
 
     public function __construct(
-        private ?ConfigManager $configManager = null,
-        ?string $host = null,
-        ?int $port = null,
-        ?string $password = null,
+        string $host,
+        int $port,
+        string $password,
     ) {
-        if ($host !== null) {
-            $this->baseUrl = "http://{$host}:{$port}";
-            $this->password = $password ?? '';
-        } else {
-            $cm = $this->configManager ?? app(ConfigManager::class);
-            $this->baseUrl = 'http://'.$cm->get('wg_easy.host', '127.0.0.1').':'.$cm->get('wg_easy.web_ui_port', 51821);
-            $this->password = $cm->get('wg_easy.password', '');
-        }
+        $this->baseUrl = "http://{$host}:{$port}";
+        $this->password = $password;
     }
 
     public static function forGateway(string $host, int $port, string $password): self
     {
-        return new self(host: $host, port: $port, password: $password);
-    }
-
-    /**
-     * Check if WG Easy is running.
-     */
-    public function isRunning(): bool
-    {
-        foreach (['wg-easy', 'orbit-wg-easy'] as $name) {
-            $result = Process::run("docker ps --filter \"name=^{$name}\$\" --format \"{{.Names}}\"");
-            if ($result->successful() && trim($result->output()) === $name) {
-                return true;
-            }
-        }
-
-        return false;
+        return new self($host, $port, $password);
     }
 
     /**
@@ -66,14 +43,13 @@ final class WgEasyService
                 /** @var string|null $cookie */
                 $cookie = $response->header('Set-Cookie');
                 if ($cookie !== null && $cookie !== '') {
-                    // Extract connect.sid from cookie
                     if (preg_match('/connect\.sid=([^;]+)/', $cookie, $matches)) {
                         return 'connect.sid='.$matches[1];
                     }
                 }
             }
-        } catch (\Exception $e) {
-            // Fall through to return null
+        } catch (\Exception) {
+            // Fall through
         }
 
         return null;
@@ -107,8 +83,8 @@ final class WgEasyService
                     'name' => $name,
                 ];
             }
-        } catch (\Exception $e) {
-            // Fall through to return null
+        } catch (\Exception) {
+            // Fall through
         }
 
         return null;
@@ -124,7 +100,6 @@ final class WgEasyService
             return null;
         }
 
-        // First get client ID
         $clientId = $this->getClientIdByName($name);
         if ($clientId === null) {
             return null;
@@ -138,8 +113,8 @@ final class WgEasyService
             if ($response->successful()) {
                 return $response->body();
             }
-        } catch (\Exception $e) {
-            // Fall through to return null
+        } catch (\Exception) {
+            // Fall through
         }
 
         return null;
@@ -155,7 +130,6 @@ final class WgEasyService
             return null;
         }
 
-        // First get client ID
         $clientId = $this->getClientIdByName($name);
         if ($clientId === null) {
             return null;
@@ -169,8 +143,8 @@ final class WgEasyService
             if ($response->successful()) {
                 return $response->json('qrcode');
             }
-        } catch (\Exception $e) {
-            // Fall through to return null
+        } catch (\Exception) {
+            // Fall through
         }
 
         return null;
@@ -207,16 +181,13 @@ final class WgEasyService
 
                 return $clients;
             }
-        } catch (\Exception $e) {
-            // Fall through to return empty array
+        } catch (\Exception) {
+            // Fall through
         }
 
         return [];
     }
 
-    /**
-     * Get client ID by name.
-     */
     private function getClientIdByName(string $name): ?string
     {
         $clients = $this->getClients();
@@ -229,13 +200,8 @@ final class WgEasyService
         return null;
     }
 
-    /**
-     * Generate a random IP for the client (fallback).
-     */
     private function generateIp(): string
     {
-        // WG Easy uses 10.8.0.x range
-        // This is a fallback, normally we get the actual IP from the API
         return '10.8.0.'.random_int(2, 254);
     }
 }

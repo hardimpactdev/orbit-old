@@ -24,11 +24,11 @@ describe('PhpDevTemplate', function () {
     });
 
     it('returns correct mac step count', function () {
-        expect($this->template->installSteps('Darwin'))->toHaveCount(20);
+        expect($this->template->installSteps('Darwin'))->toHaveCount(21);
     });
 
     it('returns correct linux step count', function () {
-        expect($this->template->installSteps('Linux'))->toHaveCount(20);
+        expect($this->template->installSteps('Linux'))->toHaveCount(21);
     });
 
     it('starts mac steps with CheckPrerequisites', function () {
@@ -135,7 +135,7 @@ describe('PhpProductionTemplate', function () {
     it('returns base mac steps without services', function () {
         $steps = $this->template->installSteps('Darwin');
 
-        expect($steps)->toHaveCount(12);
+        expect($steps)->toHaveCount(13);
         expect($steps[0]['action'])->toBe(Mac\CheckPrerequisites::class);
         expect($steps[count($steps) - 1]['action'])->toBe(Shared\HealthCheck::class);
     });
@@ -149,11 +149,11 @@ describe('PhpProductionTemplate', function () {
     });
 
     it('includes InstallNodePackageManagers for both platforms', function () {
-        foreach (['Darwin', 'Linux'] as $platform) {
-            $actions = collect($this->template->installSteps($platform))->pluck('action');
+        $macActions = collect($this->template->installSteps('Darwin'))->pluck('action');
+        $linuxActions = collect($this->template->installSteps('Linux'))->pluck('action');
 
-            expect($actions)->toContain(Brew\InstallNodePackageManagers::class);
-        }
+        expect($macActions)->toContain(Brew\InstallNodePackageManagers::class);
+        expect($linuxActions)->toContain(Linux\InstallNodePackageManagers::class);
     });
 
     it('includes Docker steps when services are selected', function () {
@@ -162,7 +162,7 @@ describe('PhpProductionTemplate', function () {
         $macSteps = $this->template->installSteps('Darwin', $context);
         $linuxSteps = $this->template->installSteps('Linux', $context);
 
-        expect($macSteps)->toHaveCount(17);
+        expect($macSteps)->toHaveCount(18);
         expect($linuxSteps)->toHaveCount(18);
 
         $macActions = collect($macSteps)->pluck('action');
@@ -302,9 +302,10 @@ describe('TemplateRegistry', function () {
     it('lists all registered templates', function () {
         $registry = new TemplateRegistry;
 
-        expect($registry->all())->toHaveCount(3);
+        expect($registry->all())->toHaveCount(4);
         expect($registry->all())->toHaveKey('php-dev');
         expect($registry->all())->toHaveKey('php-production');
         expect($registry->all())->toHaveKey('gateway');
+        expect($registry->all())->toHaveKey('client');
     });
 });

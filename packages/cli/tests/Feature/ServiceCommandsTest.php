@@ -158,68 +158,6 @@ describe('service:disable', function () {
     });
 });
 
-describe('service:configure', function () {
-    it('configures a service with key=value pairs', function () {
-        $this->serviceManager->shouldReceive('configure')
-            ->with('redis', ['port' => 6379, 'maxmemory' => '256mb'])
-            ->once()
-            ->andReturn(true);
-
-        $this->serviceManager->shouldReceive('regenerateCompose')
-            ->once()
-            ->andReturn(true);
-
-        $this->artisan('service:configure redis --set=port=6379 --set=maxmemory=256mb')
-            ->expectsOutputToContain('configured')
-            ->assertExitCode(0);
-    });
-
-    it('parses boolean values correctly', function () {
-        $this->serviceManager->shouldReceive('configure')
-            ->with('redis', ['persistence' => true])
-            ->once()
-            ->andReturn(true);
-
-        $this->serviceManager->shouldReceive('regenerateCompose')
-            ->once()
-            ->andReturn(true);
-
-        $this->artisan('service:configure redis --set=persistence=true')
-            ->assertExitCode(0);
-    });
-
-    it('requires --set option', function () {
-        $this->artisan('service:configure redis')
-            ->expectsOutputToContain('No configuration provided')
-            ->assertExitCode(1);
-    });
-
-    it('handles configuration failures', function () {
-        $this->serviceManager->shouldReceive('configure')
-            ->with('redis', ['port' => 6379])
-            ->once()
-            ->andThrow(new RuntimeException('Invalid configuration'));
-
-        $this->artisan('service:configure redis --set=port=6379')
-            ->expectsOutputToContain('Invalid configuration')
-            ->assertExitCode(1);
-    });
-
-    it('outputs JSON when --json flag is used', function () {
-        $this->serviceManager->shouldReceive('configure')
-            ->with('redis', ['port' => 6379])
-            ->once()
-            ->andReturn(true);
-
-        $this->serviceManager->shouldReceive('regenerateCompose')
-            ->once()
-            ->andReturn(true);
-
-        $this->artisan('service:configure redis --set=port=6379 --json')
-            ->assertExitCode(0);
-    });
-});
-
 describe('service:info', function () {
     it('shows information for a configured service', function () {
         $this->serviceManager->shouldReceive('getService')

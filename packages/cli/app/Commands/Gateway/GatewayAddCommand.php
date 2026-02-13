@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Gateway;
 
-use App\Services\GatewayManager;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\text;

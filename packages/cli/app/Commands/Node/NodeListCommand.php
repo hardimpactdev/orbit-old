@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Commands\Node;
 
 use App\Concerns\WithJsonOutput;
-use App\Models\Gateway;
-use App\Services\WgEasyService;
+use HardImpact\Orbit\Core\Models\Gateway;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
 use LaravelZero\Framework\Commands\Command;

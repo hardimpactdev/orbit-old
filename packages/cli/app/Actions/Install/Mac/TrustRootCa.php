@@ -19,10 +19,23 @@ final readonly class TrustRootCa
             return StepResult::success();
         }
 
-        // Check if already trusted first
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
-        $certPath = $home.'/Library/Application Support/Caddy/pki/authorities/local/root.crt';
-        $intermediatePath = $home.'/Library/Application Support/Caddy/pki/authorities/local/intermediate.crt';
+
+        $pkiPaths = [
+            '/opt/homebrew/var/lib/caddy/pki/authorities/local',
+            $home.'/Library/Application Support/Caddy/pki/authorities/local',
+        ];
+
+        $pkiDir = collect($pkiPaths)->first(fn (string $p) => file_exists($p.'/root.crt'));
+
+        if ($pkiDir === null) {
+            $logger->warn('Caddy PKI directory not found');
+
+            return StepResult::success();
+        }
+
+        $certPath = $pkiDir.'/root.crt';
+        $intermediatePath = $pkiDir.'/intermediate.crt';
 
         if (file_exists($certPath)) {
             $rootTrusted = Process::run('security find-certificate -c "Caddy Local Authority" /Library/Keychains/System.keychain 2>/dev/null')->successful();

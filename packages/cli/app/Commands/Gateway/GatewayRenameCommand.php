@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Gateway;
 
-use App\Models\Gateway;
+use HardImpact\Orbit\Core\Models\Gateway;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\select;

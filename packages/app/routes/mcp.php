@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use HardImpact\Orbit\App\Mcp\GatewayServer;
 use HardImpact\Orbit\App\Mcp\OrbitServer;
 use Laravel\Mcp\Facades\Mcp;
 
@@ -10,17 +11,20 @@ use Laravel\Mcp\Facades\Mcp;
 | MCP Routes
 |--------------------------------------------------------------------------
 |
-| Register MCP servers for AI tool integration. The 'orbit' server
-| provides access to Docker infrastructure, site management, and
-| environment configuration.
+| Register MCP servers for AI tool integration.
 |
-| CLI usage: orbit mcp:start orbit
-| HTTP endpoint: POST /mcp/orbit
+| Orbit server: site management, Docker infrastructure, environment config
+| Gateway server: VPN client management, DNS/TLD routing
+|
+| CLI usage: orbit mcp:start orbit | orbit mcp:start gateway
+| HTTP endpoint: POST /mcp/orbit | POST /mcp/gateway
 |
 */
 
-// CLI transport (stdio) - used by orbit-cli
+// CLI transport (stdio)
 Mcp::local('orbit', OrbitServer::class);
+Mcp::local('gateway', GatewayServer::class);
 
-// HTTP transport - used by orbit-web
+// HTTP transport
 Mcp::web('orbit', OrbitServer::class);
+Mcp::web('gateway', GatewayServer::class);

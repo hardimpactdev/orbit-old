@@ -6,6 +6,8 @@ namespace App\Providers;
 
 use App\Contracts\CaddyfileGeneratorInterface;
 use App\Services\CaddyfileGenerator;
+use App\Services\ConfigManager;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,6 +31,17 @@ class AppServiceProvider extends ServiceProvider
     {
         // Bind interface to concrete implementation for mockability
         $this->app->bind(CaddyfileGeneratorInterface::class, CaddyfileGenerator::class);
+
+        // WgEasyService needs explicit config from ConfigManager
+        $this->app->bind(WgEasyService::class, function ($app) {
+            $cm = $app->make(ConfigManager::class);
+
+            return new WgEasyService(
+                host: $cm->get('wg_easy.host', '127.0.0.1'),
+                port: (int) $cm->get('wg_easy.web_ui_port', 51821),
+                password: $cm->get('wg_easy.password', ''),
+            );
+        });
 
         // Register HTTP client factory
         $this->app->singleton(Factory::class, fn ($app) => new Factory);

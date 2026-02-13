@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Node;
 
-use App\Services\GatewayManager;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
 use LaravelZero\Framework\Commands\Command;

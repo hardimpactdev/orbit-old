@@ -1,12 +1,16 @@
 <?php
 
 it('shows error when not running as phar', function () {
+    $_SERVER['argv'][0] = '/nonexistent/binary';
+
     $this->artisan('upgrade')
-        ->expectsOutputToContain('only available when running as a compiled PHAR')
+        ->expectsOutputToContain('only available when running as a compiled binary')
         ->assertExitCode(1);
 });
 
 it('shows error in json format when not running as phar', function () {
+    $_SERVER['argv'][0] = '/nonexistent/binary';
+
     $this->artisan('upgrade --json')
         ->assertExitCode(1);
 });

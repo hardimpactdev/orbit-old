@@ -114,12 +114,17 @@ final class SecureCommand extends Command
     private function findCaddyCertificate(string $domain): ?array
     {
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
-        $basePath = $home.'/Library/Application Support/Caddy/certificates/local';
 
-        $paths = [
-            "{$basePath}/{$domain}/{$domain}.crt",
-            "{$basePath}/{$domain}.crt",
+        $basePaths = [
+            '/opt/homebrew/var/lib/caddy/certificates/local',
+            $home.'/Library/Application Support/Caddy/certificates/local',
         ];
+
+        $paths = [];
+        foreach ($basePaths as $basePath) {
+            $paths[] = "{$basePath}/{$domain}/{$domain}.crt";
+            $paths[] = "{$basePath}/{$domain}.crt";
+        }
 
         foreach ($paths as $certPath) {
             $keyPath = str_replace('.crt', '.key', $certPath);
@@ -131,15 +136,11 @@ final class SecureCommand extends Command
         return null;
     }
 
-    /**
-     * Create symlinks in Herd/Valet certificate directories.
-     */
     private function createCertificateSymlinks(string $domain, array $caddyCert): void
     {
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
 
         $configDirs = [
-            'Herd' => $home.'/Library/Application Support/Herd/config/valet',
             'Valet' => $home.'/.config/valet',
         ];
 
@@ -185,9 +186,13 @@ final class SecureCommand extends Command
     private function trustCaddyRootCa(): void
     {
         $home = $_SERVER['HOME'] ?? getenv('HOME') ?: '/tmp';
-        $rootCaPath = $home.'/Library/Application Support/Caddy/pki/authorities/local/root.crt';
 
-        if (! file_exists($rootCaPath)) {
+        $rootCaPath = collect([
+            '/opt/homebrew/var/lib/caddy/pki/authorities/local/root.crt',
+            $home.'/Library/Application Support/Caddy/pki/authorities/local/root.crt',
+        ])->first(fn (string $path) => file_exists($path));
+
+        if ($rootCaPath === null) {
             $this->warn('Caddy root CA not found - visit the site first to generate it');
 
             return;

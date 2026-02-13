@@ -6,7 +6,7 @@ it('creates context with default values', function () {
     $context = InstallContext::fromOptions([]);
 
     expect($context->tld)->toBe('test');
-    expect($context->phpVersions)->toBe(['8.4', '8.5']);
+    expect($context->phpVersions)->toBe(['8.5']);
     expect($context->skipDocker)->toBeFalse();
     expect($context->skipTrust)->toBeFalse();
     expect($context->nonInteractive)->toBeFalse();

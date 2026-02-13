@@ -16,6 +16,8 @@ use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
 use HardImpact\Orbit\Core\Services\OrbitCli\WorkspaceService;
 use HardImpact\Orbit\Core\Services\OrbitCli\WorktreeService;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayDnsService;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use HardImpact\Orbit\Core\Services\SetupService;
 use HardImpact\Orbit\Core\Services\SshService;
 use Illuminate\Support\ServiceProvider;
@@ -35,6 +37,12 @@ class OrbitCoreServiceProvider extends ServiceProvider
         $this->app->singleton(DnsResolverService::class);
         $this->app->singleton(CliUpdateService::class);
         $this->app->singleton(SetupService::class);
+
+        // Gateway services
+        $this->app->singleton(GatewayManager::class);
+        $this->app->singleton(GatewayDnsService::class, fn () => new GatewayDnsService(
+            config('orbit.config_path', ($_SERVER['HOME'] ?? '/home/orbit').'/.config/orbit')
+        ));
 
         // CLI wrapper services (stateless, reusable)
         $this->app->singleton(CommandService::class);
@@ -99,6 +107,8 @@ class OrbitCoreServiceProvider extends ServiceProvider
         return [
             OrbitInit::class,
             NodeManager::class,
+            GatewayManager::class,
+            GatewayDnsService::class,
             SshService::class,
             DoctorService::class,
             HorizonService::class,

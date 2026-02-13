@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Commands\Gateway;
 
 use App\Concerns\WithJsonOutput;
-use App\Services\WgEasyService;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use HardImpact\Orbit\Core\Models\Setting;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Process;

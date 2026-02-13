@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Models;
+namespace HardImpact\Orbit\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -50,7 +50,6 @@ final class Gateway extends Model
         $network = $parts[0];
         $octets = explode('.', $network);
 
-        // Gateway is typically .1 of the subnet
         $octets[3] = '1';
 
         return implode('.', $octets);

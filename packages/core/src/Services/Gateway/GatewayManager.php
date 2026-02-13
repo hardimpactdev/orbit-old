@@ -2,15 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Services;
+namespace HardImpact\Orbit\Core\Services\Gateway;
 
-use App\Models\Gateway;
-use Illuminate\Support\Facades\Process;
+use HardImpact\Orbit\Core\Models\Gateway;
 
 final class GatewayManager
 {
     /**
-     * @return array<int, array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int}>
+     * @return array<int, array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}>
      */
     public function all(): array
     {
@@ -23,7 +22,7 @@ final class GatewayManager
     }
 
     /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int}|null
+     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}|null
      */
     public function get(int|string $id): ?array
     {
@@ -33,7 +32,7 @@ final class GatewayManager
     }
 
     /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int}
+     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}
      */
     public function add(string $name, string $ip, string $subnet): array
     {
@@ -77,7 +76,7 @@ final class GatewayManager
     }
 
     /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int}|null
+     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}|null
      */
     public function findBySubnet(string $ip): ?array
     {
@@ -107,61 +106,6 @@ final class GatewayManager
         }
 
         return null;
-    }
-
-    /**
-     * Detect the active gateway by checking network interfaces against configured subnets.
-     *
-     * @return array{gateway: array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int}, vpn_ip: string}|null
-     */
-    public function detectActive(): ?array
-    {
-        $result = Process::run('ifconfig');
-
-        if (! $result->successful()) {
-            return null;
-        }
-
-        preg_match_all('/inet\s+(\d+\.\d+\.\d+\.\d+)/', $result->output(), $matches);
-
-        foreach ($matches[1] as $ip) {
-            if ($ip === '127.0.0.1') {
-                continue;
-            }
-
-            $gateway = $this->findBySubnet($ip);
-            if ($gateway !== null) {
-                return ['gateway' => $gateway, 'vpn_ip' => $ip];
-            }
-        }
-
-        return null;
-    }
-
-    public function sshCommand(int|string $gatewayId, string $command, int $timeout = 30): ?string
-    {
-        $gateway = Gateway::find($gatewayId);
-        if ($gateway === null) {
-            return null;
-        }
-
-        $user = $gateway->ssh_user ?: 'orbit';
-        $ip = $gateway->ip_address;
-
-        $result = Process::timeout($timeout)->run(
-            sprintf(
-                'ssh -o ServerAliveInterval=30 -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s',
-                escapeshellarg($user),
-                escapeshellarg($ip),
-                escapeshellarg("export PATH=/home/linuxbrew/.linuxbrew/bin:\$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:\$PATH && orbit {$command}"),
-            )
-        );
-
-        if (! $result->successful()) {
-            return null;
-        }
-
-        return trim($result->output());
     }
 
     public function findByIp(string $ip): ?Gateway
