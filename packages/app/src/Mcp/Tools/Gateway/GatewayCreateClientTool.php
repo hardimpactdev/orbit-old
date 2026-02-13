@@ -35,10 +35,10 @@ final class GatewayCreateClientTool extends Tool
 
     public function schema(JsonSchema $schema): array
     {
-        return $schema->object([
-            'name' => $schema->string('Name for the VPN client'),
-            'tld' => $schema->string('Optional TLD to assign to this client (e.g. "dev")'),
-        ])->required(['name'])->toArray();
+        return [
+            'name' => $schema->string()->required()->description('Name for the VPN client'),
+            'tld' => $schema->string()->description('Optional TLD to assign to this client (e.g. "dev")'),
+        ];
     }
 
     public function handle(Request $request): ResponseFactory

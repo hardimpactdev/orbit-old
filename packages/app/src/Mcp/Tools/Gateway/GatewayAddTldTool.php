@@ -33,10 +33,10 @@ final class GatewayAddTldTool extends Tool
 
     public function schema(JsonSchema $schema): array
     {
-        return $schema->object([
-            'tld' => $schema->string('The TLD to route (e.g. "dev", "staging")'),
-            'ip' => $schema->string('The VPN IP to route traffic to (e.g. "10.8.0.2")'),
-        ])->required(['tld', 'ip'])->toArray();
+        return [
+            'tld' => $schema->string()->required()->description('The TLD to route (e.g. "dev", "staging")'),
+            'ip' => $schema->string()->required()->description('The VPN IP to route traffic to (e.g. "10.8.0.2")'),
+        ];
     }
 
     public function handle(Request $request): ResponseFactory

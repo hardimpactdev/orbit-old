@@ -1,6 +1,6 @@
-# Orbit Desktop
+# Orbit
 
-A NativePHP/Electron desktop application for managing local and remote orbit CLI installations.
+A monorepo containing the orbit infrastructure management stack: CLI, core services, web app, and desktop GUI. Designed to be managed via Claude Code (LLM-as-interface) using MCP tools and skills, with an optional NativePHP/Electron desktop GUI.
 
 ## Important: Working with Environments
 
@@ -762,28 +762,73 @@ CLI (ReverbBroadcaster) -> Pusher HTTP API -> Reverb container -> Caddy -> WebSo
     - Provides MCP tools for git, project, and task management
     - Desktop connects via `orchestrator_url` setting
 
+## Package Architecture
+
+The orbit-dev monorepo contains four packages:
+
+```
+packages/
+├── core/       # Shared models, services, migrations (used by CLI + app)
+├── app/        # Web app: MCP servers, controllers, Vue frontend, Inertia
+├── cli/        # Laravel Zero CLI: commands, install templates, phar binary
+└── desktop/    # NativePHP/Electron wrapper (optional GUI)
+```
+
+### What Lives Where
+
+| Package | Contains | Used By |
+|---------|----------|---------|
+| **core** | Node/Gateway/Setting models, gateway services (GatewayManager, WgEasyService, GatewayDnsService), CLI wrapper services (StatusService, ProjectCliService, etc.), migrations | CLI, App, Desktop |
+| **app** | MCP servers (OrbitServer, GatewayServer), HTTP controllers, Vue pages, Inertia routes | Desktop (NativePHP), Remote web deployments |
+| **cli** | CLI commands, install templates (Gateway/Client/Local), GatewayCliAdapter (Process-based operations), phar build | Installed on all nodes |
+| **desktop** | NativePHP config, Electron window management | Local macOS only |
+
+### Gateway Services in Core
+
+Gateway business logic lives in `packages/core/src/Services/Gateway/`:
+
+- **GatewayManager** - CRUD for gateway configs, VPN client registration, subnet detection
+- **WgEasyService** - WireGuard VPN API client (constructor: `string $host, int $port, string $password`)
+- **GatewayDnsService** - TLD-to-IP mappings via dnsmasq config files (constructor: `string $configPath`)
+
+CLI-specific operations (Process facade, SSH, Docker commands) live in `packages/cli/app/Services/GatewayCliAdapter.php`.
+
 ## MCP Servers
 
 The orbit web app (`packages/app`) exposes two MCP servers for AI tool integration. Both support CLI (stdio) and HTTP transports.
 
 ### OrbitServer (`orbit`)
 
-Site management, Docker infrastructure, environment config. Registers only on Local/Client nodes.
+Site management, Docker infrastructure, environment config. Registers on Local/Client nodes.
 
-**Connect from Claude Code:**
-```json
-{
-  "mcpServers": {
-    "orbit": {
-      "command": "php",
-      "args": ["artisan", "mcp:start", "orbit"],
-      "cwd": "/path/to/orbit-app"
-    }
-  }
-}
+**Tools:**
+
+| Tool | Type | Description |
+|------|------|-------------|
+| `orbit_status` | read-only | Service status, running containers, sites count, TLD, PHP version |
+| `orbit_start` | mutating | Start all Docker services |
+| `orbit_stop` | mutating | Stop all Docker services |
+| `orbit_restart` | mutating | Restart all Docker services |
+| `orbit_projects` | read-only | List projects with domains, paths, PHP versions |
+| `orbit_php` | mutating | Get/set/reset PHP version for a project |
+| `orbit_project_create` | mutating | Create new project with optional GitHub template |
+| `orbit_project_delete` | destructive | Delete project with cascade deletion |
+| `orbit_logs` | read-only | Get service logs from Docker containers |
+| `orbit_worktrees` | read-only | List git worktrees with subdomains |
+
+**Resources:** `orbit://infrastructure`, `orbit://config`, `orbit://env-template/{type}`, `orbit://projects`
+
+**Prompts:** `configure-laravel-env`, `setup-horizon`
+
+**Connect from Claude Code (local):**
+```bash
+claude mcp add --transport stdio orbit -- php artisan mcp:start orbit --cwd /path/to/orbit-app
 ```
 
-**HTTP endpoint:** `POST https://orbit.{tld}/mcp/orbit`
+**Connect from Claude Code (remote via HTTP):**
+```bash
+claude mcp add --transport http orbit-remote https://orbit.ccc/mcp/orbit
+```
 
 ### GatewayServer (`gateway`)
 
@@ -802,28 +847,47 @@ VPN client management, DNS/TLD routing. Registers only on Gateway nodes (via `sh
 
 **Resources:** `gateway://clients`, `gateway://dns`
 
-**Connect from Claude Code:**
-```json
-{
-  "mcpServers": {
-    "gateway": {
-      "command": "php",
-      "args": ["artisan", "mcp:start", "gateway"],
-      "cwd": "/path/to/orbit-app"
-    }
-  }
-}
+**Connect from Claude Code (remote via HTTP):**
+```bash
+claude mcp add --transport http gateway https://orbit.gateway/mcp/gateway
 ```
-
-**HTTP endpoint:** `POST https://orbit.{tld}/mcp/gateway`
 
 ### Conditional Registration
 
 Gateway tools only register when the current node is a Gateway (`Node::getSelf()?->isGateway()`). OrbitServer tools only register on Local/Client nodes. This prevents tools from appearing on the wrong node type.
 
-### Gateway Deployment
+### Gateway MCP Deployment
 
-A gateway node needs minimal orbit-app deployment: PHP-FPM + Caddy serving MCP HTTP routes. No frontend, no NativePHP — just the API/MCP endpoints.
+The gateway needs a minimal orbit-app deployment: PHP-FPM + Caddy serving MCP HTTP routes. No frontend, no NativePHP, no desktop — just the API/MCP endpoints.
+
+**Prerequisites on gateway:**
+- PHP-FPM running (installed via `orbit install --template=gateway`)
+- Caddy running with route to orbit-app
+- SQLite database with node record (node_type = 'gateway')
+- orbit-core + orbit-app packages installed
+
+**Deployment steps:**
+```bash
+ssh orbit@gateway
+
+# Clone/update the web app
+cd ~/.config/orbit/web
+composer install --no-dev
+
+# Ensure node record exists with gateway type
+php artisan orbit:init --type=gateway
+
+# Caddy route (add to Caddyfile):
+# orbit.gateway {
+#     root * /home/orbit/.config/orbit/web/public
+#     php_fastcgi unix//home/orbit/.config/orbit/php/php85.sock
+# }
+
+# Verify MCP endpoint
+curl -X POST https://orbit.gateway/mcp/gateway \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
 
 ## Known Issues
 

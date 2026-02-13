@@ -35,9 +35,9 @@ final class GatewayRemoveTldTool extends Tool
 
     public function schema(JsonSchema $schema): array
     {
-        return $schema->object([
-            'tld' => $schema->string('The TLD to remove (e.g. "dev")'),
-        ])->required(['tld'])->toArray();
+        return [
+            'tld' => $schema->string()->required()->description('The TLD to remove (e.g. "dev")'),
+        ];
     }
 
     public function handle(Request $request): ResponseFactory

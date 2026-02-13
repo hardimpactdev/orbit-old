@@ -26,5 +26,5 @@ Mcp::local('orbit', OrbitServer::class);
 Mcp::local('gateway', GatewayServer::class);
 
 // HTTP transport
-Mcp::web('orbit', OrbitServer::class);
-Mcp::web('gateway', GatewayServer::class);
+Mcp::web('mcp/orbit', OrbitServer::class);
+Mcp::web('mcp/gateway', GatewayServer::class);
