@@ -31,7 +31,7 @@ jobs:
       - name: Install CLI dependencies
         run: |
           cd packages/cli
-          jq 'del(.repositories)' composer.json > composer.tmp && mv composer.tmp composer.json
+          jq '.repositories = [{"type": "path", "url": "../core", "options": {"symlink": false}}]' composer.json > composer.tmp && mv composer.tmp composer.json
           rm -f composer.lock
           composer install --no-dev --no-scripts --optimize-autoloader --prefer-dist
 
