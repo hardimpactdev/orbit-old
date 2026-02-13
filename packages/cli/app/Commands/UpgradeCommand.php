@@ -245,14 +245,6 @@ final class UpgradeCommand extends Command
             }
         }
 
-        // Fallback: try orbit.phar for backwards compatibility
-        foreach ($assets as $asset) {
-            $name = $asset['name'] ?? '';
-            if ($name === 'orbit.phar') {
-                return $asset['browser_download_url'] ?? null;
-            }
-        }
-
         return null;
     }
 
@@ -294,16 +286,8 @@ final class UpgradeCommand extends Command
 
         // Mach-O binary (macOS) - both 64-bit and universal
         $magic = unpack('N', substr($content, 0, 4));
-        if ($magic && in_array($magic[1], [0xFEEDFACF, 0xCAFEBABE, 0xBEBAFECA], true)) {
-            return true;
-        }
 
-        // PHAR fallback
-        if (str_contains($content, '<?php')) {
-            return true;
-        }
-
-        return false;
+        return $magic && in_array($magic[1], [0xFEEDFACF, 0xCAFEBABE, 0xBEBAFECA], true);
     }
 
     private function handleCheckResult(string $currentVersion, string $latestVersion, bool $isUpToDate): int

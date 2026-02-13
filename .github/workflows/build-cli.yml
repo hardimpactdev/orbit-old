@@ -157,10 +157,6 @@ jobs:
               FILES="$FILES $name/$name"
             fi
           done
-          if [ -f orbit-phar/orbit.phar ]; then
-            cd orbit-phar && sha256sum orbit.phar >> ../checksums.txt && cd ..
-            FILES="$FILES orbit-phar/orbit.phar"
-          fi
           echo "files=$FILES checksums.txt" >> $GITHUB_OUTPUT
           echo "Available assets:$FILES"
           cat checksums.txt
