@@ -81,52 +81,7 @@ Make sure `~/.local/bin` is in your PATH.
 | `orbit project:scan` | Scan for git repositories |
 | `orbit project:update [path]` | Update project (git pull + deps) |
 | `orbit reverb:setup` | Setup Reverb WebSocket service |
-| `orbit mcp:start orbit` | Start MCP server for AI tool integration |
 
-## MCP (Model Context Protocol)
-
-Orbit provides an MCP server for AI tool integration, enabling AI assistants like Claude Code to interact with your local development environment.
-
-### Setup for Claude Code
-
-Add to your MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "orbit": {
-      "command": "orbit",
-      "args": ["mcp:start", "orbit"]
-    }
-  }
-}
-```
-
-### Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `orbit_status` | Get service status and running containers |
-| `orbit_start` | Start all Docker services |
-| `orbit_stop` | Stop all Docker services |
-| `orbit_restart` | Restart all Docker services |
-| `orbit_projects` | List all registered projects |
-| `orbit_php` | Get/set PHP version for a project |
-| `orbit_project_create` | Create a new project |
-| `orbit_project_delete` | Delete a project |
-| `orbit_logs` | Get container logs |
-| `orbit_worktrees` | List git worktrees |
-
-### Resources
-
-- `orbit://config` - Current Orbit configuration
-- `orbit://projects` - All registered projects
-- `orbit://infrastructure` - Service status and health
-- `orbit://env-template/{type}` - Environment variable templates
-
-### Prompts
-
-- `configure-laravel-env` - Guide for Laravel .env configuration
 ## Services & Ports
 
 ## Service Management

@@ -127,7 +127,6 @@ app/
 ├── Contracts/           # Interfaces (Template, etc.)
 ├── Data/                # DTOs and value objects
 ├── Enums/               # PHP enums
-├── Mcp/                 # Model Context Protocol
 ├── Providers/           # Service providers
 ├── Templates/           # Installation templates (DevelopmentTemplate, etc.)
 └── Services/            # Business logic

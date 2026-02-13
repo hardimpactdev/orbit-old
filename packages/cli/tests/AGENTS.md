@@ -7,7 +7,6 @@ Pest PHP tests for the Orbit CLI.
 ```
 tests/
 ├── Feature/           # Integration/feature tests
-│   └── Mcp/          # MCP protocol tests
 ├── Unit/             # Unit tests
 ├── Pest.php          # Pest configuration
 └── TestCase.php      # Base test class
