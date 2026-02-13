@@ -679,8 +679,16 @@ gh release create v1.x.x builds/orbit.phar --title "v1.x.x" --notes "Changelog"
 **2. Update CLI on servers:**
 
 ```bash
-# On each server that runs orbit (including the dev server)
-curl -L -o ~/.local/bin/orbit https://github.com/nckrtl/orbit-cli/releases/latest/download/orbit.phar
+# Self-upgrade (preferred — downloads correct platform binary automatically)
+orbit upgrade
+
+# Manual install (if orbit isn't installed yet)
+# macOS ARM64:
+curl -fSL -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-macos-aarch64
+# Linux x86_64:
+curl -fSL -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-linux-x86_64
+# Linux ARM64:
+curl -fSL -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-linux-aarch64
 chmod +x ~/.local/bin/orbit
 ```
 
@@ -752,10 +760,10 @@ CLI (ReverbBroadcaster) -> Pusher HTTP API -> Reverb container -> Caddy -> WebSo
 
 ## Related Projects
 
-- **orbit-cli**: The command-line tool this app controls
-    - Source: `ssh orbit@ai:~/projects/orbit-cli/`
-    - Releases: `https://github.com/nckrtl/orbit-cli/releases`
-    - Install/Update: `curl -L -o ~/.local/bin/orbit https://github.com/nckrtl/orbit-cli/releases/latest/download/orbit.phar && chmod +x ~/.local/bin/orbit`
+- **orbit-cli**: The command-line tool this app controls (static binary, PHP embedded — no system PHP needed)
+    - Source: `packages/cli/` in this monorepo
+    - Releases: `https://github.com/hardimpactdev/orbit-cli/releases`
+    - Update: `orbit upgrade` (self-updates to latest platform binary)
 
 - **orchestrator**: Laravel API backend for cross-project management
     - Source: `ssh orbit@ai:~/projects/orchestrator/`
