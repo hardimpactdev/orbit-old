@@ -280,6 +280,7 @@ Run before every commit:
 | JSON output must be clean | `app/Commands/AGENTS.md` |
 | Gateway commands need deploy | Root (below) |
 | `encrypt()`/`decrypt()` unavailable | Root (below) |
+| `laravel/mcp` incompatible | Root (below) |
 
 ### No encrypt()/decrypt() in Laravel Zero
 
@@ -293,6 +294,10 @@ Commands that run ON the gateway (e.g., `gateway:clients`, `gateway:set-password
 ~/.composer/vendor/bin/box compile
 scp builds/orbit.phar gateway@188.245.156.201:~/.local/bin/orbit
 ```
+
+### No laravel/mcp in Laravel Zero
+
+`laravel/mcp` requires `illuminate/http`, `illuminate/routing`, `illuminate/validation` — none available in Laravel Zero. MCP servers live in orbit-app. The CLI is an MCP **client** only (calls Orchestrator via `McpClient`). See `docs/solutions/integration-issues/laravel-mcp-incompatible-laravel-zero-20260213.md`.
 
 ### NEVER Use Path Repositories
 
