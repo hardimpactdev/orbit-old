@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\HasStepOutput;
-use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use App\Services\IpValidator;
 use App\Services\RemoteProvisioner;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\spin;

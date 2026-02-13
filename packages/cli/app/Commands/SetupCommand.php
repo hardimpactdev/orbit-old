@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
-use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use App\Services\TemplateRegistry;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\multiselect;

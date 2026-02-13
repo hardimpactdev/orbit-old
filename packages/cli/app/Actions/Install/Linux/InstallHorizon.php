@@ -47,7 +47,7 @@ SERVICE;
         foreach ($commands as $command) {
             $result = Process::run($command);
             if (! $result->successful()) {
-                return StepResult::failed("Failed: {$command} - " . $result->errorOutput());
+                return StepResult::failed("Failed: {$command} - ".$result->errorOutput());
             }
         }
 

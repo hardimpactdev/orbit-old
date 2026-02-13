@@ -8,12 +8,15 @@ parameters:
         - config
         - database
     scanFiles:
-        - ../core/src/Models/Environment.php
+        - ../core/src/Models/Node.php
+        - ../core/src/Models/Gateway.php
         - ../core/src/Models/Project.php
         - ../core/src/Models/SshKey.php
         - ../core/src/Models/TrackedJob.php
         - ../core/src/Models/Workspace.php
         - ../core/src/Models/Setting.php
+        - ../core/src/Models/UserPreference.php
+        - ../core/src/Models/TemplateFavorite.php
     tmpDir: build/phpstan
     checkOctaneCompatibility: true
     checkModelProperties: false

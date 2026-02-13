@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Actions\Install\Shared;
 
 use App\Data\Install\InstallContext;
-use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use App\Services\Install\InstallLogger;
 use HardImpact\Orbit\Core\Data\StepResult;
 use HardImpact\Orbit\Core\Enums\NodeType;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 
 final readonly class RegisterWithGatewayVpn
 {

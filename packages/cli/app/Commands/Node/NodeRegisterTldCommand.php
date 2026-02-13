@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Commands\Node;
 
-use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\error;
@@ -108,7 +108,7 @@ final class NodeRegisterTldCommand extends Command
 
         // Update node record
         $node->update(['custom_tld' => $tld]);
-        $this->info("✓ Node record updated");
+        $this->info('✓ Node record updated');
 
         // Update gateway Caddy
         $caddyResult = spin(
@@ -122,17 +122,17 @@ final class NodeRegisterTldCommand extends Command
 
             return self::FAILURE;
         }
-        $this->info("✓ Gateway Caddy updated");
+        $this->info('✓ Gateway Caddy updated');
 
         $this->newLine();
-        $this->info("TLD registered successfully!");
+        $this->info('TLD registered successfully!');
         $this->newLine();
         $this->line("  Gateway will proxy *.{$tld} to {$node->name} ({$node->vpn_ip})");
         $this->newLine();
         $this->warn("NOTE: You must configure DNS to resolve *.{$tld} to gateway ({$gateway['ip']})");
-        $this->line("  Option 1: Add to /etc/hosts on your machine");
+        $this->line('  Option 1: Add to /etc/hosts on your machine');
         $this->line("  Option 2: Configure your router's DNS");
-        $this->line("  Option 3: Use a public DNS service like Cloudflare");
+        $this->line('  Option 3: Use a public DNS service like Cloudflare');
         $this->newLine();
 
         return self::SUCCESS;
@@ -153,7 +153,7 @@ final class NodeRegisterTldCommand extends Command
 
         // Update node record
         $node->update(['custom_tld' => null]);
-        $this->info("✓ Node record updated");
+        $this->info('✓ Node record updated');
 
         // Update gateway Caddy
         $caddyResult = spin(
@@ -167,10 +167,10 @@ final class NodeRegisterTldCommand extends Command
 
             return self::FAILURE;
         }
-        $this->info("✓ Gateway Caddy updated");
+        $this->info('✓ Gateway Caddy updated');
 
         $this->newLine();
-        $this->info("TLD delegation removed!");
+        $this->info('TLD delegation removed!');
         $this->newLine();
 
         return self::SUCCESS;

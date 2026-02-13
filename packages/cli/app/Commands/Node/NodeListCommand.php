@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Commands\Node;
 
 use App\Concerns\WithJsonOutput;
-use HardImpact\Orbit\Core\Models\Gateway;
-use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use HardImpact\Orbit\Core\Enums\NodeType;
+use HardImpact\Orbit\Core\Models\Gateway;
 use HardImpact\Orbit\Core\Models\Node;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\spin;
@@ -201,7 +201,7 @@ final class NodeListCommand extends Command
         }
 
         $lastSeen = new \DateTime($client['latestHandshakeAt']);
-        $now = new \DateTime();
+        $now = new \DateTime;
         $diff = $now->getTimestamp() - $lastSeen->getTimestamp();
 
         if ($diff < 180) {

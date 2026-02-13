@@ -1,6 +1,12 @@
 parameters:
 	ignoreErrors:
 		-
+			message: "#^Property 'is_local' does not exist in model\\.$#"
+			identifier: rules.modelAppends
+			count: 1
+			path: src/Models/Node.php
+
+		-
 			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1

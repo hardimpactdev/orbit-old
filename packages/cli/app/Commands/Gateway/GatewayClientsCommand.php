@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Commands\Gateway;
 
 use App\Concerns\WithJsonOutput;
-use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use HardImpact\Orbit\Core\Models\Setting;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;

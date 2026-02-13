@@ -33,11 +33,9 @@ class NodeService
             return true;
         }
 
-        return $this->sshService->testConnection(
-            $node->host,
-            $node->user,
-            $node->port
-        );
+        $result = $this->sshService->testConnection($node);
+
+        return $result['success'];
     }
 
     public function getByType(NodeType $type): Collection

@@ -97,7 +97,7 @@ final class NodeProvisionCommand extends Command
             );
 
             if (! $compatResult['supported']) {
-                $this->error('System not supported: ' . ($compatResult['error'] ?? 'Unknown'));
+                $this->error('System not supported: '.($compatResult['error'] ?? 'Unknown'));
 
                 return self::FAILURE;
             }
@@ -136,7 +136,7 @@ final class NodeProvisionCommand extends Command
 
         if (! $result->successful) {
             $this->newLine();
-            $this->error('Provisioning failed: ' . $result->error);
+            $this->error('Provisioning failed: '.$result->error);
 
             return self::FAILURE;
         }

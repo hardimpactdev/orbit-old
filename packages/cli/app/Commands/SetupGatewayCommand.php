@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\HasStepOutput;
-use HardImpact\Orbit\Core\Models\Gateway;
 use App\Services\IpValidator;
 use App\Services\RemoteProvisioner;
+use HardImpact\Orbit\Core\Models\Gateway;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\text;
