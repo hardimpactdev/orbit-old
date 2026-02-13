@@ -79,7 +79,7 @@ final class UpgradeCommand extends Command
         }
 
         if (! $this->wantsJson()) {
-            $this->info("Upgrading from {$currentVersion} to {$latestVersion}...");
+            $this->info("Downloading {$latestVersion}...");
         }
 
         $tempFile = tempnam(sys_get_temp_dir(), 'orbit_');
@@ -108,9 +108,36 @@ final class UpgradeCommand extends Command
             @chmod($tempFile, 0755);
             @copy($binaryPath, $binaryPath.'.bak');
 
+            if (! $this->wantsJson()) {
+                $this->info("Upgrading from {$currentVersion} to {$latestVersion}...");
+                $this->newLine();
+
+                $this->info('Restarting services...');
+                try {
+                    $this->dockerManager->stopAll();
+                    $this->dockerManager->startAll();
+                    $this->info('Services restarted.');
+                } catch (\Exception) {
+                    $this->warn('Failed to restart some services. Run `orbit restart` to try again.');
+                }
+
+                $this->newLine();
+                $this->info("Successfully upgraded to {$latestVersion}!");
+            }
+
+            $jsonOutput = $this->wantsJson() ? json_encode([
+                'success' => true,
+                'data' => [
+                    'action' => 'upgrade',
+                    'previous_version' => $currentVersion,
+                    'new_version' => $latestVersion,
+                    'upgraded' => true,
+                ],
+            ]) : null;
+
             $upgradeScript = sys_get_temp_dir().'/orbit-upgrade-'.getmypid().'.sh';
             $scriptContent = sprintf(
-                "#!/bin/sh\nsleep 0.2\nmv %s %s\nrm -f %s\nrm -f \$0\n",
+                "#!/bin/sh\nsleep 1\nmv %s %s\nrm -f %s\nrm -f \$0\n",
                 escapeshellarg($tempFile),
                 escapeshellarg($binaryPath),
                 escapeshellarg($binaryPath.'.bak')
@@ -125,33 +152,11 @@ final class UpgradeCommand extends Command
                 exec(sprintf('setsid %s > /dev/null 2>&1 < /dev/null &', escapeshellarg($upgradeScript)));
             }
 
-            if (! $this->wantsJson()) {
-                $this->info("Successfully upgraded to {$latestVersion}!");
-                $this->newLine();
-
-                $this->info('Restarting services...');
-                try {
-                    $this->dockerManager->stopAll();
-                    $this->dockerManager->startAll();
-                    $this->info('Services restarted.');
-                } catch (\Exception) {
-                    $this->warn('Failed to restart some services. Run `orbit restart` to try again.');
-                }
-
-                $this->newLine();
-                $this->info('Upgrade complete!');
+            if ($jsonOutput !== null) {
+                fwrite(STDOUT, $jsonOutput."\n");
             }
 
-            if ($this->wantsJson()) {
-                return $this->outputJsonSuccess([
-                    'action' => 'upgrade',
-                    'previous_version' => $currentVersion,
-                    'new_version' => $latestVersion,
-                    'upgraded' => true,
-                ]);
-            }
-
-            return self::SUCCESS;
+            exit(0);
         } catch (\Throwable $e) {
             if (file_exists($tempFile)) {
                 @unlink($tempFile);
