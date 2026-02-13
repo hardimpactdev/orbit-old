@@ -125,7 +125,11 @@ jobs:
 
       - name: Install dependencies
         working-directory: packages/cli
-        run: composer install --prefer-dist --no-progress
+        run: |
+          # Use local core package instead of Packagist
+          composer config repositories.orbit-core path ../core --no-plugins
+          rm -f composer.lock
+          composer install --prefer-dist --no-progress
 
       - name: Check code style with Pint
         working-directory: packages/cli
