@@ -2,35 +2,42 @@
 
 ## Project Overview
 
-**orbit-core** is a Laravel package that provides business logic and data models for the Orbit ecosystem. It contains no UI components - just PHP classes for models, services, jobs, and data structures. Required by orbit-cli, orbit-ui, and indirectly by orbit-web/orbit-desktop.
+**orbit-core** is a Laravel package that provides business logic and data models for the Orbit ecosystem. It contains no UI components - just PHP classes for models, services, jobs, and data structures. Required by orbit-cli, orbit-app, and indirectly by orbit-web/orbit-desktop.
 
-## Repository Locations
+## Monorepo Structure
 
-| Project | Location | Purpose |
-|---------|----------|---------|
-| orbit-core | `~/projects/orbit-core` (remote) | Business logic package |
-| orbit-ui | `~/projects/orbit-ui` (remote) | Web UI package |
-| orbit-web | `~/projects/orbit-web` (remote) | Web dashboard shell |
-| orbit-desktop | Local Mac | NativePHP desktop shell |
-| orbit-cli | `~/projects/orbit-cli` (remote) | CLI tool |
+All packages live in the `orbit-dev` monorepo:
+
+| Package | Path | Purpose |
+|---------|------|---------|
+| orbit-core | `packages/core` | Business logic, models, services, migrations |
+| orbit-app | `packages/app` | Web UI, MCP servers, controllers, Vue frontend |
+| orbit-cli | `packages/cli` | Laravel Zero CLI tool |
+| orbit-web | `packages/web` | Deployable Laravel shell (requires orbit-app) |
+| orbit-desktop | `packages/desktop` | NativePHP desktop shell |
 
 ## Package Structure
 
 ```
 src/
   Models/                    # Eloquent models
-    Node.php                 # Has editor_scheme for per-node editor preference
+    Node.php                 # Has editor_scheme, node_type (local/gateway/client)
+    Gateway.php              # Gateway config (ip, subnet, ssh_user, vpn fields)
     Project.php
     Site.php                 # Site model for local dev sites
     TrackedJob.php           # Job tracking
     Deployment.php
-    Setting.php              # Global settings (fallback for editor if env not set)
+    Setting.php              # Key-value store (wg_easy_password, etc.)
     SshKey.php
     TemplateFavorite.php
     UserPreference.php
   Contracts/
     ProvisionLoggerContract.php  # Interface for provision loggers
   Services/
+    Gateway/                 # Gateway/VPN services (used by CLI + MCP)
+      GatewayManager.php     # CRUD gateways, VPN client registration
+      WgEasyService.php      # WireGuard VPN API (host, port, password)
+      GatewayDnsService.php  # TLD→IP mappings via dnsmasq config files
     OrbitService.php         # Main orchestration service
     ProvisioningService.php  # Site provisioning logic
     SiteService.php          # Site management
@@ -50,7 +57,7 @@ src/
       DeletionPipeline.php   # Main orchestrator
       DeletionLogger.php     # orbit-core's deletion logger
       Actions/               # Deletion steps (DropPostgresDatabase, etc.)
-    OrbitCli/                # CLI interaction
+    OrbitCli/                # CLI interaction wrappers
       SiteCliService.php     # Site CLI operations
       ConfigurationService.php  # Includes DNS mapping methods
       ServiceControlService.php
@@ -65,9 +72,9 @@ src/
     ProvisionContext.php     # Context for provisioning actions
     DeletionContext.php      # Context for deletion actions
     StepResult.php           # Action result wrapper
-    # Note: ProvisionLoggerContract in Contracts/ allows CLI/web to use same pipeline
   Enums/
     RepoIntent.php           # Repository operation type enum
+    NodeType.php             # local, gateway, client
   Events/
     SiteProvisioningStatus.php  # Broadcasting provisioning progress
     SiteDeletionStatus.php      # Broadcasting deletion progress
@@ -76,11 +83,10 @@ src/
     DeleteSiteJob.php        # Async site deletion
   Console/Commands/
     OrbitInit.php            # CLI initialization
-  Mcp/                       # MCP tool integrations
 config/
   orbit.php                  # Package configuration
 database/
-  migrations/                # Database migrations
+  migrations/                # Database migrations (nodes, gateways, sites, etc.)
   factories/                 # Model factories
 ```
 
@@ -129,23 +135,25 @@ composer format         # Format with Pint
 - Always use fully qualified namespace for models/services
 - Never use `App\Models\*` - always `HardImpact\Orbit\Core\Models\*`  
 - This package contains NO UI components - only business logic
-- UI components (controllers, routes, views) live in orbit-ui
+- UI components (controllers, routes, views) live in orbit-app
 
 ### Package Architecture
 
 orbit-core is a business logic package that provides models, services, jobs, and data structures. It contains no UI components.
 
 **What orbit-core provides:**
-- Eloquent Models (Project, Node, etc.)
-- Services (ProvisionPipeline, DeletionPipeline, etc.)
-- Jobs (CreateProjectJob, DeleteProjectJob)
+- Eloquent Models (Node, Gateway, Project, Site, Setting, etc.)
+- Gateway Services (GatewayManager, WgEasyService, GatewayDnsService)
+- Pipelines (ProvisionPipeline, DeletionPipeline)
+- CLI Wrapper Services (StatusService, ProjectCliService, etc.)
+- Jobs (CreateSiteJob, DeleteSiteJob)
 - Data Transfer Objects (ProvisionContext, DeletionContext)
 - Database migrations and factories
 
 **Consumed by:**
-- orbit-cli - Direct dependency for business logic
-- orbit-ui - Direct dependency for models/services 
-- orbit-web/desktop - Indirect dependency through orbit-ui
+- orbit-cli - Direct dependency for models, gateway services, pipelines
+- orbit-app - Direct dependency for models, services, MCP tool backends
+- orbit-web/desktop - Indirect dependency through orbit-app
 
 ## Flow Documentation
 
@@ -419,9 +427,9 @@ php ~/.local/bin/orbit site:create "test" --json 2>/dev/null
    cd ~/projects/orbit-cli
    composer update hardimpactdev/orbit-core
    
-   # orbit-ui (always needs latest core)
-   cd ~/projects/orbit-ui
+   # orbit-app (always needs latest core)
+   cd ~/projects/orbit-app
    composer update hardimpactdev/orbit-core
    ```
 
-**Note:** orbit-core has no assets or UI components. All UI development happens in orbit-ui.
+**Note:** orbit-core has no assets or UI components. All UI development happens in orbit-app.

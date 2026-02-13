@@ -1,21 +1,23 @@
 # Orbit Core
 
-A Laravel package providing shared functionality for the Orbit ecosystem - managing local development environments powered by [Orbit CLI](https://github.com/nckrtl/orbit-cli).
+A Laravel package providing shared business logic for the Orbit ecosystem.
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/hardimpactdev/orbit-core.svg?style=flat-square)](https://packagist.org/packages/hardimpactdev/orbit-core)
 
 ## Overview
 
-Orbit Core is the shared foundation for both [orbit-desktop](https://github.com/hardimpactdev/orbit) (NativePHP desktop app) and [orbit-web](https://github.com/hardimpactdev/orbit-web) (web dashboard). It contains:
+Orbit Core is the shared foundation for orbit-cli, orbit-app, and their deployable shells (orbit-web, orbit-desktop). It contains:
 
-- **Models**: Node, Project, Deployment, Setting, SshKey, TemplateFavorite, UserPreference
-- **Services**: OrbitCli services (ProjectService, ConfigurationService, etc.), DoctorService, SshService
-- **Controllers**: All HTTP controllers for the Orbit UI
-- **Middleware**: HandleInertiaRequests, ImplicitNode, DesktopOnly
-- **HTTP Integrations**: Saloon connectors for Orbit API communication
-- **Vue Frontend**: Pages, components, layouts, stores, and composables
-- **Routes**: Web and API routes with mode-aware registration
-- **MCP Server**: AI tool integration via Model Context Protocol (CLI and HTTP)
+- **Models**: Node, Gateway, Project, Site, Setting, SshKey, TrackedJob, etc.
+- **Gateway Services**: GatewayManager, WgEasyService, GatewayDnsService
+- **CLI Wrapper Services**: StatusService, ProjectCliService, ConfigurationService, etc.
+- **Pipelines**: ProvisionPipeline, DeletionPipeline (site creation/deletion)
+- **Jobs**: CreateSiteJob, DeleteSiteJob
+- **Data Objects**: ProvisionContext, DeletionContext, StepResult
+- **Events**: SiteProvisioningStatus, SiteDeletionStatus
+- **Migrations**: All database schema (nodes, gateways, sites, projects, etc.)
+
+This package contains **no UI components** — controllers, routes, views, and MCP servers live in orbit-app.
 
 ## Installation
 
@@ -23,132 +25,45 @@ Orbit Core is the shared foundation for both [orbit-desktop](https://github.com/
 composer require hardimpactdev/orbit-core
 ```
 
-### Publish Migrations
+## Namespace
 
-```bash
-php artisan vendor:publish --tag="orbit-core-migrations"
-php artisan migrate
-```
-
-### Publish Config (optional)
-
-```bash
-php artisan vendor:publish --tag="orbit-core-config"
-```
-
-## Usage
-
-### Register Routes
-
-In your `AppServiceProvider`:
-
-```php
-use HardImpact\Orbit\OrbitAppServiceProvider;
-
-public function boot(): void
-{
-    OrbitAppServiceProvider::routes();
-}
-```
-
-### Configure Mode
-
-In your `.env`:
-
-```env
-# Web mode (single node, flat routes)
-ORBIT_MODE=web
-MULTI_NODE_MANAGEMENT=false
-
-# Desktop mode (multi-node, prefixed routes)
-ORBIT_MODE=desktop
-MULTI_NODE_MANAGEMENT=true
-```
-
-### Frontend Assets
-
-Configure Vite to compile assets from the package:
-
-```typescript
-// vite.config.ts
-export default defineConfig({
-    build: {
-        rollupOptions: {
-            input: "vendor/hardimpactdev/orbit-core/resources/js/app.ts",
-        },
-    },
-    resolve: {
-        alias: {
-            "@": path.resolve(__dirname, "vendor/hardimpactdev/orbit-core/resources/js"),
-        },
-    },
-});
-```
-
-## Architecture
-
-### Namespace Structure
-
-All classes use the `HardImpact\Orbit` namespace:
+All classes use `HardImpact\Orbit\Core` namespace:
 
 ```
-HardImpact\Orbit\
-  Models\              # Eloquent models
-  Services\            # Business logic
-    OrbitCli\          # CLI interaction services
-      Shared\          # Shared utilities
-  Http\
-    Controllers\       # HTTP controllers
-    Middleware\        # HTTP middleware
-    Integrations\      # Saloon API connectors
+HardImpact\Orbit\Core\
+  Models\              # Eloquent models (Node, Gateway, Site, etc.)
+  Services\
+    Gateway\           # VPN/DNS gateway services
+    Provision\         # Site provisioning pipeline
+    Deletion\          # Site deletion pipeline
+    OrbitCli\          # CLI interaction wrappers
+  Contracts\           # Interfaces (ProvisionLoggerContract)
+  Data\                # DTOs (ProvisionContext, StepResult, etc.)
+  Enums\               # NodeType, RepoIntent
+  Events\              # Broadcasting events
+  Jobs\                # Queueable jobs
 ```
 
-### Mode-Aware Behavior
+## Gateway Services
 
-The package supports two modes controlled by `config("orbit.multi_node")`:
+Gateway business logic lives in `src/Services/Gateway/`:
 
-| Aspect | Web Mode | Desktop Mode |
-|--------|----------|--------------|
-| Routes | Flat (`/projects`) | Prefixed (`/nodes/{id}/projects`) |
-| Node | Single, implicit | Multiple, explicit |
-| Node UI | Hidden | Visible |
+| Service | Purpose | Constructor |
+|---------|---------|-------------|
+| `GatewayManager` | CRUD gateways, VPN client registration | No dependencies |
+| `WgEasyService` | WireGuard VPN API client | `string $host, int $port, string $password` |
+| `GatewayDnsService` | TLD-to-IP DNS mappings via dnsmasq | `string $configPath` |
 
-### Service Pattern
+These are consumed by both orbit-cli (via GatewayCliAdapter) and orbit-app (via MCP tools).
 
-Services return consistent response structures:
+## Related Packages
 
-```php
-[
-    "success" => bool,
-    "data" => mixed,
-    "error" => ?string,
-]
-```
-
-## MCP (Model Context Protocol)
-
-Orbit Core includes an MCP server for AI tool integration. This enables AI assistants like Claude to interact with your local development environment.
-
-### Features
-
-- **10 Tools**: Status, start/stop/restart, projects, PHP version, logs, worktrees
-- **4 Resources**: Config, projects, infrastructure, env-template
-- **2 Prompts**: Laravel .env configuration, Horizon setup
-
-### Transports
-
-| Transport | Endpoint | Consumer |
-|-----------|----------|----------|
-| CLI (stdio) | `orbit mcp:start orbit` | orbit-cli, Claude Code |
-| HTTP | `POST /orbit` | orbit-web, web integrations |
-
-See [docs/mcp.md](docs/mcp.md) for complete documentation.
-
-## Related Projects
-
-- [Orbit Desktop](https://github.com/hardimpactdev/orbit) - NativePHP desktop app (requires this package)
-- [Orbit Web](https://github.com/hardimpactdev/orbit-web) - Web dashboard (requires this package)
-- [Orbit CLI](https://github.com/nckrtl/orbit-cli) - The CLI tool that powers local development
+| Package | Purpose |
+|---------|---------|
+| orbit-app | Web UI, MCP servers, controllers (requires this) |
+| orbit-cli | Laravel Zero CLI tool (requires this) |
+| orbit-web | Deployable Laravel shell |
+| orbit-desktop | NativePHP desktop shell |
 
 ## License
 

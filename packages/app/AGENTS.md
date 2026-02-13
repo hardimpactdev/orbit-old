@@ -2,17 +2,19 @@
 
 ## Project Overview
 
-**orbit-ui** is a Laravel package that provides the web interface for the Orbit ecosystem. It contains all UI components including controllers, routes, Vue components, and assets. It depends on orbit-core for business logic and is required by orbit-web and orbit-desktop.
+**orbit-app** is a Laravel package that provides the web interface and MCP servers for the Orbit ecosystem. It contains controllers, routes, Vue components, assets, and MCP tool/resource definitions. It depends on orbit-core for business logic and is required by orbit-web and orbit-desktop.
 
-## Repository Locations
+## Monorepo Structure
 
-| Project | Location | Purpose |
-|---------|----------|---------|
-| orbit-ui | `~/projects/orbit-ui` (remote) | Web UI package |
-| orbit-core | `~/projects/orbit-core` (remote) | Business logic package |
-| orbit-web | `~/projects/orbit-web` (remote) | Web dashboard shell |
-| orbit-desktop | Local Mac | NativePHP desktop shell |
-| orbit-cli | `~/projects/orbit-cli` (remote) | CLI tool |
+All packages live in the `orbit-dev` monorepo:
+
+| Package | Path | Purpose |
+|---------|------|---------|
+| orbit-app | `packages/app` | This package — web UI + MCP servers |
+| orbit-core | `packages/core` | Business logic, models, services |
+| orbit-cli | `packages/cli` | Laravel Zero CLI tool |
+| orbit-web | `packages/web` | Deployable Laravel shell |
+| orbit-desktop | `packages/desktop` | NativePHP desktop shell |
 
 ## Package Structure
 
@@ -29,6 +31,14 @@ src/
     Middleware/
       HandleInertiaRequests.php
       ImplicitNode.php
+  Mcp/
+    OrbitServer.php          # MCP server for local/client nodes
+    GatewayServer.php        # MCP server for gateway nodes
+    Tools/                   # Orbit MCP tools (status, projects, etc.)
+    Tools/Gateway/           # Gateway MCP tools (clients, DNS, etc.)
+    Resources/               # Orbit MCP resources
+    Resources/Gateway/       # Gateway MCP resources
+    Prompts/                 # MCP prompts
   OrbitAppServiceProvider.php      # Package service provider
 resources/
   views/
@@ -51,7 +61,7 @@ routes/
   web.php                    # Web routes
   api.php                    # API routes
   node.php                   # Node-scoped routes
-  mcp.php                    # MCP AI tool routes
+  mcp.php                    # MCP routes (OrbitServer + GatewayServer)
 ```
 
 ## Namespace Convention
@@ -75,7 +85,7 @@ use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
 ### Local Development (HMR)
 
 ```bash
-cd ~/projects/orbit-ui
+cd ~/projects/orbit-app
 bun run dev                     # Creates public/hot, enables HMR
 # Visit https://orbit-web.ccc   # Changes reflect instantly
 ```
@@ -83,7 +93,7 @@ bun run dev                     # Creates public/hot, enables HMR
 ### Production Build
 
 ```bash
-cd ~/projects/orbit-ui
+cd ~/projects/orbit-app
 bun run build                   # Creates public/build/
 
 cd ~/projects/orbit-web
@@ -92,11 +102,11 @@ php artisan vendor:publish --tag=orbit-assets --force
 
 ### Package Changes
 
-1. Make changes in orbit-ui
+1. Make changes in orbit-app
 2. Run tests: `composer test`
 3. Build assets: `bun run build`
 4. Commit and push
-5. Update consumers: `composer update hardimpactdev/orbit-ui`
+5. Update consumers: `composer update hardimpactdev/orbit-app`
 
 ## Testing
 
@@ -126,18 +136,51 @@ When creating new controllers that operate on a specific node passed as a route 
 
 ## Horizon-Style Architecture
 
-orbit-ui follows the Laravel Horizon pattern - a self-contained package that serves its own views and assets. Shell apps (orbit-web, orbit-desktop) are empty wrappers.
+orbit-app follows the Laravel Horizon pattern - a self-contained package that serves its own views and assets. Shell apps (orbit-web, orbit-desktop) are empty wrappers.
 
-**What orbit-ui provides automatically:**
+**What orbit-app provides automatically:**
 - Blade view (`orbit::app`) - set as Inertia root view
 - Middleware (`HandleInertiaRequests`, `implicit.node`) - auto-registered
 - Vite configuration - hot file at `public/hot`, build at `vendor/orbit/build`
-- MCP routes for AI tool integration
+- MCP servers (OrbitServer for local nodes, GatewayServer for gateway nodes)
 
 **Shell apps only need:**
 ```php
 // routes/web.php
 \HardImpact\Orbit\App\OrbitAppServiceProvider::routes();
+```
+
+## MCP Servers
+
+Two MCP servers with conditional registration based on node type:
+
+### OrbitServer (`orbit`)
+Registers on Local/Client nodes. 10 tools, 4 resources, 2 prompts for site management.
+
+### GatewayServer (`gateway`)
+Registers on Gateway nodes. 6 tools, 2 resources for VPN/DNS management.
+
+### Conditional Registration
+All tools implement `shouldRegister()` checking `Node::getSelf()`. Gateway tools check `->isGateway()`, orbit tools check `!isGateway()`.
+
+### Schema Pattern
+Tool schemas return a flat array of Type objects:
+```php
+public function schema(JsonSchema $schema): array
+{
+    return [
+        'name' => $schema->string()->required()->description('Project name'),
+        'template' => $schema->string()->description('Optional template'),
+    ];
+}
+```
+
+### Routes (`routes/mcp.php`)
+```php
+Mcp::local('orbit', OrbitServer::class);      // stdio
+Mcp::local('gateway', GatewayServer::class);  // stdio
+Mcp::web('mcp/orbit', OrbitServer::class);    // HTTP POST /mcp/orbit
+Mcp::web('mcp/gateway', GatewayServer::class); // HTTP POST /mcp/gateway
 ```
 
 ## UI Conventions
@@ -180,7 +223,7 @@ Key files:
 7. **Update orbit-web**:
    ```bash
    cd ~/projects/orbit-web
-   composer update hardimpactdev/orbit-ui
+   composer update hardimpactdev/orbit-app
    php artisan vendor:publish --tag=orbit-assets --force
    ```
 
@@ -190,7 +233,7 @@ When making UI changes that you want to see on orbit-web.ccc:
 
 1. **If Vite dev server is NOT running**: You must build AND publish
    ```bash
-   cd ~/projects/orbit-ui
+   cd ~/projects/orbit-app
    bun run build
    
    cd ~/projects/orbit-web
@@ -199,7 +242,7 @@ When making UI changes that you want to see on orbit-web.ccc:
 
 2. **Why changes might not appear**: 
    - orbit-web serves from `public/vendor/orbit/build/`
-   - These are COPIED from orbit-ui, not symlinked
+   - These are COPIED from orbit-app, not symlinked
    - Publishing is required after each build
 
 3. **To verify**: Check the timestamp
@@ -228,5 +271,5 @@ When running the Vite dev server behind Caddy for HTTPS:
 
 4. **To verify it's working**:
    ```bash
-   cat ~/projects/orbit-ui/public/hot  # Should show https://orbit-web.ccc
+   cat ~/projects/orbit-app/public/hot  # Should show https://orbit-web.ccc
    ```

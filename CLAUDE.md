@@ -898,3 +898,6 @@ curl -X POST https://orbit.gateway/mcp/gateway \
 - **Web app .env hostnames**: When Horizon runs on host (not Docker), use `localhost` for `REDIS_HOST` and `REVERB_HOST` instead of Docker container names like `orbit-redis`
 - **`orbit restart` stops Caddy/Horizon**: The CLI's restart command currently stops but doesn't restart host services. Manually restart with `sudo systemctl start caddy orbit-horizon` (Linux)
 - **Bun install hangs**: Fixed in CLI v0.0.17+ with `CI=1` and `--no-progress` flags. Update CLI if experiencing this issue.
+- **Gateway Caddy 502**: Caddy runs as user `caddy`. If PHP-FPM socket is owned by `gateway:gateway` with 0660 permissions, Caddy can't access it. Fix: `sudo usermod -aG gateway caddy && sudo systemctl restart caddy`
+- **Gateway vendor directory**: Composer installs orbit-app as a physical copy (not symlink) in `vendor/hardimpactdev/orbit-app/`. When syncing code changes to the gateway, update BOTH `packages/app/` AND `vendor/hardimpactdev/orbit-app/`.
+- **MCP tool schema API**: Use `return ['name' => $schema->string()->required()->description('...')]` (flat array). Do NOT use `$schema->object([...])->required(['name'])->toArray()` — that API was removed.

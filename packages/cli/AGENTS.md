@@ -143,7 +143,8 @@ app/
 | Commands | `app/Commands/` | User-facing CLI interface |
 | Templates | `app/Templates/` | Installation templates defining platform-specific steps |
 | Actions | `app/Actions/Install/` | Orbit installation steps |
-| Services | `app/Services/` | Shared business logic |
+| Services | `app/Services/` | CLI-specific business logic |
+| GatewayCliAdapter | `app/Services/GatewayCliAdapter.php` | CLI-specific Process operations (SSH, Docker, ifconfig) |
 | Platform Adapters | `app/Services/Platform/` | Cross-platform abstraction |
 | DTOs | `app/Data/` | Type-safe data containers |
 | ReverbBroadcaster | `app/Services/` | WebSocket broadcasting to Reverb |
@@ -230,8 +231,14 @@ orbit-cli depends on **orbit-core** for shared business logic (Models, Services,
 // Import models from orbit-core
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Models\Node;
+use HardImpact\Orbit\Core\Models\Gateway;
 
-// Import services
+// Import gateway services from orbit-core
+use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
+use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
+use HardImpact\Orbit\Core\Services\Gateway\GatewayDnsService;
+
+// Import pipelines
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
 use HardImpact\Orbit\Core\Services\Deletion\DeletionPipeline;
 
@@ -240,9 +247,11 @@ use HardImpact\Orbit\Core\Data\ProvisionContext;
 use HardImpact\Orbit\Core\Data\DeletionContext;
 use HardImpact\Orbit\Core\Data\StepResult;
 
-// Import contracts
-use HardImpact\Orbit\Core\Contracts\ProvisionLoggerContract;
+// CLI-specific adapter for Process-based operations
+use App\Services\GatewayCliAdapter;
 ```
+
+**Gateway architecture**: Gateway business logic (GatewayManager, WgEasyService, GatewayDnsService) lives in orbit-core. CLI-specific operations that use the Process facade (SSH, Docker commands, ifconfig) live in `GatewayCliAdapter`.
 
 **Important**: Always use `HardImpact\Orbit\Core\` namespace, never `HardImpact\Orbit\`
 
@@ -270,6 +279,21 @@ Run before every commit:
 | Platform-specific commands | `app/Services/AGENTS.md` |
 | PHP-FPM restart kills web requests | `app/Services/AGENTS.md` |
 | JSON output must be clean | `app/Commands/AGENTS.md` |
+| Gateway commands need deploy | Root (below) |
+| `encrypt()`/`decrypt()` unavailable | Root (below) |
+
+### No encrypt()/decrypt() in Laravel Zero
+
+Laravel Zero doesn't register `EncryptionServiceProvider` or configure an `APP_KEY`. Calling `encrypt()` throws `Target class [encrypter] does not exist`. Store secrets in plain text in the SQLite DB (user-owned, server-local).
+
+### Gateway Commands Need Build+Deploy
+
+Commands that run ON the gateway (e.g., `gateway:clients`, `gateway:set-password`) must be built into a phar and deployed before testing. The gateway runs its own binary at `~/.local/bin/orbit`:
+
+```bash
+~/.composer/vendor/bin/box compile
+scp builds/orbit.phar gateway@188.245.156.201:~/.local/bin/orbit
+```
 
 ### NEVER Use Path Repositories
 

@@ -1,64 +1,35 @@
-# Web ui for orbit
+# Orbit App
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/hardimpactdev/orbit-ui.svg?style=flat-square)](https://packagist.org/packages/hardimpactdev/orbit-ui)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/hardimpactdev/orbit-ui/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/hardimpactdev/orbit-ui/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/hardimpactdev/orbit-ui/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/hardimpactdev/orbit-ui/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/hardimpactdev/orbit-ui.svg?style=flat-square)](https://packagist.org/packages/hardimpactdev/orbit-ui)
+A Laravel package providing the web interface and MCP servers for the Orbit ecosystem.
 
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
+## Overview
 
-## Support us
+Orbit App contains:
 
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/orbit-ui.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/orbit-ui)
+- **Controllers & Routes**: Web UI, API endpoints, node management
+- **MCP Servers**: OrbitServer (local nodes) and GatewayServer (gateway nodes)
+- **Vue Frontend**: Pages, components, layouts (Inertia.js + Tailwind)
+- **Middleware**: HandleInertiaRequests, ImplicitNode
 
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
-
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
+Depends on orbit-core for business logic. Required by orbit-web (production shell) and orbit-desktop (NativePHP shell).
 
 ## Installation
 
-You can install the package via composer:
-
 ```bash
-composer require hardimpactdev/orbit-ui
+composer require hardimpactdev/orbit-app
 ```
 
-You can publish and run the migrations with:
+## MCP Servers
 
-```bash
-php artisan vendor:publish --tag="orbit-ui-migrations"
-php artisan migrate
-```
+Two MCP servers with conditional tool registration based on node type:
 
-You can publish the config file with:
+| Server | Node Type | Tools | Description |
+|--------|-----------|-------|-------------|
+| OrbitServer | Local/Client | 10 | Site management, Docker, PHP config |
+| GatewayServer | Gateway | 6 | VPN clients, DNS/TLD routing |
 
-```bash
-php artisan vendor:publish --tag="orbit-ui-config"
-```
-
-This is the contents of the published config file:
-
-```php
-return [
-];
-```
-
-Optionally, you can publish the views using
-
-```bash
-php artisan vendor:publish --tag="orbit-ui-views"
-```
-
-## Usage
-
-Register the service provider in your application:
-
-```php
-// config/app.php
-'providers' => [
-    HardImpact\Orbit\App\OrbitAppServiceProvider::class,
-],
-```
+**HTTP endpoints:** `POST /mcp/orbit`, `POST /mcp/gateway`
+**CLI transport:** `php artisan mcp:start orbit`, `php artisan mcp:start gateway`
 
 ## Testing
 
@@ -66,23 +37,6 @@ Register the service provider in your application:
 composer test
 ```
 
-## Changelog
-
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
-
-## Contributing
-
-Please see [CONTRIBUTING](CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
-## Credits
-
-- [Nick Ratel](https://github.com/nckrtl)
-- [All Contributors](../../contributors)
-
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+MIT

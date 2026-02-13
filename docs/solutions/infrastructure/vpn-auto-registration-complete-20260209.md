@@ -26,10 +26,11 @@ Added three new columns to `nodes` table:
 
 ### 2. Core Services
 
-**GatewayManager** (`packages/cli/app/Services/GatewayManager.php`)
+**GatewayManager** (`packages/core/src/Services/Gateway/GatewayManager.php`)
 - Added `registerVpnClient()` method
 - Integrates with WgEasyService to create VPN clients
 - Returns assigned VPN IP or null on failure
+- *Note: Moved from `packages/cli/app/Services/` to core on 2026-02-13*
 
 **WgEasyService** (no changes needed)
 - Already had `createClient()` method for API integration
@@ -166,7 +167,7 @@ orbit node:provision <id>
 
 ### Modified
 - `packages/core/src/Models/Node.php`
-- `packages/cli/app/Services/GatewayManager.php`
+- `packages/core/src/Services/Gateway/GatewayManager.php` *(moved from cli)*
 - `packages/cli/app/Data/Install/InstallContext.php`
 - `packages/cli/app/Templates/ClientNodeTemplate.php`
 - `packages/cli/app/Commands/SetupCommand.php`

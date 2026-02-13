@@ -60,4 +60,5 @@ sqlite3 ~/.config/orbit/database.sqlite "SELECT ssh_user, ip_address FROM gatewa
 
 - When implementing commands that run ON the gateway (not just locally), remember to build+deploy
 - Test gateway-side commands via SSH before testing the local wrapper command
-- The `sshCommand()` method in GatewayManager silently returns `null` on failure — check the remote command exists first
+- The `sshCommand()` method in GatewayCliAdapter silently returns `null` on failure — check the remote command exists first
+- *Note: Gateway business logic moved to orbit-core (2026-02-13). CLI-specific Process operations now live in `GatewayCliAdapter`.*
