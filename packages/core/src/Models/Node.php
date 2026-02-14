@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Models;
 
+use HardImpact\Orbit\Core\Enums\NodeEnvironment;
 use HardImpact\Orbit\Core\Enums\NodeStatus;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -29,6 +31,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\Carbon|null $last_connected_at
  * @property NodeStatus $status
  * @property NodeType $node_type
+ * @property NodeEnvironment $environment
  * @property array|null $provisioning_log
  * @property string|null $provisioning_error
  * @property int|null $provisioning_step
@@ -40,6 +43,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read bool $is_local
+ * @property-read \Illuminate\Database\Eloquent\Collection<Deployment> $deployments
  */
 class Node extends Model
 {
@@ -65,6 +69,7 @@ class Node extends Model
         'last_connected_at',
         'status',
         'node_type',
+        'environment',
         'provisioning_log',
         'provisioning_error',
         'provisioning_step',
@@ -81,6 +86,7 @@ class Node extends Model
         'is_default' => 'boolean',
         'status' => NodeStatus::class,
         'node_type' => NodeType::class,
+        'environment' => NodeEnvironment::class,
         'metadata' => 'array',
         'last_connected_at' => 'datetime',
         'cli_checked_at' => 'datetime',
@@ -195,5 +201,25 @@ class Node extends Model
     public function hasVpn(): bool
     {
         return $this->vpn_ip !== null;
+    }
+
+    public function deployments(): HasMany
+    {
+        return $this->hasMany(Deployment::class);
+    }
+
+    public function isProduction(): bool
+    {
+        return $this->environment === NodeEnvironment::Production;
+    }
+
+    public function isStaging(): bool
+    {
+        return $this->environment === NodeEnvironment::Staging;
+    }
+
+    public function isDevelopment(): bool
+    {
+        return $this->environment === NodeEnvironment::Development;
     }
 }

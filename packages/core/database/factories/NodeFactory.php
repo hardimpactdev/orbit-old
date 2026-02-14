@@ -2,6 +2,7 @@
 
 namespace HardImpact\Orbit\Core\Database\Factories;
 
+use HardImpact\Orbit\Core\Enums\NodeEnvironment;
 use HardImpact\Orbit\Core\Enums\NodeStatus;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
@@ -67,6 +68,27 @@ class NodeFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'node_type' => NodeType::Client,
+        ]);
+    }
+
+    public function production(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'environment' => NodeEnvironment::Production,
+        ]);
+    }
+
+    public function staging(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'environment' => NodeEnvironment::Staging,
+        ]);
+    }
+
+    public function development(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'environment' => NodeEnvironment::Development,
         ]);
     }
 }

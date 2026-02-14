@@ -158,7 +158,7 @@ Two MCP servers with conditional registration based on node type:
 Registers on Local/Client nodes. 10 tools, 4 resources, 2 prompts for site management.
 
 ### GatewayServer (`gateway`)
-Registers on Gateway nodes. 6 tools, 2 resources for VPN/DNS management.
+Registers on Gateway nodes. 15 tools, 3 resources for VPN/DNS management, cross-node deployment tracking, and Cloudflare DNS.
 
 ### Conditional Registration
 All tools implement `shouldRegister()` checking `Node::getSelf()`. Gateway tools check `->isGateway()`, orbit tools check `!isGateway()`.

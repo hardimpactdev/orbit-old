@@ -21,13 +21,13 @@ All packages live in the `orbit-dev` monorepo:
 ```
 src/
   Models/                    # Eloquent models
-    Node.php                 # Has editor_scheme, node_type (local/gateway/client)
+    Node.php                 # Has editor_scheme, node_type (local/gateway/client), environment (dev/staging/prod)
     Gateway.php              # Gateway config (ip, subnet, ssh_user, vpn fields)
     Project.php
     Site.php                 # Site model for local dev sites
     TrackedJob.php           # Job tracking
-    Deployment.php
-    Setting.php              # Key-value store (wg_easy_password, etc.)
+    Deployment.php           # Cross-node deployment tracking (project_slug, node_id, status, cloudflare_record_id)
+    Setting.php              # Key-value store (wg_easy_password, cloudflare_api_token, etc.)
     SshKey.php
     TemplateFavorite.php
     UserPreference.php
@@ -38,6 +38,8 @@ src/
       GatewayManager.php     # CRUD gateways, VPN client registration
       WgEasyService.php      # WireGuard VPN API (host, port, password)
       GatewayDnsService.php  # TLD→IP mappings via dnsmasq config files
+    CloudflareService.php    # Cloudflare API v4 wrapper (DNS records, zone info, SSL)
+    DeploymentService.php    # Cross-node deployment orchestration (deploy, undeploy, sync)
     OrbitService.php         # Main orchestration service
     ProvisioningService.php  # Site provisioning logic
     SiteService.php          # Site management
@@ -75,6 +77,8 @@ src/
   Enums/
     RepoIntent.php           # Repository operation type enum
     NodeType.php             # local, gateway, client
+    NodeEnvironment.php      # development, staging, production
+    DeploymentStatus.php     # pending → deploying → ... → active/failed/removed
   Events/
     SiteProvisioningStatus.php  # Broadcasting provisioning progress
     SiteDeletionStatus.php      # Broadcasting deletion progress

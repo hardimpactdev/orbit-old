@@ -61,7 +61,7 @@ final class ProjectsCommand extends Command
             }
 
             $tableData[] = [
-                $project['domain'],
+                $project['domain'] ?? '-',
                 $phpDisplay,
                 $project['path'],
             ];
