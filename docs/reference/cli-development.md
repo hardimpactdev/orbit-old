@@ -1,104 +1,121 @@
 # Orbit CLI Development
 
-The **orbit CLI** manages sites, Caddy configs, Docker containers, and more. Source code lives on the remote dev server, NOT locally.
+The **orbit CLI** manages projects, Caddy configs, Docker containers, and more. Source code lives in the monorepo at `packages/cli/`.
 
 ## Making CLI Changes
 
-**All CLI changes must be made on the remote server:**
+CLI source is in the monorepo alongside orbit-core:
 
 ```bash
-# SSH into the dev server
-ssh orbit@ai
+# CLI commands
+packages/cli/app/Commands/
 
-# Navigate to CLI source
-cd ~/projects/orbit-cli
+# CLI services
+packages/cli/app/Services/
 
-# Make your changes, test locally
-php orbit <command>
-
-# When ready, publish a release (see below)
+# Shared core (models, pipelines, services)
+packages/core/src/
 ```
 
-## Building the CLI (Laravel Zero)
-
-The CLI is a Laravel Zero application. Build using Box (Laravel Zero uses Box under the hood).
-
-**Quick local update (no GitHub release):**
+Test locally:
 
 ```bash
-ssh orbit@ai
-cd ~/projects/orbit-cli
-
-# Build phar using Box
-~/.config/composer/vendor/bin/box compile
-
-# Copy to local bin
-cp builds/orbit.phar ~/.local/bin/orbit
+cd packages/cli
+./vendor/bin/pest                              # Run tests
+./vendor/bin/phpstan analyse --memory-limit=512M  # Static analysis
 ```
-
-**Note on `app:build`:** Laravel Zero has a built-in `app:build` command (`php orbit --env=development app:build`) but its bundled Box (4.6.7) has a PHP 8.5 compatibility bug. Use the global Box (4.6.10+) directly until Laravel Zero updates their bundled version.
 
 ## CLI Release Workflow
 
-After making changes to the CLI, publish a new release:
-
-**1. On the remote server - Build and release:**
+The monorepo triggers CI builds on `v*` tag push:
 
 ```bash
-ssh orbit@ai
-cd ~/projects/orbit-cli
+# 1. Commit and push
+git add ... && git commit -m "feat: description"
 
-# Commit changes first
-git add -A && git commit -m "Description of changes"
-git push
+# 2. Tag and push (triggers Build and Release CLI workflow)
+git tag v0.1.XXX
+git push origin main --tags
 
-# Build the phar
-~/.config/composer/vendor/bin/box compile
+# 3. Wait for CI to complete
+gh run list --repo hardimpactdev/orbit --limit 5
+gh run watch <build-run-id> --repo hardimpactdev/orbit --exit-status
 
-# Create GitHub release with the phar attached
-gh release create v1.x.x builds/orbit.phar --title "v1.x.x" --notes "Changelog"
+# 4. Verify release on orbit-cli repo
+gh release view v0.1.XXX --repo hardimpactdev/orbit-cli
 ```
 
-**2. Update CLI on servers:**
+CI produces per-platform static binaries: `orbit-linux-x86_64`, `orbit-linux-aarch64`, `orbit-macos-aarch64`
+
+## Upgrading Nodes
+
+After a release, upgrade all nodes:
 
 ```bash
-# Self-upgrade (preferred - downloads correct platform binary automatically)
-orbit upgrade
+# Dev server
+ssh ai "~/.local/bin/orbit upgrade"
 
-# Manual install (if orbit isn't installed yet)
-# macOS ARM64:
-curl -fSL -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-macos-aarch64
-# Linux x86_64:
-curl -fSL -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-linux-x86_64
-# Linux ARM64:
-curl -fSL -o ~/.local/bin/orbit https://github.com/hardimpactdev/orbit-cli/releases/latest/download/orbit-linux-aarch64
-chmod +x ~/.local/bin/orbit
+# Gateway
+ssh gateway "~/.local/bin/orbit upgrade"
+
+# Production
+ssh orbit@46.225.89.66 "~/.local/bin/orbit upgrade"
+
+# Verify
+ssh ai "~/.local/bin/orbit --version"
+ssh gateway "~/.local/bin/orbit --version"
+ssh orbit@46.225.89.66 "~/.local/bin/orbit --version"
 ```
 
-## Key CLI Paths (on remote server)
+If `orbit upgrade` fails (e.g., node has a phar instead of static binary):
 
-| Path                                     | Purpose                             |
-| ---------------------------------------- | ----------------------------------- |
-| `~/projects/orbit-cli/`                  | CLI source code - make changes here |
-| `~/projects/orbit-cli/app/Commands/`     | CLI commands                        |
-| `~/projects/orbit-cli/builds/orbit.phar` | Built binary (after `app:build`)    |
-| `~/.local/bin/orbit`                     | Installed CLI binary                |
+```bash
+ssh <node> 'curl -sL \
+  https://github.com/hardimpactdev/orbit-cli/releases/download/v0.1.XXX/orbit-linux-x86_64 \
+  -o /tmp/orbit-new && chmod +x /tmp/orbit-new && mv /tmp/orbit-new ~/.local/bin/orbit'
+```
+
+## Local Phar Build (Quick Testing)
+
+For testing changes before a proper release, build a phar locally:
+
+```bash
+cd packages/cli
+
+# Replace vendor symlink with real files (required for phar)
+rm vendor/hardimpactdev/orbit-core
+cp -R ../../packages/core vendor/hardimpactdev/orbit-core
+rm -rf vendor/hardimpactdev/orbit-core/{tests,docs,.git,.github}
+
+# Build
+~/.composer/vendor/bin/box compile
+
+# Deploy to a server
+scp builds/orbit.phar orbit@<host>:~/.local/bin/orbit
+
+# Restore symlink for development
+rm -rf vendor/hardimpactdev/orbit-core
+ln -s ../../../core vendor/hardimpactdev/orbit-core
+```
+
+**Warning**: Phar-based installs can't self-upgrade via `orbit upgrade`. Replace with the static binary from CI when ready.
+
+## Key Paths
+
+| Path | Purpose |
+|------|---------|
+| `packages/cli/app/Commands/` | CLI commands |
+| `packages/cli/app/Services/` | CLI-specific services |
+| `packages/core/src/` | Shared business logic (models, pipelines) |
+| `packages/cli/builds/orbit.phar` | Local phar build output |
+| `~/.local/bin/orbit` | Installed CLI on any node |
 
 ## How Desktop Communicates with CLI
 
-For remote environments, the desktop app primarily uses **direct API calls** to the remote web app (`https://orbit.{tld}/api/...`), which then executes CLI commands:
+For remote environments, the desktop app uses **direct API calls** to the remote web app (`https://orbit.{tld}/api/...`), which then executes CLI commands:
 
 1. **Vue frontend** calls remote API directly (e.g., `DELETE /api/projects/{slug}`)
 2. **Remote web app** (via PHP-FPM on host) dispatches a job to Redis queue
-3. **Horizon** (systemd/launchd service on host) picks up the job and runs CLI command (e.g., `orbit project:delete`)
+3. **Horizon** (systemd/launchd service on host) picks up the job and runs CLI command
 
-For operations that require SSH (provisioning, config changes with TLD), the NativePHP backend uses:
-
-- `LaunchpadService::executeCommand()` which runs CLI commands over SSH
-- Commands are executed as `orbit <command> --json`
-
-**If you change CLI behavior**, you must:
-
-1. Make changes in `~/projects/orbit-cli/` on the remote server
-2. Build and release a new version
-3. Update the CLI on all servers that need the new version
+For operations that require SSH, the NativePHP backend uses `LaunchpadService::executeCommand()` which runs `orbit <command> --json` over SSH.
