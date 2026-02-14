@@ -53,11 +53,14 @@ class DeploymentService
                 'status' => DeploymentStatus::Deploying,
             ]);
 
-        $cliArgs = "project:create {$name} --json";
+        $useReleaseDeploy = $target->isProduction() || $target->isStaging();
+        $command = $useReleaseDeploy ? 'project:deploy' : 'project:create';
+
+        $cliArgs = "{$command} {$name} --json";
         if ($repo) {
             $cliArgs .= " --clone={$repo}";
         }
-        if ($template) {
+        if (! $useReleaseDeploy && $template) {
             $cliArgs .= " --template={$template}";
         }
         if ($phpVersion) {

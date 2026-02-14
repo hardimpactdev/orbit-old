@@ -14,7 +14,8 @@ A monorepo containing the orbit infrastructure management stack: CLI, core servi
 | Environment | SSH Command | TLD | MCP Endpoint | Notes |
 |-------------|-------------|-----|--------------|-------|
 | Ubuntu VPS | `ssh orbit@ai` | `.ccc` | `POST https://orbit.ccc/mcp/orbit` | Main dev server, CLI source at `~/projects/orbit-cli/` |
-| Gateway | `ssh orbit@gateway` | N/A | `POST https://orbit.gateway/mcp/gateway` | VPN hub, DNS routing |
+| Gateway | `ssh gateway` | N/A | `POST https://orbit.gateway/mcp/gateway` | VPN hub, DNS routing (user: `gateway`) |
+| Production | `ssh orbit@46.225.89.66` | N/A | N/A | Hetzner, hosts srpm.nl, proxies whisper.hardimpact.dev→Beast |
 | Local | N/A (localhost) | `.test` | N/A | Local machine |
 
 **Key paths on remote servers:**
@@ -56,6 +57,7 @@ The remote environments being managed can run any Linux distribution (Ubuntu rec
 - **Factory completeness**: Always include ALL model columns in factory definitions - don't rely on database-level `->default()` values. Eloquent doesn't load DB defaults after INSERT. If a query filters by a column (`is_active`, `environment`), the factory must explicitly set it.
 - **Node host validation**: The `Node` model validates hosts on save. It accepts IPs, FQDNs, and single-label SSH aliases (e.g. `ai`, `gateway`). If adding new validation, test against `Node::factory()->create()` to ensure Faker data still passes.
 - **SQLite test databases**: Always set `'foreign_key_constraints' => true` when using SQLite `:memory:` test databases with CASCADE foreign keys.
+- **CLI command namespace**: The CLI public commands use `project:*` (`project:create`, `project:delete`, `project:list`), NOT `site:*`. The `Site` model is internal to orbit-core. When writing services that call CLI commands, verify names against `packages/cli/app/Commands/`.
 
 ## Package Architecture
 
@@ -154,3 +156,8 @@ php artisan test
 - **Phar self-upgrade shutdown crash**: The UpgradeCommand uses `exit(0)` after launching the deferred replacement script. This is intentional - normal `return` causes zlib errors during PHP shutdown. See `docs/solutions/runtime-errors/phar-self-upgrade-zlib-crash-20260213.md`.
 - **MCP tools fail with "No local node configured"**: `Node::getSelf()` returns the node where `is_default = true`. If no node has this flag set, all MCP tools fail. Fix: set `is_default = true` on the local node record.
 - **ProjectScanner conditionally sets array keys**: `domain`, `url`, `secure` are only set on projects with a `public/` folder. Always use null coalescing (`$project['domain'] ?? null`) when accessing these keys.
+- **Caddy production domains need ACME override**: The orbit Caddyfile uses global `local_certs` for dev TLDs. Production domains MUST add `tls { issuer acme }` to their block, otherwise they get self-signed certs. See `docs/solutions/infrastructure/caddy-local-certs-blocks-acme-production-20260214.md`.
+- **Case-sensitive filenames on Linux**: macOS is case-insensitive, Linux is not. Renaming `Home.vue` → `home.vue` on macOS won't be tracked by git. Use `git mv` with a temp name to force it. Always verify Inertia page filenames match controller references before deploying to Linux.
+- **Custom Caddy configs survive regeneration**: Production domains, reverse proxies, and any non-orbit-managed Caddy blocks MUST be placed in `~/.config/orbit/caddy/sites/*.caddy` files. The CaddyfileGenerator imports these at the end. Never append custom blocks directly to the Caddyfile — `caddy:reload` regenerates it from scratch. See `docs/solutions/infrastructure/caddy-reload-wipes-custom-sites-20260215.md`.
+- **Local phar build needs vendor symlink replaced**: In the monorepo, `packages/cli/vendor/hardimpactdev/orbit-core` is a symlink that `box compile` doesn't follow. Before building: `rm vendor/hardimpactdev/orbit-core && cp -R ../../packages/core vendor/hardimpactdev/orbit-core`. Restore after: `rm -rf vendor/hardimpactdev/orbit-core && ln -s ../../../core vendor/hardimpactdev/orbit-core`. See `docs/solutions/build-errors/phar-build-vendor-symlink-orbit-core-20260215.md`.
+- **Release-based deployments on production**: Production projects use `project:deploy` (not `project:create`) with timestamped releases and atomic symlink switching. Structure: `~/projects/{slug}/releases/{timestamp}/`, `current` symlink, shared `.env`/`storage`/`database` at base. `DeploymentService` auto-selects the command based on node environment.

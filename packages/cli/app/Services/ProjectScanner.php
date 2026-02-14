@@ -33,14 +33,17 @@ class ProjectScanner
 
                 if (File::isDirectory($customPath)) {
                     $seenNames[$name] = true;
-                    $hasPublicFolder = File::isDirectory($customPath.'/public');
-                    $phpVersion = $this->detectPhpVersion($customPath, $name, $defaultPhp);
+
+                    // For release-based projects, use current/ for detection
+                    $effectivePath = $this->getEffectivePath($customPath);
+                    $hasPublicFolder = File::isDirectory($effectivePath.'/public');
+                    $phpVersion = $this->detectPhpVersion($effectivePath, $name, $defaultPhp);
 
                     $project = [
                         'name' => $name,
-                        'display_name' => $this->getDisplayName($customPath, $name),
-                        'github_repo' => $this->getGitHubRepo($customPath),
-                        'project_type' => $this->getProjectType($customPath),
+                        'display_name' => $this->getDisplayName($effectivePath, $name),
+                        'github_repo' => $this->getGitHubRepo($effectivePath),
+                        'project_type' => $this->getProjectType($effectivePath),
                         'path' => $customPath,
                         'has_public_folder' => $hasPublicFolder,
                         'php_version' => $phpVersion,
@@ -80,14 +83,16 @@ class ProjectScanner
 
                 $seenNames[$name] = true;
 
-                $hasPublicFolder = File::isDirectory($directory.'/public');
-                $phpVersion = $this->detectPhpVersion($directory, $name, $defaultPhp);
+                // For release-based projects, use current/ for detection
+                $effectivePath = $this->getEffectivePath($directory);
+                $hasPublicFolder = File::isDirectory($effectivePath.'/public');
+                $phpVersion = $this->detectPhpVersion($effectivePath, $name, $defaultPhp);
 
                 $project = [
                     'name' => $name,
-                    'display_name' => $this->getDisplayName($directory, $name),
-                    'github_repo' => $this->getGitHubRepo($directory),
-                    'project_type' => $this->getProjectType($directory),
+                    'display_name' => $this->getDisplayName($effectivePath, $name),
+                    'github_repo' => $this->getGitHubRepo($effectivePath),
+                    'project_type' => $this->getProjectType($effectivePath),
                     'path' => $directory,
                     'has_public_folder' => $hasPublicFolder,
                     'php_version' => $phpVersion,
@@ -154,6 +159,20 @@ class ProjectScanner
     protected function isValidPhpVersion(string $version): bool
     {
         return in_array($version, ['8.3', '8.4', '8.5']);
+    }
+
+    /**
+     * For release-based projects (with releases/ and current symlink),
+     * return current/ as the effective path for detection purposes.
+     */
+    protected function getEffectivePath(string $directory): string
+    {
+        $currentLink = $directory.'/current';
+        if (is_link($currentLink) && is_dir($directory.'/releases')) {
+            return $currentLink;
+        }
+
+        return $directory;
     }
 
     protected function expandPath(string $path): string

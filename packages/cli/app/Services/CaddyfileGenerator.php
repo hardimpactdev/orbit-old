@@ -80,7 +80,12 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
             $socket = $project['has_custom_php']
                 ? $this->getSocketPath($project['php_version'])
                 : $defaultSocket;
-            $root = $project['path'].'/public';
+
+            // Detect release-based projects (current symlink)
+            $currentPath = $project['path'].'/current';
+            $root = is_link($currentPath)
+                ? $currentPath.'/public'
+                : $project['path'].'/public';
 
             $caddyfile .= "{$project['domain']} {
     tls {
@@ -152,6 +157,18 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
 }
 
 ";
+        }
+
+        // Import custom site configs from sites/ directory (survives regeneration)
+        $sitesDir = $this->configManager->getConfigPath().'/caddy/sites';
+        if (is_dir($sitesDir)) {
+            $customFiles = glob("{$sitesDir}/*.caddy");
+            if ($customFiles) {
+                $caddyfile .= "# Custom site configs\n";
+                foreach ($customFiles as $file) {
+                    $caddyfile .= File::get($file)."\n\n";
+                }
+            }
         }
 
         File::put($this->caddyfilePath, $caddyfile);

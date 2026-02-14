@@ -15,8 +15,16 @@ final readonly class ConfigureEnvironment
         $envExamplePath = "{$context->projectPath}/.env.example";
         $envPath = "{$context->projectPath}/.env";
 
-        // Copy .env.example to .env if needed
-        if (file_exists($envExamplePath) && ! file_exists($envPath)) {
+        // If .env already exists (e.g. shared via symlink in release-based deploys),
+        // skip all modifications — the operator manages the .env directly.
+        if (file_exists($envPath)) {
+            $logger->info('.env already exists, skipping environment configuration');
+
+            return StepResult::success();
+        }
+
+        // Copy .env.example to .env for first-time setup
+        if (file_exists($envExamplePath)) {
             $logger->info('Copying .env.example to .env');
             if (! copy($envExamplePath, $envPath)) {
                 return StepResult::failed('Failed to copy .env.example to .env');

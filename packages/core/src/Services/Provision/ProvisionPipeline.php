@@ -55,6 +55,10 @@ final readonly class ProvisionPipeline
      */
     public function run(ProvisionContext $context, ProvisionLoggerContract $logger): StepResult
     {
+        if ($context->isReleaseDeploy) {
+            return $this->runDeploy($context, $logger);
+        }
+
         if ($context->minimal) {
             return $this->runMinimal($context, $logger);
         }
@@ -159,6 +163,86 @@ final readonly class ProvisionPipeline
         $logger->info('Setup completed');
 
         return StepResult::success();
+    }
+
+    /**
+     * Run deploy pipeline for subsequent release-based deploys.
+     *
+     * Skips ConfigureEnvironment, CreateDatabase, and GenerateAppKey
+     * since these use shared resources from the base directory.
+     * Adds artisan optimize at the end for production caching.
+     */
+    public function runDeploy(ProvisionContext $context, ProvisionLoggerContract $logger): StepResult
+    {
+        $logger->info('Running release deploy setup...');
+
+        // Step 1: Composer install (production)
+        $logger->broadcast('installing_composer');
+        $result = $this->installComposerDependencies->handle($context, $logger);
+        if ($result->isFailed()) {
+            return $result;
+        }
+
+        // Step 2: Detect Node package manager
+        $detectResult = $this->detectNodePackageManager->handle($context, $logger);
+        if ($detectResult->isFailed()) {
+            return $detectResult;
+        }
+        $packageManager = $detectResult->data['packageManager'] ?? null;
+
+        // Step 3: Install Node dependencies
+        if ($packageManager) {
+            $logger->broadcast('installing_npm');
+            $result = $this->installNodeDependencies->handle($context, $logger, $packageManager);
+            if ($result->isFailed()) {
+                return $result;
+            }
+        }
+
+        // Step 4: Build assets
+        if ($packageManager) {
+            $logger->broadcast('building');
+            $result = $this->buildAssets->handle($context, $logger, $packageManager);
+            if ($result->isFailed()) {
+                return $result;
+            }
+        }
+
+        // Step 5: Run migrations (shared database, but migrations may be new)
+        $result = $this->runMigrations->handle($context, $logger);
+        if ($result->isFailed()) {
+            return $result;
+        }
+
+        // Step 6: Optimize (cache routes, config, views)
+        $this->optimize($context, $logger);
+
+        $logger->info('Release deploy setup completed');
+
+        return StepResult::success();
+    }
+
+    /**
+     * Run artisan optimize for production caching.
+     */
+    private function optimize(ProvisionContext $context, ProvisionLoggerContract $logger): void
+    {
+        $artisanPath = "{$context->projectPath}/artisan";
+        if (! file_exists($artisanPath)) {
+            return;
+        }
+
+        $logger->info('Optimizing application...');
+
+        $result = \Illuminate\Support\Facades\Process::path($context->projectPath)
+            ->timeout(30)
+            ->run($context->wrapWithCleanEnv('php artisan optimize'));
+
+        if ($result->successful()) {
+            $logger->info('Application optimized');
+        } else {
+            $logger->warn('artisan optimize failed: ' . $result->errorOutput());
+        }
     }
 
     /**

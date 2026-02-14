@@ -30,6 +30,7 @@ final readonly class ProvisionContext
         public ?string $displayName = null,
         public ?string $tld = null,
         public ?string $organization = null,
+        public bool $isReleaseDeploy = false,
     ) {}
 
     /**
@@ -63,6 +64,7 @@ final readonly class ProvisionContext
             displayName: $this->displayName,
             tld: $this->tld,
             organization: $this->organization,
+            isReleaseDeploy: $this->isReleaseDeploy,
         );
     }
 
