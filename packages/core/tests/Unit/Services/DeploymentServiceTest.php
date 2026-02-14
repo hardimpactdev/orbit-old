@@ -25,7 +25,7 @@ describe('DeploymentService', function () {
                 ->once()
                 ->withArgs(function ($n, $cmd) use ($node) {
                     return $n->id === $node->id
-                        && str_contains($cmd, 'site:create my-app')
+                        && str_contains($cmd, 'project:create my-app')
                         && str_contains($cmd, '--json')
                         && str_contains($cmd, '--clone=org/repo');
                 })
@@ -128,7 +128,7 @@ describe('DeploymentService', function () {
 
             $this->commandService->shouldReceive('executeCommand')
                 ->once()
-                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'site:delete to-remove --force --json'))
+                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:delete to-remove --force --json'))
                 ->andReturn(['success' => true]);
 
             $this->cloudflareService->shouldReceive('isConfigured')->never();
@@ -174,7 +174,7 @@ describe('DeploymentService', function () {
                 ->andReturn([
                     'success' => true,
                     'data' => [
-                        'sites' => [
+                        'projects' => [
                             ['slug' => 'site-a', 'name' => 'Site A', 'domain' => 'site-a.ccc', 'php_version' => '8.5'],
                             ['slug' => 'site-b', 'name' => 'Site B', 'domain' => 'site-b.ccc'],
                         ],
@@ -210,7 +210,7 @@ describe('DeploymentService', function () {
                 ->andReturn([
                     'success' => true,
                     'data' => [
-                        'sites' => [
+                        'projects' => [
                             ['slug' => 'still-here', 'name' => 'Still Here'],
                         ],
                     ],

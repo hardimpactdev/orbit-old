@@ -53,7 +53,7 @@ class DeploymentService
                 'status' => DeploymentStatus::Deploying,
             ]);
 
-        $cliArgs = "site:create {$name} --json";
+        $cliArgs = "project:create {$name} --json";
         if ($repo) {
             $cliArgs .= " --clone={$repo}";
         }
@@ -118,7 +118,7 @@ class DeploymentService
     public function undeploy(Deployment $deployment): bool
     {
         $node = $deployment->node;
-        $result = $this->command->executeCommand($node, "site:delete {$deployment->project_slug} --force --json");
+        $result = $this->command->executeCommand($node, "project:delete {$deployment->project_slug} --force --json");
 
         if ($deployment->hasCloudflareRecord()) {
             $zoneId = $deployment->gatewayProject?->cloudflare_zone_id;
@@ -134,13 +134,13 @@ class DeploymentService
 
     public function syncNode(Node $node): array
     {
-        $result = $this->command->executeCommand($node, 'site:list --json');
+        $result = $this->command->executeCommand($node, 'project:list --json');
 
         if (! ($result['success'] ?? false)) {
             return ['success' => false, 'error' => $result['error'] ?? 'Failed to list projects'];
         }
 
-        $remoteSites = $result['data']['sites'] ?? $result['data'] ?? [];
+        $remoteSites = $result['data']['projects'] ?? $result['data']['sites'] ?? $result['data'] ?? [];
         $synced = [];
 
         foreach ($remoteSites as $site) {
