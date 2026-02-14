@@ -20,8 +20,10 @@ class NodeFactory extends Factory
             'user' => $this->faker->userName(),
             'port' => 22,
             'is_default' => false,
+            'is_active' => true,
             'status' => NodeStatus::Active,
             'node_type' => NodeType::Local,
+            'environment' => NodeEnvironment::Development,
         ];
     }
 

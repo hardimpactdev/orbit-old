@@ -46,7 +46,7 @@ class GatewayDeploymentsResource extends Resource
                 'project_name' => $group->first()->project_name,
                 'nodes' => $group->map(fn (Deployment $d) => [
                     'node' => $d->node->name,
-                    'environment' => $d->node->environment?->value ?? 'development',
+                    'environment' => $d->node->environment->value,
                     'status' => $d->status->value,
                     'domain' => $d->domain,
                     'url' => $d->url,

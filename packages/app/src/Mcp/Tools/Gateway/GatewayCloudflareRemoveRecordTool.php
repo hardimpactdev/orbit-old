@@ -33,6 +33,7 @@ final class GatewayCloudflareRemoveRecordTool extends Tool
     {
         return [
             'record_id' => $schema->string()->required()->description('Cloudflare DNS record ID to remove'),
+            'zone_id' => $schema->string()->description('Cloudflare zone ID (falls back to global setting)'),
         ];
     }
 
@@ -40,16 +41,19 @@ final class GatewayCloudflareRemoveRecordTool extends Tool
     {
         $request->validate([
             'record_id' => 'required|string',
+            'zone_id' => 'nullable|string',
         ]);
 
-        if (! $this->cloudflare->isConfigured()) {
+        $zoneId = $request->get('zone_id');
+
+        if (! $this->cloudflare->isConfigured($zoneId)) {
             return Response::structured([
                 'success' => false,
-                'error' => 'Cloudflare not configured. Set cloudflare_api_token and cloudflare_zone_id in settings.',
+                'error' => 'Cloudflare not configured. Run: orbit cloudflare:configure',
             ]);
         }
 
-        $deleted = $this->cloudflare->deleteRecord($request->get('record_id'));
+        $deleted = $this->cloudflare->deleteRecord($request->get('record_id'), $zoneId);
 
         return Response::structured([
             'success' => $deleted,

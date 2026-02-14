@@ -47,7 +47,7 @@ final class GatewayNodesTool extends Tool
             'name' => $node->name,
             'host' => $node->host,
             'external_host' => $node->external_host,
-            'environment' => $node->environment?->value ?? 'development',
+            'environment' => $node->environment->value,
             'node_type' => $node->node_type->value,
             'status' => $node->status->value,
             'is_active' => $node->is_active,

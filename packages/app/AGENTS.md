@@ -158,7 +158,7 @@ Two MCP servers with conditional registration based on node type:
 Registers on Local/Client nodes. 10 tools, 4 resources, 2 prompts for site management.
 
 ### GatewayServer (`gateway`)
-Registers on Gateway nodes. 15 tools, 3 resources for VPN/DNS management, cross-node deployment tracking, and Cloudflare DNS.
+Registers on Gateway nodes. 18 tools, 3 resources for VPN/DNS management, project registry, cross-node deployment tracking, and multi-zone Cloudflare DNS.
 
 ### Conditional Registration
 All tools implement `shouldRegister()` checking `Node::getSelf()`. Gateway tools check `->isGateway()`, orbit tools check `!isGateway()`.
@@ -198,18 +198,6 @@ The package supports two modes via `config("orbit.multi_node")`:
 - **Web mode** (`false`): Single implicit node, flat routes
 - **Desktop mode** (`true`): Multiple nodes, prefixed routes
 
-## WebSocket (Echo/Reverb)
-
-Orbit's frontend uses Laravel's official `@laravel/echo-vue` composables with a
-single global Echo connection. The Reverb configuration comes from the active
-environment and is injected as an Inertia prop. Component-level subscriptions are
-managed by the composables and automatically cleaned up when components unmount.
-
-Key files:
-- `resources/js/app.ts` configures Echo from the `reverb` page prop
-- `resources/js/composables/useSiteProvisioning.ts` subscribes via `useEchoPublic`
-- `resources/js/pages/nodes/Services.vue` listens for service status updates
-
 ## After Making Changes
 
 **IMPORTANT: Always complete the full workflow below:**
@@ -227,49 +215,6 @@ Key files:
    php artisan vendor:publish --tag=orbit-assets --force
    ```
 
-## Asset Publishing Gotcha
+## Asset Publishing & Vite Dev Server
 
-When making UI changes that you want to see on orbit-web.ccc:
-
-1. **If Vite dev server is NOT running**: You must build AND publish
-   ```bash
-   cd ~/projects/orbit-app
-   bun run build
-   
-   cd ~/projects/orbit-web
-   php artisan vendor:publish --tag=orbit-assets --force
-   ```
-
-2. **Why changes might not appear**: 
-   - orbit-web serves from `public/vendor/orbit/build/`
-   - These are COPIED from orbit-app, not symlinked
-   - Publishing is required after each build
-
-3. **To verify**: Check the timestamp
-   ```bash
-   ls -la ~/projects/orbit-web/public/vendor/orbit/
-   ```
-
-## Vite Development Server with Caddy HTTPS Proxy
-
-When running the Vite dev server behind Caddy for HTTPS:
-
-1. **Use VITE_APP_URL** (not APP_URL) in package.json:
-   ```json
-   "dev": "sh -c 'VITE_APP_URL=https://$0 vite'"
-   ```
-
-2. **Why this matters**: craft-ui's vite config reads `VITE_APP_URL` to:
-   - Configure HMR websocket to connect through proxy (`wss://domain.ccc:443`)
-   - Set proper origin for CORS and asset URLs
-   - Write HTTPS URL to hot file instead of `http://0.0.0.0:5173`
-
-3. **Symptoms of incorrect config**:
-   - Browser error: "Mixed Content: page loaded over HTTPS but requested insecure script"
-   - HMR not working (changes don't reflect instantly)
-   - Hot file contains `http://0.0.0.0:5173` instead of `https://domain.ccc`
-
-4. **To verify it's working**:
-   ```bash
-   cat ~/projects/orbit-app/public/hot  # Should show https://orbit-web.ccc
-   ```
+See [docs/reference/common-tasks.md](../../docs/reference/common-tasks.md#asset-publishing-orbit-app---orbit-web) for asset publishing workflow and Vite HTTPS proxy configuration.

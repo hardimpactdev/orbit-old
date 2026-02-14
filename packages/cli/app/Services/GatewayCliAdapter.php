@@ -57,6 +57,11 @@ final readonly class GatewayCliAdapter
         $user = $gateway->ssh_user ?: 'orbit';
         $ip = $gateway->ip_address;
 
+        // Validate command contains only safe characters to prevent injection
+        if (preg_match('/[^a-zA-Z0-9\s:_\-\.\/=,]/', $command)) {
+            return null;
+        }
+
         $result = Process::timeout($timeout)->run(
             sprintf(
                 'ssh -o ServerAliveInterval=30 -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s',

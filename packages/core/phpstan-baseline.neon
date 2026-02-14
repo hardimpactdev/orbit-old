@@ -13,21 +13,15 @@ parameters:
 			path: src/Models/TemplateFavorite.php
 
 		-
-			message: '#^If condition is always true\.$#'
-			identifier: if.alwaysTrue
-			count: 1
-			path: src/Services/Deletion/Actions/DeleteProjectFiles.php
-
-		-
 			message: '#^Negated boolean expression is always false\.$#'
 			identifier: booleanNot.alwaysFalse
-			count: 3
+			count: 1
 			path: src/Services/Deletion/Actions/DeleteProjectFiles.php
 
 		-
 			message: '#^Result of && is always false\.$#'
 			identifier: booleanAnd.alwaysFalse
-			count: 2
+			count: 1
 			path: src/Services/Deletion/Actions/DeleteProjectFiles.php
 
 		-

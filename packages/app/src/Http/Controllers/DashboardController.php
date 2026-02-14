@@ -33,7 +33,7 @@ class DashboardController extends Controller
         }
 
         // Desktop mode: redirect to default node
-        $defaultNode = Node::getDefault();
+        $defaultNode = Node::getSelf();
 
         if ($defaultNode instanceof Node) {
             return redirect()->route('nodes.show', $defaultNode);

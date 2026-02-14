@@ -8,6 +8,7 @@ use HardImpact\Orbit\Core\Enums\DeploymentStatus;
 use HardImpact\Orbit\Core\Enums\NodeEnvironment;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Deployment;
+use HardImpact\Orbit\Core\Models\GatewayProject;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use Illuminate\Support\Collection;
@@ -29,21 +30,28 @@ class DeploymentService
 
         $existing = Deployment::where('node_id', $target->id)
             ->where('project_slug', $slug)
-            ->whereNotIn('status', [DeploymentStatus::Removed, DeploymentStatus::Failed])
             ->first();
 
-        if ($existing) {
+        if ($existing && ! in_array($existing->status, [DeploymentStatus::Removed, DeploymentStatus::Failed])) {
             throw new \RuntimeException("Active deployment for '{$slug}' already exists on node '{$target->name}'");
         }
 
-        $deployment = Deployment::create([
-            'node_id' => $target->id,
-            'project_slug' => $slug,
-            'project_name' => $name,
-            'github_repo' => $repo,
-            'php_version' => $phpVersion,
-            'status' => DeploymentStatus::Deploying,
-        ]);
+        $deployment = $existing
+            ? tap($existing)->update([
+                'project_name' => $name,
+                'github_repo' => $repo,
+                'php_version' => $phpVersion,
+                'status' => DeploymentStatus::Deploying,
+                'error_message' => null,
+            ])
+            : Deployment::create([
+                'node_id' => $target->id,
+                'project_slug' => $slug,
+                'project_name' => $name,
+                'github_repo' => $repo,
+                'php_version' => $phpVersion,
+                'status' => DeploymentStatus::Deploying,
+            ]);
 
         $cliArgs = "site:create {$name} --json";
         if ($repo) {
@@ -77,13 +85,46 @@ class DeploymentService
         return $deployment->fresh();
     }
 
+    public function deployProject(GatewayProject $project, Node $target, array $options = []): Deployment
+    {
+        $domain = $project->domainForNode($target);
+
+        $deployment = $this->deploy($target, array_merge([
+            'name' => $project->slug,
+            'clone' => $options['clone'] ?? $project->github_repo,
+        ], $options));
+
+        $deployment->update([
+            'gateway_project_id' => $project->id,
+        ]);
+
+        if ($domain) {
+            $deployment->update(['domain' => $domain]);
+        }
+
+        if ($domain && $target->external_host && $project->hasCloudflareZone()) {
+            $zoneId = $project->cloudflare_zone_id;
+            if ($this->cloudflare->isConfigured($zoneId) && $this->cloudflare->isDomainAvailable($domain, $zoneId)) {
+                $record = $this->cloudflare->createRecord($domain, $target->external_host, zoneId: $zoneId);
+                if ($record) {
+                    $deployment->update(['cloudflare_record_id' => $record['id']]);
+                }
+            }
+        }
+
+        return $deployment->fresh();
+    }
+
     public function undeploy(Deployment $deployment): bool
     {
         $node = $deployment->node;
         $result = $this->command->executeCommand($node, "site:delete {$deployment->project_slug} --force --json");
 
-        if ($deployment->hasCloudflareRecord() && $this->cloudflare->isConfigured()) {
-            $this->cloudflare->deleteRecord($deployment->cloudflare_record_id);
+        if ($deployment->hasCloudflareRecord()) {
+            $zoneId = $deployment->gatewayProject?->cloudflare_zone_id;
+            if ($this->cloudflare->isConfigured($zoneId)) {
+                $this->cloudflare->deleteRecord($deployment->cloudflare_record_id, $zoneId);
+            }
         }
 
         $deployment->update(['status' => DeploymentStatus::Removed]);

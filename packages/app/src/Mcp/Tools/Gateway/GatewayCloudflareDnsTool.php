@@ -34,21 +34,25 @@ final class GatewayCloudflareDnsTool extends Tool
         return [
             'name' => $schema->string()->description('Filter by record name (FQDN)'),
             'type' => $schema->string()->description('Filter by record type (A, CNAME, TXT, etc.)'),
+            'zone_id' => $schema->string()->description('Cloudflare zone ID (falls back to global setting)'),
         ];
     }
 
     public function handle(Request $request): ResponseFactory
     {
-        if (! $this->cloudflare->isConfigured()) {
+        $zoneId = $request->get('zone_id');
+
+        if (! $this->cloudflare->isConfigured($zoneId)) {
             return Response::structured([
                 'success' => false,
-                'error' => 'Cloudflare not configured. Set cloudflare_api_token and cloudflare_zone_id in settings.',
+                'error' => 'Cloudflare not configured. Run: orbit cloudflare:configure',
             ]);
         }
 
         $records = $this->cloudflare->listRecords(
             name: $request->get('name'),
             type: $request->get('type'),
+            zoneId: $zoneId,
         );
 
         $mapped = array_map(fn ($r) => [

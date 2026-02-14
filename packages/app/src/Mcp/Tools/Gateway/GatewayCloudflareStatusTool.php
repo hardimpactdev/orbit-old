@@ -31,19 +31,23 @@ final class GatewayCloudflareStatusTool extends Tool
 
     public function schema(JsonSchema $schema): array
     {
-        return [];
+        return [
+            'zone_id' => $schema->string()->description('Cloudflare zone ID (falls back to global setting)'),
+        ];
     }
 
     public function handle(Request $request): ResponseFactory
     {
-        if (! $this->cloudflare->isConfigured()) {
+        $zoneId = $request->get('zone_id');
+
+        if (! $this->cloudflare->isConfigured($zoneId)) {
             return Response::structured([
                 'success' => false,
-                'error' => 'Cloudflare not configured. Set cloudflare_api_token and cloudflare_zone_id in settings.',
+                'error' => 'Cloudflare not configured. Run: orbit cloudflare:configure',
             ]);
         }
 
-        $zone = $this->cloudflare->getZone();
+        $zone = $this->cloudflare->getZone($zoneId);
 
         if (! $zone) {
             return Response::structured(['success' => false, 'error' => 'Failed to fetch zone info']);

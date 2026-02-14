@@ -51,6 +51,23 @@ class Node extends Model
 
     protected $table = 'nodes';
 
+    protected static function booted(): void
+    {
+        static::saving(function (Node $node): void {
+            if ($node->host && ! in_array($node->host, ['127.0.0.1', 'localhost'], true)) {
+                if (! filter_var($node->host, FILTER_VALIDATE_IP)
+                    && ! filter_var($node->host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)
+                    && ! preg_match('/^[a-z0-9]([a-z0-9\-]*[a-z0-9])?$/i', $node->host)) {
+                    throw new \InvalidArgumentException("Invalid host: {$node->host}");
+                }
+            }
+
+            if ($node->user && ! preg_match('/^[a-z_][a-z0-9_\-\.]*$/i', $node->user)) {
+                throw new \InvalidArgumentException("Invalid SSH user: {$node->user}");
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'host',
@@ -167,14 +184,15 @@ class Node extends Model
         return trim("{$this->user}@{$this->host} {$port}");
     }
 
-    public static function getDefault(): ?self
+    public static function getSelf(): ?self
     {
         return static::where('is_default', true)->first();
     }
 
-    public static function getSelf(): ?self
+    /** @deprecated Use getSelf() instead */
+    public static function getDefault(): ?self
     {
-        return static::where('is_default', true)->first();
+        return static::getSelf();
     }
 
     public static function getActive(): ?self

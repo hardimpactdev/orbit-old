@@ -68,7 +68,7 @@ final class GatewayDeploymentsTool extends Tool
             'node' => [
                 'id' => $d->node->id,
                 'name' => $d->node->name,
-                'environment' => $d->node->environment?->value ?? 'development',
+                'environment' => $d->node->environment->value,
             ],
             'created_at' => $d->created_at->toIso8601String(),
         ]);

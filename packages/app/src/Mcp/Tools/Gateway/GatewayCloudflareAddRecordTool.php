@@ -34,6 +34,7 @@ final class GatewayCloudflareAddRecordTool extends Tool
             'content' => $schema->string()->required()->description('Record value (e.g. IP address for A records)'),
             'type' => $schema->string()->description('Record type: A, AAAA, CNAME, TXT (default: A)'),
             'proxied' => $schema->boolean()->description('Whether to proxy through Cloudflare (default: true)'),
+            'zone_id' => $schema->string()->description('Cloudflare zone ID (falls back to global setting)'),
         ];
     }
 
@@ -44,12 +45,15 @@ final class GatewayCloudflareAddRecordTool extends Tool
             'content' => 'required|string',
             'type' => 'nullable|string|in:A,AAAA,CNAME,TXT,MX',
             'proxied' => 'nullable|boolean',
+            'zone_id' => 'nullable|string',
         ]);
 
-        if (! $this->cloudflare->isConfigured()) {
+        $zoneId = $request->get('zone_id');
+
+        if (! $this->cloudflare->isConfigured($zoneId)) {
             return Response::structured([
                 'success' => false,
-                'error' => 'Cloudflare not configured. Set cloudflare_api_token and cloudflare_zone_id in settings.',
+                'error' => 'Cloudflare not configured. Run: orbit cloudflare:configure',
             ]);
         }
 
@@ -58,6 +62,7 @@ final class GatewayCloudflareAddRecordTool extends Tool
             content: $request->get('content'),
             type: $request->get('type', 'A'),
             proxied: $request->get('proxied', true),
+            zoneId: $zoneId,
         );
 
         if (! $record) {

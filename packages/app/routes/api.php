@@ -1,11 +1,11 @@
 <?php
 
+use HardImpact\Orbit\App\Http\Controllers\JobController;
 use HardImpact\Orbit\App\Http\Controllers\NodeConfigController;
 use HardImpact\Orbit\App\Http\Controllers\NodeController;
 use HardImpact\Orbit\App\Http\Controllers\NodeProjectController;
 use HardImpact\Orbit\App\Http\Controllers\NodeServiceController;
 use HardImpact\Orbit\App\Http\Controllers\NodeStatusController;
-use HardImpact\Orbit\App\Http\Controllers\JobController;
 use HardImpact\Orbit\App\Http\Controllers\PhpConfigController;
 use HardImpact\Orbit\App\Http\Controllers\WorkspaceController;
 use HardImpact\Orbit\App\Http\Controllers\WorktreeController;
@@ -125,11 +125,4 @@ Route::middleware('implicit.node')->group(function (): void {
 
     // Jobs
     Route::get('jobs/{trackedJob}', [JobController::class, 'show']);
-
-    // Route discovery for verification
-    Route::get('routes', function () {
-        return collect(Route::getRoutes())->map(function ($route) {
-            return $route->uri();
-        });
-    });
 });

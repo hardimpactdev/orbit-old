@@ -7,6 +7,7 @@ namespace App\Actions\Install\Shared;
 use App\Data\Install\InstallContext;
 use App\Services\Install\InstallLogger;
 use HardImpact\Orbit\Core\Data\StepResult;
+use HardImpact\Orbit\Core\Services\SettingEncryptor;
 
 final readonly class CreateDirectories
 {
@@ -48,6 +49,13 @@ final readonly class CreateDirectories
         }
 
         $logger->success('Directory structure created');
+
+        // Generate encryption key for sensitive settings if not present
+        $keyPath = $context->configDir.'/encryption.key';
+        if (! file_exists($keyPath)) {
+            SettingEncryptor::getInstance()->generateKeyFile();
+            $logger->success('Encryption key generated');
+        }
 
         return StepResult::success();
     }

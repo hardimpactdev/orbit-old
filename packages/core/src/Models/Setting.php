@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Models;
 
+use HardImpact\Orbit\Core\Services\SettingEncryptor;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -26,11 +27,25 @@ class Setting extends Model
     {
         $setting = static::find($key);
 
-        return $setting !== null ? $setting->value : $default;
+        if ($setting === null) {
+            return $default;
+        }
+
+        $value = $setting->value;
+
+        if ($value !== null && SettingEncryptor::isSensitive($key)) {
+            $value = SettingEncryptor::getInstance()->decrypt($value);
+        }
+
+        return $value;
     }
 
     public static function set(string $key, mixed $value): void
     {
+        if ($value !== null && SettingEncryptor::isSensitive($key)) {
+            $value = SettingEncryptor::getInstance()->encrypt((string) $value);
+        }
+
         static::updateOrCreate(
             ['key' => $key],
             ['value' => $value]

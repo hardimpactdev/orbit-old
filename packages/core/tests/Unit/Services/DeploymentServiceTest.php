@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use HardImpact\Orbit\Core\Enums\DeploymentStatus;
 use HardImpact\Orbit\Core\Enums\NodeEnvironment;
-use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Deployment;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\CloudflareService;
@@ -155,11 +154,12 @@ describe('DeploymentService', function () {
 
             $this->cloudflareService->shouldReceive('isConfigured')
                 ->once()
+                ->with(null)
                 ->andReturn(true);
 
             $this->cloudflareService->shouldReceive('deleteRecord')
                 ->once()
-                ->with('cf-record-123');
+                ->with('cf-record-123', null);
 
             $this->service->undeploy($deployment);
         });

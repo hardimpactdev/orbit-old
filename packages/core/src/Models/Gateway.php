@@ -35,6 +35,10 @@ final class Gateway extends Model
         'last_connected_at',
     ];
 
+    protected $hidden = [
+        'wg_password',
+    ];
+
     protected $casts = [
         'last_connected_at' => 'datetime',
         'wg_api_port' => 'integer',

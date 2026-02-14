@@ -78,9 +78,9 @@ class ProvisioningController extends Controller
 
         // Spawn the artisan command in the background
         $command = sprintf(
-            'php %s environment:provision %d %s > /dev/null 2>&1 &',
+            'php %s environment:provision %s %s > /dev/null 2>&1 &',
             escapeshellarg($artisanPath),
-            $node->id,
+            escapeshellarg((string) $node->id),
             escapeshellarg((string) $sshKey)
         );
 

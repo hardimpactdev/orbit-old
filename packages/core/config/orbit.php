@@ -97,6 +97,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Projects Path
+    |--------------------------------------------------------------------------
+    |
+    | Base directory for project files. Used for path traversal protection
+    | in deletion operations to prevent deleting files outside this directory.
+    |
+    */
+    'projects_path' => env('ORBIT_PROJECTS_PATH', ($_SERVER['HOME'] ?? '/home/orbit').'/projects'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Provisioning Timeouts
     |--------------------------------------------------------------------------
     |

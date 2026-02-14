@@ -143,6 +143,9 @@ describe('DeleteProjectFiles', function () {
         file_put_contents("{$projectDir}/file.txt", 'test');
         file_put_contents("{$projectDir}/subdir/nested.txt", 'nested');
 
+        // Allow temp directory for path traversal protection
+        config(['orbit.projects_path' => sys_get_temp_dir()]);
+
         $context = new DeletionContext(
             slug: 'delete-test',
             projectPath: $projectDir,
@@ -241,6 +244,9 @@ describe('DeletionPipeline', function () {
         mkdir($projectDir, 0755, true);
         file_put_contents("{$projectDir}/.env", "DB_CONNECTION=sqlite\n");
 
+        // Allow temp directory for path traversal protection
+        config(['orbit.projects_path' => sys_get_temp_dir()]);
+
         $context = new DeletionContext(
             slug: 'pipeline-test',
             projectPath: $projectDir,
@@ -265,6 +271,9 @@ describe('DeletionPipeline', function () {
         // Create a temp directory
         $projectDir = sys_get_temp_dir().'/keep-db-pipeline-'.uniqid();
         mkdir($projectDir, 0755, true);
+
+        // Allow temp directory for path traversal protection
+        config(['orbit.projects_path' => sys_get_temp_dir()]);
 
         $context = new DeletionContext(
             slug: 'keep-db-pipeline',

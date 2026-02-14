@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use HardImpact\Orbit\Core\Enums\NodeEnvironment;
-use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Deployment;
 use HardImpact\Orbit\Core\Models\Node;
 

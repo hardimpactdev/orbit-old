@@ -282,9 +282,9 @@ Run before every commit:
 | `encrypt()`/`decrypt()` unavailable | Root (below) |
 | `laravel/mcp` incompatible | Root (below) |
 
-### No encrypt()/decrypt() in Laravel Zero
+### No encrypt()/decrypt() helpers in Laravel Zero
 
-Laravel Zero doesn't register `EncryptionServiceProvider` or configure an `APP_KEY`. Calling `encrypt()` throws `Target class [encrypter] does not exist`. Store secrets in plain text in the SQLite DB (user-owned, server-local).
+Laravel Zero doesn't register `EncryptionServiceProvider` or configure an `APP_KEY`. The `encrypt()`/`decrypt()` helpers and `Crypt` facade are unavailable. Sensitive settings (credentials, tokens) are encrypted via `SettingEncryptor`, which instantiates `Illuminate\Encryption\Encrypter` directly with a key file at `~/.config/orbit/encryption.key`. This is transparent — `Setting::get()`/`Setting::set()` handle it automatically for keys listed in `SettingEncryptor::SENSITIVE_KEYS`.
 
 ### Gateway Commands Need Build+Deploy
 

@@ -3,8 +3,8 @@
 use HardImpact\Orbit\App\Http\Controllers\DashboardController;
 use HardImpact\Orbit\App\Http\Controllers\NodeController;
 use HardImpact\Orbit\App\Http\Controllers\ProvisioningController;
-use HardImpact\Orbit\App\Http\Controllers\SetupController;
 use HardImpact\Orbit\App\Http\Controllers\SettingsController;
+use HardImpact\Orbit\App\Http\Controllers\SetupController;
 use HardImpact\Orbit\App\Http\Controllers\SshKeyController;
 use Illuminate\Support\Facades\Route;
 
@@ -87,7 +87,6 @@ Route::prefix('api/nodes')->group(function (): void {
 // Redirect global settings to node configuration
 Route::get('settings', function () {
     $node = \HardImpact\Orbit\Core\Models\Node::getSelf()
-        ?? \HardImpact\Orbit\Core\Models\Node::getDefault()
         ?? \HardImpact\Orbit\Core\Models\Node::first();
 
     if ($node) {
@@ -100,7 +99,6 @@ Route::get('settings', function () {
 // Redirect /configuration to node configuration
 Route::get('configuration', function () {
     $node = \HardImpact\Orbit\Core\Models\Node::getSelf()
-        ?? \HardImpact\Orbit\Core\Models\Node::getDefault()
         ?? \HardImpact\Orbit\Core\Models\Node::first();
 
     if ($node) {

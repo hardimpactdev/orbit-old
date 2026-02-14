@@ -26,7 +26,8 @@ src/
     Project.php
     Site.php                 # Site model for local dev sites
     TrackedJob.php           # Job tracking
-    Deployment.php           # Cross-node deployment tracking (project_slug, node_id, status, cloudflare_record_id)
+    Deployment.php           # Cross-node deployment tracking (project_slug, node_id, gateway_project_id, status, cloudflare_record_id)
+    GatewayProject.php       # Gateway-level project registry (slug, production_domain, cloudflare_zone_id)
     Setting.php              # Key-value store (wg_easy_password, cloudflare_api_token, etc.)
     SshKey.php
     TemplateFavorite.php
@@ -38,8 +39,9 @@ src/
       GatewayManager.php     # CRUD gateways, VPN client registration
       WgEasyService.php      # WireGuard VPN API (host, port, password)
       GatewayDnsService.php  # TLD→IP mappings via dnsmasq config files
-    CloudflareService.php    # Cloudflare API v4 wrapper (DNS records, zone info, SSL)
-    DeploymentService.php    # Cross-node deployment orchestration (deploy, undeploy, sync)
+    CloudflareService.php    # Cloudflare API v4 wrapper (multi-zone DNS records, zone detection, SSL)
+    DeploymentService.php    # Cross-node deployment orchestration (deploy, deployProject, undeploy, sync)
+    SettingEncryptor.php     # Transparent encryption for sensitive Setting values
     OrbitService.php         # Main orchestration service
     ProvisioningService.php  # Site provisioning logic
     SiteService.php          # Site management
@@ -146,8 +148,9 @@ composer format         # Format with Pint
 orbit-core is a business logic package that provides models, services, jobs, and data structures. It contains no UI components.
 
 **What orbit-core provides:**
-- Eloquent Models (Node, Gateway, Project, Site, Setting, etc.)
+- Eloquent Models (Node, Gateway, GatewayProject, Project, Site, Setting, Deployment, etc.)
 - Gateway Services (GatewayManager, WgEasyService, GatewayDnsService)
+- CloudflareService (multi-zone DNS management with per-zone operations)
 - Pipelines (ProvisionPipeline, DeletionPipeline)
 - CLI Wrapper Services (StatusService, ProjectCliService, etc.)
 - Jobs (CreateSiteJob, DeleteSiteJob)
@@ -332,89 +335,6 @@ When GitHub repository deletion is implemented:
 1. Add `DeleteGitHubRepository` action
 2. Set `DeletionContext.keepRepository = false`
 3. Add `--delete-repo` flag to CLI/web UI
-
-## WebSocket (Echo/Reverb)
-
-Orbit's frontend uses Laravel's official `@laravel/echo-vue` composables with a
-single global Echo connection. The Reverb configuration comes from the active
-environment and is injected as an Inertia prop. Component-level subscriptions are
-managed by the composables and automatically cleaned up when components unmount.
-
-Key files:
-- `resources/js/app.ts` configures Echo from the `reverb` page prop
-- `resources/js/composables/useSiteProvisioning.ts` subscribes via `useEchoPublic`
-- `resources/js/pages/nodes/Services.vue` listens for service status updates
-
-## Host Services
-
-**IMPORTANT:** Caddy runs on the host via systemd, NOT in Docker.
-
-| Service | Type | Management |
-|---------|------|------------|
-| Caddy | systemd | `sudo systemctl reload caddy` |
-| Horizon | systemd | `sudo systemctl restart orbit-horizon` |
-| PHP-FPM | systemd | `sudo systemctl restart php8.4-fpm` |
-| Reverb | Docker | `docker restart orbit-reverb` |
-
-Caddy config: `~/.config/orbit/caddy/Caddyfile` (imported by `/etc/caddy/Caddyfile`)
-
-## CLI Integration (CommandService)
-
-The CLI is called via `CommandService` which reads the CLI path from `ORBIT_CLI_PATH` env var:
-
-```php
-// CommandService reads from config('orbit.cli_path')
-$cliPath = $this->getCliPath();  // e.g., /home/user/projects/orbit-cli/orbit
-$result = Process::timeout(60)->run("{$cliPath} {$command}");
-$decoded = json_decode($result->output(), true);
-```
-
-### Configuration
-
-Set `ORBIT_CLI_PATH` in `.env`:
-- **Development**: `/home/user/projects/orbit-cli/orbit` (points to dev orbit-cli)
-- **Production**: `/home/user/.local/bin/orbit` (installed phar)
-
-The CLI executable uses a shebang (`#!/usr/bin/env php`) so no `php` prefix is needed.
-
-### Critical Requirements
-
-1. **CLI must output clean JSON to stdout** when `--json` flag is passed
-2. **stderr is separate** - warnings via `error_log()` don't corrupt JSON parsing
-3. **Timeout is 60 seconds** - long operations must complete within this window
-4. **JSON structure expected**: `{"success": bool, "data": {...}}` or `{"success": false, "error": "message"}`
-
-### CLI Flag Naming Convention
-
-**CRITICAL**: CLI option names in Jobs MUST match exactly what orbit-cli expects.
-
-| Job Parameter | CLI Flag | NOT |
-|---------------|----------|-----|
-| `org` | `--organization` | ~~`--org`~~ |
-| `template` | `--template` | |
-| `visibility` | `--visibility` | |
-| `php_version` | `--php` | |
-
-The `CreateSiteJob::buildCommand()` method constructs CLI commands. Tests in `tests/Unit/Jobs/CreateSiteJobTest.php` verify flag names match the CLI.
-
-### Common Failure Modes
-
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| "Failed to parse JSON: Syntax error" | CLI outputs console messages to stdout | Pass `--json` properly, suppress console output in CLI |
-| 502 Bad Gateway | CLI restarts PHP-FPM | Remove PHP-FPM restarts from web-callable operations |
-| Timeout | Operation exceeds 60s | Optimize operation or increase timeout |
-
-### Testing CLI Integration
-
-Test CLI JSON output directly before assuming web integration works:
-
-```bash
-# stdout only (simulates what Process::run() captures)
-php ~/.local/bin/orbit site:create "test" --json 2>/dev/null
-
-# Should output ONLY valid JSON, nothing else
-```
 
 ## After Making Changes
 

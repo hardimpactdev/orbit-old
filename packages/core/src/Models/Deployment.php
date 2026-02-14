@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * @property int $id
  * @property int $node_id
+ * @property int|null $gateway_project_id
  * @property string $project_slug
  * @property string $project_name
  * @property string|null $github_repo
@@ -24,11 +25,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property-read Node $node
+ * @property-read GatewayProject|null $gatewayProject
  */
 class Deployment extends Model
 {
     protected $fillable = [
         'node_id',
+        'gateway_project_id',
         'project_slug',
         'project_name',
         'github_repo',
@@ -49,6 +52,11 @@ class Deployment extends Model
     public function node(): BelongsTo
     {
         return $this->belongsTo(Node::class);
+    }
+
+    public function gatewayProject(): BelongsTo
+    {
+        return $this->belongsTo(GatewayProject::class);
     }
 
     public function isActive(): bool

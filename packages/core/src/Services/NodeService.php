@@ -8,6 +8,7 @@ use HardImpact\Orbit\Core\Enums\NodeStatus;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class NodeService
 {
@@ -45,8 +46,10 @@ class NodeService
 
     public function setActive(Node $node): void
     {
-        Node::query()->update(['is_active' => false]);
-        $node->update(['is_active' => true]);
+        DB::transaction(function () use ($node): void {
+            Node::where('id', '!=', $node->id)->update(['is_active' => false]);
+            $node->update(['is_active' => true]);
+        });
     }
 
     private function generateNodeName(NodeType $type, string $host): string
@@ -54,6 +57,6 @@ class NodeService
         $count = Node::where('node_type', $type->value)->count();
         $typeLabel = ucfirst($type->value);
 
-        return $count > 0 ? "{$typeLabel} " . ($count + 1) : $typeLabel;
+        return $count > 0 ? "{$typeLabel} ".($count + 1) : $typeLabel;
     }
 }

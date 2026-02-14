@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
+use HardImpact\Orbit\App\Http\Controllers\Concerns\ProvidesRemoteApiUrl;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Setting;
 use HardImpact\Orbit\Core\Models\SshKey;
@@ -13,7 +14,6 @@ use HardImpact\Orbit\Core\Services\NodeManager;
 use HardImpact\Orbit\Core\Services\NotificationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
-use HardImpact\Orbit\App\Http\Controllers\Concerns\ProvidesRemoteApiUrl;
 use Illuminate\Http\Request;
 
 /**
@@ -192,11 +192,10 @@ class NodeController extends Controller
 
     public function setDefault(Node $node)
     {
-        // Clear default from all nodes
-        Node::where('is_default', true)->update(['is_default' => false]);
-
-        // Set this node as default
-        $node->update(['is_default' => true]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($node): void {
+            Node::where('id', '!=', $node->id)->where('is_default', true)->update(['is_default' => false]);
+            $node->update(['is_default' => true]);
+        });
 
         return redirect()->route('nodes.show', $node);
     }
