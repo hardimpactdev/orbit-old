@@ -35,14 +35,57 @@ final readonly class DetectNodePackageManager
         }
 
         // Detect package manager from lock file
-        $packageManager = match (true) {
+        $preferredManager = match (true) {
             file_exists("{$projectPath}/bun.lock") || file_exists("{$projectPath}/bun.lockb") => 'bun',
             file_exists("{$projectPath}/package-lock.json") => 'npm',
             default => 'npm',
         };
 
-        $logger->info("Detected Node package manager: {$packageManager}");
+        // Verify the detected package manager is available
+        $packageManager = $this->ensurePackageManagerAvailable($preferredManager, $logger);
+
+        if (! $packageManager) {
+            return StepResult::failed("No Node package manager available. Install {$preferredManager} or configure an alternative.");
+        }
+
+        $logger->info("Using Node package manager: {$packageManager}");
 
         return StepResult::success(['packageManager' => $packageManager]);
+    }
+
+    /**
+     * Verify package manager is available, fall back to alternatives if not.
+     */
+    private function ensurePackageManagerAvailable(string $preferred, ProvisionLoggerContract $logger): ?string
+    {
+        // Check if preferred manager is available
+        if ($this->isCommandAvailable($preferred)) {
+            return $preferred;
+        }
+
+        // Fallback order: bun → npm → yarn → pnpm
+        $fallbacks = match ($preferred) {
+            'npm' => ['bun', 'yarn', 'pnpm'],
+            'bun' => ['npm', 'yarn', 'pnpm'],
+            default => ['npm', 'bun', 'yarn', 'pnpm'],
+        };
+
+        foreach ($fallbacks as $fallback) {
+            if ($this->isCommandAvailable($fallback)) {
+                $logger->warn("{$preferred} not found, falling back to {$fallback}");
+
+                return $fallback;
+            }
+        }
+
+        return null;
+    }
+
+    private function isCommandAvailable(string $command): bool
+    {
+        $result = shell_exec("command -v {$command} 2>/dev/null");
+
+        return ! empty(trim($result ?? ''));
+    }
     }
 }

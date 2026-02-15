@@ -357,11 +357,10 @@ final class ProjectDeployCommand extends Command
 
     private function createReleaseSymlinks(string $basePath, string $releasePath): void
     {
-        // Remove the release's own copies and replace with symlinks to shared resources
+        // Symlink .env and storage (full directories)
         $links = [
             '.env' => '../../.env',
             'storage' => '../../storage',
-            'database' => '../../database',
         ];
 
         foreach ($links as $name => $target) {
@@ -377,7 +376,38 @@ final class ProjectDeployCommand extends Command
             symlink($target, $linkPath);
         }
 
+        // For database, only symlink the SQLite file (keep migrations/factories/seeders from release)
+        $this->ensureDatabaseStructure($basePath, $releasePath);
+
         $this->logger->info('Created symlinks to shared resources');
+    }
+
+    private function ensureDatabaseStructure(string $basePath, string $releasePath): void
+    {
+        // Ensure shared database directory exists
+        $sharedDbDir = "{$basePath}/database";
+        if (! is_dir($sharedDbDir)) {
+            mkdir($sharedDbDir, 0755, true);
+        }
+
+        // Only symlink the SQLite file, not the entire directory
+        // This preserves migrations/factories/seeders from the release
+        $sqliteFile = "{$releasePath}/database/database.sqlite";
+        $sharedSqlite = "{$basePath}/database/database.sqlite";
+
+        // Create shared SQLite file if it doesn't exist
+        if (! file_exists($sharedSqlite)) {
+            touch($sharedSqlite);
+        }
+
+        // Remove release's SQLite file and symlink to shared
+        if (file_exists($sqliteFile) && ! is_link($sqliteFile)) {
+            unlink($sqliteFile);
+        }
+
+        if (! is_link($sqliteFile)) {
+            symlink('../../database/database.sqlite', $sqliteFile);
+        }
     }
 
     private function ensureStorageStructure(string $basePath): void
@@ -411,6 +441,28 @@ final class ProjectDeployCommand extends Command
         }
 
         $this->logger->info("Switched current → releases/{$releaseDir}");
+
+        // Reload PHP-FPM to clear opcache and pick up new release
+        $this->reloadPhpFpm();
+    }
+
+    private function reloadPhpFpm(): void
+    {
+        $this->logger->info('Reloading PHP-FPM to clear opcache...');
+
+        // Get PHP version from command options or default
+        $phpVersion = $this->option('php') ?? '8.4';
+        $versionClean = str_replace('.', '', $phpVersion);
+
+        // Try systemd reload first (most common)
+        $result = Process::run("sudo systemctl reload php{$versionClean}-fpm 2>&1 || true");
+
+        // If systemd failed, try direct signal to php-fpm
+        if (! $result->successful()) {
+            Process::run("sudo pkill -USR2 php-fpm 2>&1 || true");
+        }
+
+        $this->logger->info('PHP-FPM reload signal sent');
     }
 
     private function cleanupReleases(string $basePath, int $keep): void
