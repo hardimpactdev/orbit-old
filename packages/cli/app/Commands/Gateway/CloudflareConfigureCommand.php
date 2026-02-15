@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Commands\Gateway;
 
+use App\Concerns\RunsOnGateway;
 use App\Services\GatewayCliAdapter;
 use HardImpact\Orbit\Core\Models\Gateway;
 use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
-use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
 final class CloudflareConfigureCommand extends Command
 {
+    use RunsOnGateway;
+
     protected $signature = 'cloudflare:configure';
 
     protected $description = 'Configure Cloudflare API credentials on the gateway';
@@ -60,7 +62,7 @@ final class CloudflareConfigureCommand extends Command
 
         $this->line('Validating token via gateway...');
 
-        $zonesOutput = $this->runOnGateway($gateway, "cloudflare:zones {$token} --json");
+        $zonesOutput = $this->runOnGateway($gateway, 'cloudflare:zones --json', $token);
 
         if ($zonesOutput === null) {
             $this->error('Failed to validate token via gateway.');
@@ -78,7 +80,7 @@ final class CloudflareConfigureCommand extends Command
         }
 
         // Store token on the gateway
-        $stored = $this->runOnGateway($gateway, "cloudflare:store {$token}");
+        $stored = $this->runOnGateway($gateway, 'cloudflare:store', $token);
 
         if ($stored === null) {
             $this->error('Failed to store token on gateway.');
@@ -94,29 +96,5 @@ final class CloudflareConfigureCommand extends Command
         $this->line('Available zones: '.implode(', ', $zoneNames));
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Run an orbit command on the gateway via SSH.
-     *
-     * Unlike GatewayCliAdapter::sshCommand(), this allows any argument characters
-     * and returns output even on non-zero exit codes (for JSON error responses).
-     */
-    private function runOnGateway(Gateway $gateway, string $orbitCommand): ?string
-    {
-        $user = $gateway->ssh_user ?: 'orbit';
-        $ip = $gateway->ip_address;
-
-        $result = Process::timeout(20)->run(sprintf(
-            'ssh -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s',
-            escapeshellarg((string) $user),
-            escapeshellarg((string) $ip),
-            escapeshellarg("export PATH=/home/linuxbrew/.linuxbrew/bin:\$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:\$PATH && orbit {$orbitCommand}"),
-        ));
-
-        $output = trim($result->output());
-
-        // Return output if we got any (even on non-zero exit), null only on connection failure
-        return $output !== '' ? $output : null;
     }
 }

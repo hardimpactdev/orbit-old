@@ -6,6 +6,7 @@ namespace HardImpact\Orbit\Core\Services;
 
 use HardImpact\Orbit\Core\Models\Setting;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class CloudflareService
 {
@@ -16,6 +17,8 @@ class CloudflareService
     protected ?string $zoneId = null;
 
     protected bool $loaded = false;
+
+    private array $zoneCache = [];
 
     public static function listZonesWithToken(string $apiToken): array
     {
@@ -48,7 +51,7 @@ class CloudflareService
             return null;
         }
 
-        $zones = self::listZonesWithToken($this->apiToken);
+        $zones = $this->getCachedZones();
 
         $bestMatch = null;
         $bestLength = 0;
@@ -77,7 +80,16 @@ class CloudflareService
             return [];
         }
 
-        return self::listZonesWithToken($this->apiToken);
+        return $this->getCachedZones();
+    }
+
+    private function getCachedZones(): array
+    {
+        if ($this->zoneCache === []) {
+            $this->zoneCache = self::listZonesWithToken($this->apiToken);
+        }
+
+        return $this->zoneCache;
     }
 
     protected function loadCredentials(): void
@@ -197,6 +209,16 @@ class CloudflareService
             default => throw new \InvalidArgumentException("Unsupported HTTP method: {$method}"),
         };
 
-        return $response->json() ?? [];
+        $json = $response->json() ?? [];
+
+        if (! $response->successful()) {
+            $errors = $json['errors'] ?? [];
+            $message = ! empty($errors) ? ($errors[0]['message'] ?? 'Unknown error') : "HTTP {$response->status()}";
+            Log::warning("Cloudflare API error [{$method} {$path}]: {$message}");
+
+            return array_merge($json, ['success' => false]);
+        }
+
+        return $json;
     }
 }

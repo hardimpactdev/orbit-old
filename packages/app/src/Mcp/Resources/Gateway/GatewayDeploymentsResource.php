@@ -38,7 +38,7 @@ class GatewayDeploymentsResource extends Resource
 
     public function handle(Request $request): Response
     {
-        $deployments = Deployment::with('node')->get();
+        $deployments = Deployment::with('node')->latest('updated_at')->limit(500)->get();
 
         $grouped = $deployments->groupBy('project_slug')->map(function ($group) {
             return [

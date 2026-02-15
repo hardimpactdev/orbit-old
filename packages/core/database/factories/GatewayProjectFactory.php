@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace HardImpact\Orbit\Core\Database\Factories;
 
 use HardImpact\Orbit\Core\Models\GatewayProject;

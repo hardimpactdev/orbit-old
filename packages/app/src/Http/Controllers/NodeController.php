@@ -15,6 +15,7 @@ use HardImpact\Orbit\Core\Services\NotificationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\StatusService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Controller for node CRUD operations and core node features.
@@ -190,9 +191,9 @@ class NodeController extends Controller
             ->with('success', "Node '{$name}' removed successfully.");
     }
 
-    public function setDefault(Node $node)
+    public function setDefault(Node $node): \Illuminate\Http\RedirectResponse
     {
-        \Illuminate\Support\Facades\DB::transaction(function () use ($node): void {
+        DB::transaction(function () use ($node): void {
             Node::where('id', '!=', $node->id)->where('is_default', true)->update(['is_default' => false]);
             $node->update(['is_default' => true]);
         });

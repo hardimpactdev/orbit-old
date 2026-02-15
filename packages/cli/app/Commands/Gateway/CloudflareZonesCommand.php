@@ -12,15 +12,19 @@ final class CloudflareZonesCommand extends Command
 {
     use WithJsonOutput;
 
-    protected $signature = 'cloudflare:zones {token} {--json}';
+    protected $signature = 'cloudflare:zones {--json}';
 
-    protected $description = 'List Cloudflare zones for a given API token (runs on gateway)';
+    protected $description = 'List Cloudflare zones for a given API token (runs on gateway, reads token from stdin)';
 
     protected $hidden = true;
 
     public function handle(): int
     {
-        $token = $this->argument('token');
+        $token = trim(fgets(STDIN) ?: '');
+
+        if ($token === '') {
+            return $this->outputJsonError('No API token provided via stdin.');
+        }
 
         try {
             $response = Http::withToken($token)

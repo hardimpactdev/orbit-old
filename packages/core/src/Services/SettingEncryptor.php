@@ -20,6 +20,8 @@ final class SettingEncryptor
 
     private ?string $keyPath = null;
 
+    private bool $generating = false;
+
     public static function getInstance(): self
     {
         if (self::$instance === null) {
@@ -56,20 +58,26 @@ final class SettingEncryptor
 
     public function generateKeyFile(): string
     {
-        $path = $this->getKeyPath();
+        $this->generating = true;
 
-        if (! file_exists($path)) {
-            $key = Encrypter::generateKey('aes-256-cbc');
-            file_put_contents($path, base64_encode($key));
-            chmod($path, 0600);
+        try {
+            $path = $this->getKeyPath();
+
+            if (! file_exists($path)) {
+                $key = Encrypter::generateKey('aes-256-cbc');
+                file_put_contents($path, base64_encode($key));
+                chmod($path, 0600);
+            }
+
+            // Reset encrypter so it picks up the new key
+            $this->encrypter = null;
+
+            $this->encryptExistingValues();
+
+            return $path;
+        } finally {
+            $this->generating = false;
         }
-
-        // Reset encrypter so it picks up the new key
-        $this->encrypter = null;
-
-        $this->encryptExistingValues();
-
-        return $path;
     }
 
     public function encryptExistingValues(): int
@@ -110,6 +118,9 @@ final class SettingEncryptor
             $path = $this->getKeyPath();
 
             if (! file_exists($path)) {
+                if ($this->generating) {
+                    throw new \RuntimeException('Encryption key file does not exist and cannot be generated (already generating).');
+                }
                 $this->generateKeyFile();
             }
 

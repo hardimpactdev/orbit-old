@@ -37,7 +37,7 @@ claude mcp add --transport http orbit-remote https://orbit.ccc/mcp/orbit
 
 ## GatewayServer (`gateway`)
 
-VPN client management, DNS/TLD routing, cross-node deployment tracking, and Cloudflare DNS management. Registers only on Gateway nodes (via `shouldRegister()` on each tool).
+VPN client management, DNS/TLD routing, project registry, cross-node deployment tracking, and multi-zone Cloudflare DNS management. Registers only on Gateway nodes (via `shouldRegister()` on each tool).
 
 **Tools:**
 
@@ -49,11 +49,14 @@ VPN client management, DNS/TLD routing, cross-node deployment tracking, and Clou
 | `gateway_dns_mappings` | read-only | All TLD-to-IP mappings |
 | `gateway_add_tld` | mutating | Add DNS mapping for a TLD to a VPN IP |
 | `gateway_remove_tld` | destructive | Remove a DNS mapping |
+| `gateway_register_project` | mutating | Register a project for cross-node deployment tracking with Cloudflare zone auto-detection |
+| `gateway_projects` | read-only | List registered gateway projects with deployment counts and zone info |
 | `gateway_nodes` | read-only | List nodes with environment, status, deployment count |
-| `gateway_deploy` | mutating | Deploy project to a node with optional Cloudflare DNS |
+| `gateway_deploy` | mutating | Deploy project to a node (release-based for prod/staging, direct for dev) with auto DNS |
 | `gateway_deployments` | read-only | List deployments filtered by project, node, environment, status |
 | `gateway_sync_node` | mutating | Discover existing projects on a node and sync to deployments |
 | `gateway_undeploy` | destructive | Remove deployment from node, clean up Cloudflare DNS |
+| `gateway_cloudflare_zones` | read-only | List all Cloudflare zones for the configured API token |
 | `gateway_cloudflare_status` | read-only | Cloudflare zone info and SSL mode |
 | `gateway_cloudflare_dns` | read-only | List Cloudflare DNS records |
 | `gateway_cloudflare_add_record` | mutating | Create a Cloudflare DNS record |

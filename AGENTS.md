@@ -58,6 +58,20 @@ The remote environments being managed can run any Linux distribution (Ubuntu rec
 - **Node host validation**: The `Node` model validates hosts on save. It accepts IPs, FQDNs, and single-label SSH aliases (e.g. `ai`, `gateway`). If adding new validation, test against `Node::factory()->create()` to ensure Faker data still passes.
 - **SQLite test databases**: Always set `'foreign_key_constraints' => true` when using SQLite `:memory:` test databases with CASCADE foreign keys.
 - **CLI command namespace**: The CLI public commands use `project:*` (`project:create`, `project:delete`, `project:list`), NOT `site:*`. The `Site` model is internal to orbit-core. When writing services that call CLI commands, verify names against `packages/cli/app/Commands/`.
+- **CLI argument escaping**: When building CLI command strings in services (e.g. `DeploymentService`), always use `escapeshellarg()` for user-supplied values. Use array-based building (`$args[] = '--flag=' . escapeshellarg($val)`) and `implode(' ', $args)`.
+- **Never pass secrets as CLI arguments**: Tokens/passwords passed as CLI arguments are visible in `ps aux`. Use stdin piping instead. See `docs/solutions/security-issues/api-token-cli-argument-leaks-process-list-20260215.md`.
+- **Capture model state before service mutations**: When an MCP tool or controller calls a service that modifies a model, capture any needed values BEFORE the service call. The in-memory model may be stale after mutation. See `docs/solutions/logic-errors/stale-model-after-service-mutation-20260215.md`.
+- **macOS VPN custom TLDs need `/etc/resolver/` files**: macOS system resolver ignores WireGuard supplemental DNS for non-standard TLDs. Each custom TLD (`.ccc`, `.gateway`, `.beast`) needs a `/etc/resolver/{tld}` file pointing to the gateway DNS (`10.6.0.1`). See `docs/solutions/infrastructure/macos-vpn-custom-tld-resolution-20260215.md`.
+- **Gateway dnsmasq IPs**: The `.gateway` TLD must point to `10.6.0.2` (host VPN IP where Caddy runs), not `10.6.0.1` (wg-easy container). Always verify with `ssh gateway "ip addr show wg0"`.
+- **Verify MCP connectivity end-to-end**: After configuring MCP servers, always test the full chain from the actual client before declaring it works: `curl -sf -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' http://orbit.gateway/mcp/gateway`
+- **Shared SQLite database path**: All packages (CLI, web, desktop) must default to `~/.config/orbit/database.sqlite`. The canonical path is in `packages/cli/config/database.php`. Never use `database_path()` as default — it resolves to a package-specific path. `DB_DATABASE` env var can override per-deployment. See `docs/solutions/database-issues/web-cli-sqlite-path-mismatch-20260215.md`.
+- **Register pre-existing deployments**: Projects deployed outside the gateway flow (manual SSH, direct CLI) must be retroactively registered as `GatewayProject` + `Deployment` records. Otherwise MCP tools can't see them. Use `gateway_register_project` then insert a deployment with `status: active`.
+- **Production server uses `~/Projects/`** (capital P): The Hetzner production node stores projects at `~/Projects/`, not `~/projects/`. The `gateway_sync_node` tool and any SSH-based project discovery must check both paths.
+- **Auto-detect project info before asking**: When deploying or registering a project, never ask the user for information you can look up yourself. Check the local filesystem for the project directory (`~/Projects/`, `~/Clients/`, `~/projects/`), then read `git remote -v` to get the repo URL. Pass `github_repo` to `gateway_register_project` so subsequent deploys auto-retrieve it.
+- **Error handling: Always use `trim() ?: fallback`**: Never rely on `??` alone for error messages - empty strings bypass it. Use `trim($error ?? '') ?: 'Fallback message'` to catch `null`, empty strings, and whitespace. See `docs/solutions/logic-errors/empty-error-null-coalescing-operator-20260215.md`.
+- **Gateway deployment pre-flight checks**: Before executing remote deployments, MCP tools must validate: (1) SSH connectivity via `SshService::testConnection()`, (2) CLI binary exists via `CommandService::findBinary()`, (3) GitHub repo access via `gh repo view {repo}`. Return actionable errors with SSH commands or setup instructions. See `GatewayDeployTool::preflight()`.
+- **PHP version auto-detection**: When no `php_version` is provided to `gateway_deploy`, the `DeploymentService` auto-detects it from the project's `composer.json` via GitHub API (`GitHubService::detectPhpVersion()`). Falls back to post-clone detection if GitHub API fails.
+- **CLI `--json` output must be single object**: When adding `--json` support to CLI commands, suppress all intermediate output and only emit the final result as a single JSON object. Multiple JSON objects break `SshService::executeJson()`. See `docs/solutions/integration-issues/cli-multiple-json-output-breaks-parser-20260215.md`.
 
 ## Package Architecture
 
@@ -89,6 +103,113 @@ Gateway business logic lives in `packages/core/src/Services/Gateway/`:
 - **GatewayDnsService** - TLD-to-IP mappings via dnsmasq config files (constructor: `string $configPath`)
 
 CLI-specific operations (Process facade, SSH, Docker commands) live in `packages/cli/app/Services/GatewayCliAdapter.php`.
+
+## Deployment System
+
+Orbit provides cross-node deployment orchestration with release-based zero-downtime deployments, multi-zone Cloudflare DNS management, and centralized tracking — all driven via MCP tools or CLI.
+
+### How to Deploy a Project to Production
+
+**This is the recommended workflow.** No Docker, no Spin, no manual SSH.
+
+1. **Register the project on the gateway** (once):
+   ```
+   MCP: gateway_register_project(name: "My App", production_domain: "myapp.nl")
+   CLI: orbit project:register
+   ```
+   Auto-detects Cloudflare zone from the domain. Creates a `GatewayProject` record.
+
+2. **Deploy to a node**:
+   ```
+   MCP: gateway_deploy(project_slug: "my-app", node_id: 3)
+   ```
+   - Production/staging nodes: Uses `project:deploy` (release-based, zero-downtime)
+   - Development nodes: Uses `project:create` (direct)
+   - Auto-creates Cloudflare DNS record pointing to node's `external_host`
+   - Tracks deployment in `Deployment` model
+
+3. **Subsequent deploys** (redeploy/update):
+   ```
+   MCP: gateway_deploy(project_slug: "my-app", node_id: 3, clone: "org/repo")
+   ```
+   Creates new timestamped release, runs build steps, atomic symlink switch.
+
+4. **Remove a deployment**:
+   ```
+   MCP: gateway_undeploy(deployment_id: 42)
+   ```
+   Deletes project on node, cleans up Cloudflare DNS, marks as removed.
+
+### Deployment Strategies
+
+**`DeploymentService`** auto-selects strategy based on `Node->environment`:
+
+| Environment | CLI Command | Strategy |
+|-------------|-------------|----------|
+| Production | `project:deploy` | Release-based (zero-downtime) |
+| Staging | `project:deploy` | Release-based (zero-downtime) |
+| Development | `project:create` | Direct (in-place) |
+
+### Release-Based Deployment (`project:deploy`)
+
+Zero-downtime deployments with timestamped releases and atomic symlink switching:
+
+```
+~/projects/{slug}/
+├── releases/
+│   ├── 20260215_143022/     # Previous release
+│   └── 20260215_150134/     # Current release
+├── current -> releases/20260215_150134   # Atomic symlink
+├── .env                     # Shared across releases
+├── storage/                 # Shared across releases
+└── database/                # Shared across releases
+```
+
+**First deploy**: Creates structure, clones repo, bootstraps `.env`, runs full provision pipeline, creates `current` symlink.
+
+**Subsequent deploys**: Clones into new release, symlinks shared resources, runs build steps, atomic switch of `current` symlink. Keeps 5 recent releases for rollback.
+
+### Multi-Zone Cloudflare DNS
+
+Each `GatewayProject` links to a specific Cloudflare zone. `CloudflareService` supports per-zone operations:
+
+- **Zone detection**: `detectZoneForDomain("srpm.nl")` finds the best matching zone via longest suffix match
+- **Domain derivation**: Production nodes get `GatewayProject->production_domain`, dev/staging get `{slug}.{tld}`
+- **Auto-setup on deploy**: Creates A record → `node->external_host`, stores `cloudflare_record_id` in deployment
+- **Auto-cleanup on undeploy**: Deletes DNS record
+
+### Key Models
+
+| Model | Purpose |
+|-------|---------|
+| **GatewayProject** | Project registry: slug, production_domain, cloudflare_zone_id |
+| **Deployment** | Per-node instance: project_slug, node_id, status, domain, cloudflare_record_id |
+| **Node** | Server: environment (dev/staging/prod), external_host, tld |
+
+### MCP Gateway Tools (Deployment)
+
+| Tool | Purpose |
+|------|---------|
+| `gateway_register_project` | Register project with zone auto-detection |
+| `gateway_deploy` | Deploy to node (project-based or legacy) |
+| `gateway_undeploy` | Remove deployment + DNS cleanup |
+| `gateway_sync_node` | Discover existing projects on a node |
+| `gateway_deployments` | List/filter deployments |
+| `gateway_projects` | List registered projects |
+| `gateway_nodes` | List nodes with deployment counts |
+| `gateway_cloudflare_*` | DNS record management (zones, add, remove, list) |
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `packages/core/src/Services/DeploymentService.php` | Deployment orchestration |
+| `packages/cli/app/Commands/ProjectDeployCommand.php` | Release-based deployment CLI |
+| `packages/core/src/Models/GatewayProject.php` | Project registry model |
+| `packages/core/src/Models/Deployment.php` | Deployment tracking model |
+| `packages/core/src/Enums/DeploymentStatus.php` | Status: Pending → Active/Failed/Removed |
+| `packages/core/src/Services/CloudflareService.php` | Multi-zone DNS management |
+| `packages/app/src/Mcp/GatewayServer.php` | All gateway MCP tools |
 
 ## Reference Documentation
 
@@ -161,3 +282,4 @@ php artisan test
 - **Custom Caddy configs survive regeneration**: Production domains, reverse proxies, and any non-orbit-managed Caddy blocks MUST be placed in `~/.config/orbit/caddy/sites/*.caddy` files. The CaddyfileGenerator imports these at the end. Never append custom blocks directly to the Caddyfile — `caddy:reload` regenerates it from scratch. See `docs/solutions/infrastructure/caddy-reload-wipes-custom-sites-20260215.md`.
 - **Local phar build needs vendor symlink replaced**: In the monorepo, `packages/cli/vendor/hardimpactdev/orbit-core` is a symlink that `box compile` doesn't follow. Before building: `rm vendor/hardimpactdev/orbit-core && cp -R ../../packages/core vendor/hardimpactdev/orbit-core`. Restore after: `rm -rf vendor/hardimpactdev/orbit-core && ln -s ../../../core vendor/hardimpactdev/orbit-core`. See `docs/solutions/build-errors/phar-build-vendor-symlink-orbit-core-20260215.md`.
 - **Release-based deployments on production**: Production projects use `project:deploy` (not `project:create`) with timestamped releases and atomic symlink switching. Structure: `~/projects/{slug}/releases/{timestamp}/`, `current` symlink, shared `.env`/`storage`/`database` at base. `DeploymentService` auto-selects the command based on node environment.
+- **`gateway_sync_node` silently fails**: The tool returns `{"success": false, "error": ""}` with no useful message. Until fixed, manually register projects and create deployment records for pre-existing deployments. See `docs/solutions/database-issues/production-node-inactive-missing-registrations-20260215.md`.

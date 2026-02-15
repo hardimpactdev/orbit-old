@@ -97,7 +97,7 @@ final class ProjectDeployCommand extends Command
             if ($isFirstDeploy) {
                 $this->firstDeploy($basePath, $releasePath, $currentLink, $slug, $tld, $project, $pipeline);
             } else {
-                $this->subsequentDeploy($basePath, $releasePath, $currentLink, $slug, $project, $pipeline, $keep);
+                $this->subsequentDeploy($basePath, $releasePath, $currentLink, $slug, $project, $pipeline, $keep, $node);
             }
 
             // Detect project type from release
@@ -218,6 +218,7 @@ final class ProjectDeployCommand extends Command
         Project $project,
         ProvisionPipeline $pipeline,
         int $keep,
+        ?Node $node = null,
     ): void {
         $this->logger->info('Subsequent deploy — creating new release...');
 
@@ -226,7 +227,7 @@ final class ProjectDeployCommand extends Command
             throw new \RuntimeException('Could not determine clone URL. Provide --clone or ensure current release has a git remote.');
         }
 
-        $node = Node::getSelf();
+        $node ??= Node::getSelf();
         $tld = $node->tld ?? 'ccc';
 
         $context = new ProvisionContext(

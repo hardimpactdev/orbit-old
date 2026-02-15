@@ -51,6 +51,7 @@ final class GatewayUndeployTool extends Tool
 
         $projectSlug = $deployment->project_slug;
         $nodeName = $deployment->node->name;
+        $hadCloudflareRecord = $deployment->hasCloudflareRecord();
 
         $this->deploymentService->undeploy($deployment);
 
@@ -59,7 +60,7 @@ final class GatewayUndeployTool extends Tool
             'removed' => [
                 'project' => $projectSlug,
                 'node' => $nodeName,
-                'cloudflare_cleaned' => $deployment->hasCloudflareRecord(),
+                'cloudflare_cleaned' => $hadCloudflareRecord,
             ],
         ]);
     }

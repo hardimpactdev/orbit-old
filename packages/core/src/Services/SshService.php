@@ -71,7 +71,14 @@ class SshService
 
         // Always try to parse JSON from stdout, even if command failed
         // CLI tools often return valid JSON with error info even on non-zero exit
-        $decoded = json_decode((string) $result['output'], true);
+        // Some commands output multiple JSON objects (e.g. caddy reload + deploy result),
+        // so extract the last JSON object if full output fails to parse
+        $output = (string) $result['output'];
+        $decoded = json_decode($output, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE && preg_match_all('/(\{(?:[^{}]|(?1))*\})/s', $output, $matches)) {
+            $decoded = json_decode(end($matches[0]), true);
+        }
 
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
             // Successfully parsed JSON - return the decoded data

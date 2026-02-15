@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Commands\Gateway;
 
+use App\Concerns\RunsOnGateway;
 use App\Services\GatewayCliAdapter;
 use HardImpact\Orbit\Core\Models\Gateway;
 use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use LaravelZero\Framework\Commands\Command;
 
 final class ProjectRegisterCommand extends Command
 {
+    use RunsOnGateway;
+
     protected $signature = 'project:register';
 
     protected $description = 'Register a project on the gateway for cross-node deployment tracking';
@@ -66,16 +68,16 @@ final class ProjectRegisterCommand extends Command
 
         $this->line('Registering project on gateway...');
 
-        $args = "project:store {$name} {$slug}";
+        $args = ['project:store', escapeshellarg($name), escapeshellarg($slug)];
         if ($repo) {
-            $args .= " --repo={$repo}";
+            $args[] = '--repo=' . escapeshellarg($repo);
         }
         if ($domain) {
-            $args .= " --domain={$domain}";
+            $args[] = '--domain=' . escapeshellarg($domain);
         }
-        $args .= ' --json';
+        $args[] = '--json';
 
-        $output = $this->runOnGateway($gateway, $args);
+        $output = $this->runOnGateway($gateway, implode(' ', $args));
 
         if ($output === null) {
             $this->error('Failed to register project on gateway.');
@@ -106,22 +108,5 @@ final class ProjectRegisterCommand extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    private function runOnGateway(Gateway $gateway, string $orbitCommand): ?string
-    {
-        $user = $gateway->ssh_user ?: 'orbit';
-        $ip = $gateway->ip_address;
-
-        $result = Process::timeout(20)->run(sprintf(
-            'ssh -o ConnectTimeout=10 -o BatchMode=yes %s@%s %s',
-            escapeshellarg((string) $user),
-            escapeshellarg((string) $ip),
-            escapeshellarg("export PATH=/home/linuxbrew/.linuxbrew/bin:\$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin:\$PATH && orbit {$orbitCommand}"),
-        ));
-
-        $output = trim($result->output());
-
-        return $output !== '' ? $output : null;
     }
 }
