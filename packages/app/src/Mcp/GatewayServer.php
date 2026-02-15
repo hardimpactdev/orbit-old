@@ -12,12 +12,14 @@ use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayClientsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareAddRecordTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareDnsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareRemoveRecordTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareSetSslTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareStatusTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareZonesTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCreateClientTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayDeploymentsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayDeployTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayDnsMappingsTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayFlushDnsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayNodesTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayProjectsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayRegisterProjectTool;
@@ -112,6 +114,8 @@ final class GatewayServer extends Server
         GatewayCloudflareDnsTool::class,
         GatewayCloudflareAddRecordTool::class,
         GatewayCloudflareRemoveRecordTool::class,
+        GatewayCloudflareSetSslTool::class,
+        GatewayFlushDnsTool::class,
     ];
 
     protected array $resources = [

@@ -77,6 +77,20 @@ class DeploymentService
                 'error_message' => trim($result['error'] ?? '') ?: 'Deployment command failed — check node connectivity and CLI installation',
             ]);
 
+            // Clean up existing DNS record on failed re-deploy
+            if ($deployment->hasCloudflareRecord()) {
+                try {
+                    $zoneId = $deployment->gatewayProject?->cloudflare_zone_id;
+                    if ($this->cloudflare->isConfigured($zoneId)) {
+                        $this->cloudflare->deleteRecord($deployment->cloudflare_record_id, $zoneId);
+                        Log::info("Cleaned up DNS record for failed deployment {$deployment->id}");
+                    }
+                    $deployment->update(['cloudflare_record_id' => null]);
+                } catch (\Throwable $e) {
+                    Log::warning("DNS cleanup failed for deployment {$deployment->id}: {$e->getMessage()}");
+                }
+            }
+
             return $deployment->fresh();
         }
 
@@ -106,6 +120,13 @@ class DeploymentService
             'clone' => $options['clone'] ?? $project->github_repo,
         ], $options));
 
+        // Don't create DNS for failed deployments (cleanup already handled by deploy())
+        if ($deployment->isFailed()) {
+            $deployment->update(['gateway_project_id' => $project->id, 'domain' => $domain]);
+
+            return $deployment->fresh();
+        }
+
         $updates = ['gateway_project_id' => $project->id];
 
         if ($domain) {
@@ -115,7 +136,12 @@ class DeploymentService
         if ($domain && $target->external_host && $project->hasCloudflareZone()) {
             $zoneId = $project->cloudflare_zone_id;
             if ($this->cloudflare->isConfigured($zoneId) && $this->cloudflare->isDomainAvailable($domain, $zoneId)) {
-                $record = $this->cloudflare->createRecord($domain, $target->external_host, zoneId: $zoneId);
+                $record = $this->cloudflare->createRecord(
+                    $domain,
+                    $target->external_host,
+                    proxied: false,
+                    zoneId: $zoneId
+                );
                 if ($record) {
                     $updates['cloudflare_record_id'] = $record['id'];
                 }

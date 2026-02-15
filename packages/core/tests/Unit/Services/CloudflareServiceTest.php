@@ -179,6 +179,8 @@ describe('CloudflareService', function () {
 
     describe('setSslMode', function () {
         it('sends PATCH request with ssl mode', function () {
+            Setting::set('cloudflare_api_token', 'test-token-123');
+
             Http::fake([
                 'api.cloudflare.com/client/v4/zones/zone-123/settings/ssl' => Http::response([
                     'success' => true,
@@ -186,7 +188,7 @@ describe('CloudflareService', function () {
             ]);
 
             $service = new CloudflareService;
-            $result = $service->setSslMode('full');
+            $result = $service->setSslMode('zone-123', 'full');
 
             expect($result)->toBeTrue();
         });

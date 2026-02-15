@@ -181,13 +181,27 @@ class CloudflareService
         return $response['result'] ?? null;
     }
 
-    public function setSslMode(string $mode, ?string $zoneId = null): bool
+    public function setSslMode(string $zoneId, string $mode): bool
     {
-        $response = $this->request('PATCH', $this->zonePath('/settings/ssl', $zoneId), [
-            'value' => $mode,
-        ]);
+        try {
+            $response = $this->request('PATCH', $this->zonePath('/settings/ssl', $zoneId), [
+                'value' => $mode,
+            ]);
 
-        return $response['success'] ?? false;
+            Log::info('Set Cloudflare SSL mode', [
+                'zone_id' => $zoneId,
+                'mode' => $mode,
+            ]);
+
+            return $response['success'] ?? false;
+        } catch (\Throwable $e) {
+            Log::error("Failed to set Cloudflare SSL mode: {$e->getMessage()}", [
+                'zone_id' => $zoneId,
+                'mode' => $mode,
+            ]);
+
+            return false;
+        }
     }
 
     protected function request(string $method, string $path, array $data = []): array

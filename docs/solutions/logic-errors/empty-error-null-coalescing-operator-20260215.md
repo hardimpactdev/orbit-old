@@ -1,166 +1,128 @@
 ---
 date: 2026-02-15
-problem_type: Logic error
-component: Error handling (multiple services)
+problem_type: logic-error
+component: error-handling
 severity: moderate
 symptoms:
-  - "Deployment fails with empty error: {\"success\": false, \"error\": \"\"}"
-  - "MCP tools return no diagnostic information"
-root_cause: Null coalescing operator (??) doesn't catch empty strings
-tags: [error-handling, operators, deployment, mcp]
+  - "Deployment fails with {success: false, error: ''}"
+  - "Empty error messages throughout the stack"
+root_cause: "Null coalescing operator (??) doesn't catch empty strings"
+tags: [error-handling, operators, php]
 ---
 
-# Empty Error Strings Bypass Null Coalescing Operator
+# Empty Error Messages with Null Coalescing Operator
 
 ## Symptom
 
-Deployment failures return empty error messages to MCP clients:
-
+Deployment failed with no useful error message:
 ```json
-{
-  "success": false,
-  "error": "",
-  "deployment_id": 2
-}
+{"success": false, "error": ""}
 ```
 
-Investigation showed errors were being "caught" by fallback logic but still arriving empty.
+The actual error (GitHub repo inaccessible due to missing `gh` auth) was lost at multiple layers of the stack.
 
 ## Investigation
 
-**Attempted 1:** Add more `?? 'fallback'` operators at each layer
-**Result:** Still getting empty strings - the operator was present but not working
+1. **Attempted**: Check if errors were being set at all
+   - Result: Errors WERE being set, but as empty strings `""`
 
-**Attempted 2:** Check if errors were actually being set
-**Result:** Found that `$result->errorOutput()` and `$result['error']` were returning `""` (empty string), not `null`
+2. **Attempted**: Trace through error propagation layers
+   - Result: Found `??` operators at every layer
+   - Issue: `??` only catches `null`, not empty strings
 
 ## Root Cause
 
-The null coalescing operator (`??`) only triggers on `null` or undefined values, **not on empty strings**.
+PHP's null coalescing operator (`??`) only handles `null` values:
 
 ```php
-// This FAILS to catch empty strings
-$error = $result['error'] ?? 'Command failed';
+// WRONG - empty string bypasses ??
+$error = '' ?? 'Fallback';  // Returns ''
 
-// When $result['error'] = "" (empty string):
-$error = "";  // Empty string is truthy for ??, fallback never used
+// RIGHT - trim + ?: catches empty strings
+$error = trim($error ?? '') ?: 'Fallback';  // Returns 'Fallback'
 ```
 
-PHP's `??` operator checks `isset()` and `!== null`, but empty strings pass both checks.
+Error messages were set to empty strings at various points, then propagated through multiple layers, each using `??` which didn't catch them.
+
+**Error flow:**
+```
+CLI returns: {error: ""}
+  ↓
+SshService: error ?? 'SSH failed'  → still ""
+  ↓
+CommandService: error ?? 'Remote failed' → still ""
+  ↓
+DeploymentService: error ?? 'Deploy failed' → still ""
+  ↓
+GatewayDeployTool: error_message (empty)
+```
 
 ## Solution
 
-Use the Elvis operator (`?:`) which checks truthiness, or combine with `trim()`:
+Replace `??` with `trim() ?: fallback` pattern at every error propagation layer:
 
 ```php
 // Before (broken)
-return [
-    'error' => $result['error'] ?? 'Command failed',
-];
+'error' => $result['error'] ?? 'Default message'
 
-// After (fixed) - Option 1: Elvis operator
-return [
-    'error' => $result['error'] ?: 'Command failed',
-];
-
-// After (fixed) - Option 2: Explicit empty check
-return [
-    'error' => trim($result['error'] ?? '') ?: 'Command failed',
-];
+// After (fixed)
+'error' => trim($result['error'] ?? '') ?: 'Default message'
 ```
 
-**Why Option 2 is better:**
-- Catches `null`, empty string, and whitespace-only strings
-- More defensive against edge cases
-- Self-documenting intent
+### Files Updated
 
-### Files Changed
-
-**`packages/core/src/Services/SshService.php` line 64:**
+**packages/core/src/Services/SshService.php** (line 64):
 ```php
-// Before
-'error' => $result->errorOutput(),
-
-// After
 'error' => $result->errorOutput() ?: $result->output() ?: 'SSH command failed',
 ```
 
-**`packages/core/src/Services/OrbitCli/Shared/CommandService.php` line 131:**
+**packages/core/src/Services/OrbitCli/Shared/CommandService.php** (line 131):
 ```php
-// Before
-'error' => $result['error'] ?? 'Command failed',
-
-// After
 'error' => trim($result['error'] ?? '') ?: 'Remote command failed with no error output',
 ```
 
-**`packages/core/src/Services/DeploymentService.php` lines 76, 155:**
+**packages/core/src/Services/DeploymentService.php** (lines 77, 163):
 ```php
-// Before
-'error_message' => $result['error'] ?? 'Deployment failed',
-
-// After (line 76)
+// deploy() method
 'error_message' => trim($result['error'] ?? '') ?: 'Deployment command failed — check node connectivity and CLI installation',
 
-// After (line 155)
+// syncNode() method
 'error' => trim($result['error'] ?? '') ?: 'Failed to list projects on node',
 ```
 
-**`packages/app/src/Mcp/Tools/Gateway/GatewayDeployTool.php` lines 104, 142:**
+**packages/app/src/Mcp/Tools/Gateway/GatewayDeployTool.php** (lines 112, 150):
 ```php
-// Before
-'error' => $deployment->error_message,
-
-// After
 'error' => $deployment->error_message ?: 'Deployment failed for unknown reason',
 ```
 
 ## Prevention
 
-### Rule: Never trust `??` for error messages
+1. **Never rely on `??` alone for error messages** - always use `trim() ?: fallback`
+2. **Test with empty strings** - not just `null` values
+3. **Add tests for empty error propagation** - verify fallback messages appear
+4. **Use pattern consistently** - apply at every layer where errors flow
 
-Always use `trim()` + `?:` for error handling:
+## Warning Signs
 
-```php
-// ❌ BAD - Empty strings pass through
-$error = $result['error'] ?? 'Default';
+- Error handling only checks `?? null`
+- No trimming before checking error strings
+- Empty error messages in production logs
+- "Unknown error" messages when actual errors occurred
 
-// ✅ GOOD - Catches null, empty, and whitespace
-$error = trim($result['error'] ?? '') ?: 'Default';
-```
-
-### Test Case
-
-Add to service tests:
+## Test Cases
 
 ```php
 it('stores meaningful error when CLI returns empty error string', function () {
-    $node = Node::factory()->client()->create();
-
     $this->commandService->shouldReceive('executeCommand')
-        ->once()
-        ->andReturn([
-            'success' => false,
-            'error' => '',  // Empty string
-        ]);
+        ->andReturn(['success' => false, 'error' => '']);
 
     $deployment = $this->service->deploy($node, ['name' => 'test']);
 
-    expect($deployment->status)->toBe(DeploymentStatus::Failed);
     expect($deployment->error_message)->not->toBeEmpty();
-    expect($deployment->error_message)->toContain('Deployment command failed');
+    expect($deployment->error_message)->toBe('Deployment command failed — check node connectivity and CLI installation');
 });
 ```
 
-### Warning Signs
-
-- Empty error messages in logs/responses
-- Fallback messages never triggering despite errors
-- `??` operator used for string values that might be empty
-- No `trim()` on user input or external data before null checks
-
 ## Related
 
-- Similar pattern exists in validation: empty strings bypass `required` rules
-- Database queries: empty strings are not `NULL`, affects `IS NULL` checks
-- Frontend: empty string inputs pass `v-if` checks
+- Convention added to CLAUDE.md: "Always use `trim() ?: fallback` pattern for error handling"

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use HardImpact\Orbit\Core\Enums\DeploymentStatus;
 use HardImpact\Orbit\Core\Enums\NodeEnvironment;
 use HardImpact\Orbit\Core\Models\Deployment;
+use HardImpact\Orbit\Core\Models\GatewayProject;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\CloudflareService;
 use HardImpact\Orbit\Core\Services\DeploymentService;
@@ -133,6 +134,39 @@ describe('DeploymentService', function () {
                 'template' => 'laravel',
                 'php_version' => '8.5',
             ]);
+        });
+
+        it('uses release-based deploy for production nodes', function () {
+            $node = Node::factory()->client()->production()->create();
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:deploy'))
+                ->andReturn(['success' => true, 'data' => []]);
+
+            $this->service->deploy($node, ['name' => 'prod-app', 'clone' => 'org/repo']);
+        });
+
+        it('uses release-based deploy for staging nodes', function () {
+            $node = Node::factory()->client()->staging()->create();
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:deploy'))
+                ->andReturn(['success' => true, 'data' => []]);
+
+            $this->service->deploy($node, ['name' => 'staging-app', 'clone' => 'org/repo']);
+        });
+
+        it('uses direct create for development nodes', function () {
+            $node = Node::factory()->client()->development()->create();
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:create'))
+                ->andReturn(['success' => true, 'data' => []]);
+
+            $this->service->deploy($node, ['name' => 'dev-app']);
         });
     });
 
@@ -315,6 +349,98 @@ describe('DeploymentService', function () {
 
             expect($prodNodes)->toHaveCount(2);
             expect($prodNodes->pluck('name')->toArray())->toEqualCanonicalizing(['Prod 1', 'Prod 2']);
+        });
+    });
+
+    describe('deployProject', function () {
+        it('does not create DNS for failed deployments', function () {
+            $node = Node::factory()->client()->production()->create(['external_host' => '1.2.3.4']);
+            $project = GatewayProject::factory()->create([
+                'slug' => 'failed-app',
+                'production_domain' => 'failed.com',
+                'cloudflare_zone_id' => 'zone123',
+            ]);
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->andReturn(['success' => false, 'error' => 'Clone failed']);
+
+            $this->cloudflareService->shouldReceive('createRecord')->never();
+            $this->cloudflareService->shouldReceive('isConfigured')->never();
+
+            $deployment = $this->service->deployProject($project, $node);
+
+            expect($deployment->status)->toBe(DeploymentStatus::Failed);
+            expect($deployment->cloudflare_record_id)->toBeNull();
+        });
+
+        it('cleans up DNS when re-deployment fails', function () {
+            $node = Node::factory()->client()->production()->create(['external_host' => '1.2.3.4']);
+            $project = GatewayProject::factory()->create([
+                'slug' => 'redeploy-fail',
+                'production_domain' => 'redeploy.com',
+                'cloudflare_zone_id' => 'zone123',
+            ]);
+
+            // Create existing Failed/Removed deployment with DNS record
+            Deployment::create([
+                'node_id' => $node->id,
+                'project_slug' => 'redeploy-fail',
+                'project_name' => 'Redeploy Fail',
+                'status' => DeploymentStatus::Removed,
+                'cloudflare_record_id' => 'cf-rec-old',
+                'gateway_project_id' => $project->id,
+            ]);
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->andReturn(['success' => false, 'error' => 'Deploy failed']);
+
+            $this->cloudflareService->shouldReceive('isConfigured')
+                ->once()
+                ->with('zone123')
+                ->andReturn(true);
+
+            $this->cloudflareService->shouldReceive('deleteRecord')
+                ->once()
+                ->with('cf-rec-old', 'zone123');
+
+            $deployment = $this->service->deployProject($project, $node);
+
+            expect($deployment->status)->toBe(DeploymentStatus::Failed);
+            expect($deployment->fresh()->cloudflare_record_id)->toBeNull();
+        });
+
+        it('creates unproxied DNS records by default', function () {
+            $node = Node::factory()->client()->production()->create(['external_host' => '1.2.3.4']);
+            $project = GatewayProject::factory()->create([
+                'slug' => 'unproxied-test',
+                'production_domain' => 'unproxied.com',
+                'cloudflare_zone_id' => 'zone123',
+            ]);
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->andReturn(['success' => true, 'data' => []]);
+
+            $this->cloudflareService->shouldReceive('isConfigured')
+                ->once()
+                ->with('zone123')
+                ->andReturn(true);
+
+            $this->cloudflareService->shouldReceive('isDomainAvailable')
+                ->once()
+                ->with('unproxied.com', 'zone123')
+                ->andReturn(true);
+
+            $this->cloudflareService->shouldReceive('createRecord')
+                ->once()
+                ->withArgs(fn ($domain, $ip, $type, $proxied, $zoneId) => $domain === 'unproxied.com' && $ip === '1.2.3.4' && $type === 'A' && $proxied === false && $zoneId === 'zone123')
+                ->andReturn(['id' => 'cf-rec-789']);
+
+            $deployment = $this->service->deployProject($project, $node);
+
+            expect($deployment->cloudflare_record_id)->toBe('cf-rec-789');
         });
     });
 });

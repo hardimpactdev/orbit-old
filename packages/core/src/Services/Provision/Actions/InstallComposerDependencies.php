@@ -25,7 +25,11 @@ final readonly class InstallComposerDependencies
 
         // Use --no-scripts in full setup to prevent scripts from running before .env is configured
         $noScripts = $context->minimal ? '' : ' --no-scripts';
-        $command = "composer install --no-interaction{$noScripts}";
+
+        // Production/staging: use --no-dev --optimize-autoloader
+        $prodFlags = $context->isReleaseDeploy ? ' --no-dev --optimize-autoloader' : '';
+
+        $command = "composer install --no-interaction{$noScripts}{$prodFlags}";
 
         $logger->log("Running: {$command}");
 

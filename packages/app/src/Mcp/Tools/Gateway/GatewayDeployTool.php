@@ -158,7 +158,11 @@ final class GatewayDeployTool extends Tool
         ];
 
         if ($domain && $this->cloudflare->isConfigured() && $node->external_host) {
-            $record = $this->cloudflare->createRecord($domain, $node->external_host);
+            $record = $this->cloudflare->createRecord(
+                $domain,
+                $node->external_host,
+                proxied: false
+            );
             if ($record) {
                 $deployment->update([
                     'cloudflare_record_id' => $record['id'],

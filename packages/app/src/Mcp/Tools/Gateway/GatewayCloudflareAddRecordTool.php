@@ -33,7 +33,7 @@ final class GatewayCloudflareAddRecordTool extends Tool
             'name' => $schema->string()->required()->description('Record name (e.g. myapp.example.com)'),
             'content' => $schema->string()->required()->description('Record value (e.g. IP address for A records)'),
             'type' => $schema->string()->description('Record type: A, AAAA, CNAME, TXT (default: A)'),
-            'proxied' => $schema->boolean()->description('Whether to proxy through Cloudflare (default: true)'),
+            'proxied' => $schema->boolean()->description('Proxy through Cloudflare (orange cloud) - default: false'),
             'zone_id' => $schema->string()->description('Cloudflare zone ID (falls back to global setting)'),
         ];
     }
@@ -61,7 +61,7 @@ final class GatewayCloudflareAddRecordTool extends Tool
             name: $request->get('name'),
             content: $request->get('content'),
             type: $request->get('type', 'A'),
-            proxied: $request->get('proxied', true),
+            proxied: $request->get('proxied', false),
             zoneId: $zoneId,
         );
 
