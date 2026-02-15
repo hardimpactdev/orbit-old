@@ -61,7 +61,7 @@ class SshService
             'success' => $result->successful(),
             'exit_code' => $result->exitCode(),
             'output' => $result->output(),
-            'error' => $result->errorOutput(),
+            'error' => $result->errorOutput() ?: $result->output() ?: 'SSH command failed',
         ];
     }
 

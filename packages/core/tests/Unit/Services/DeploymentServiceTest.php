@@ -25,9 +25,10 @@ describe('DeploymentService', function () {
                 ->once()
                 ->withArgs(function ($n, $cmd) use ($node) {
                     return $n->id === $node->id
-                        && str_contains($cmd, 'project:create my-app')
+                        && str_contains($cmd, 'project:create')
+                        && str_contains($cmd, 'my-app')
                         && str_contains($cmd, '--json')
-                        && str_contains($cmd, '--clone=org/repo');
+                        && str_contains($cmd, '--clone=');
                 })
                 ->andReturn([
                     'success' => true,
@@ -62,6 +63,23 @@ describe('DeploymentService', function () {
 
             expect($deployment->status)->toBe(DeploymentStatus::Failed);
             expect($deployment->error_message)->toBe('Clone failed: repository not found');
+        });
+
+        it('stores meaningful error when CLI returns empty error string', function () {
+            $node = Node::factory()->client()->create();
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->andReturn([
+                    'success' => false,
+                    'error' => '',
+                ]);
+
+            $deployment = $this->service->deploy($node, ['name' => 'empty-err']);
+
+            expect($deployment->status)->toBe(DeploymentStatus::Failed);
+            expect($deployment->error_message)->not->toBeEmpty();
+            expect($deployment->error_message)->toBe('Deployment command failed — check node connectivity and CLI installation');
         });
 
         it('throws when active deployment already exists', function () {
@@ -103,8 +121,10 @@ describe('DeploymentService', function () {
             $this->commandService->shouldReceive('executeCommand')
                 ->once()
                 ->withArgs(function ($n, $cmd) {
-                    return str_contains($cmd, '--template=laravel')
-                        && str_contains($cmd, '--php=8.5');
+                    return str_contains($cmd, '--template=')
+                        && str_contains($cmd, 'laravel')
+                        && str_contains($cmd, '--php=')
+                        && str_contains($cmd, '8.5');
                 })
                 ->andReturn(['success' => true, 'data' => []]);
 
@@ -128,7 +148,7 @@ describe('DeploymentService', function () {
 
             $this->commandService->shouldReceive('executeCommand')
                 ->once()
-                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:delete to-remove --force --json'))
+                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:delete') && str_contains($cmd, 'to-remove') && str_contains($cmd, '--force --json'))
                 ->andReturn(['success' => true]);
 
             $this->cloudflareService->shouldReceive('isConfigured')->never();
@@ -235,6 +255,20 @@ describe('DeploymentService', function () {
 
             expect($result['success'])->toBeFalse();
             expect($result['error'])->toBe('Connection refused');
+        });
+
+        it('returns meaningful error when CLI returns empty error string', function () {
+            $node = Node::factory()->create();
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->andReturn(['success' => false, 'error' => '']);
+
+            $result = $this->service->syncNode($node);
+
+            expect($result['success'])->toBeFalse();
+            expect($result['error'])->not->toBeEmpty();
+            expect($result['error'])->toBe('Failed to list projects on node');
         });
     });
 

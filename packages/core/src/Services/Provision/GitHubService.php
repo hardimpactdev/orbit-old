@@ -87,4 +87,56 @@ final class GitHubService
 
         return $result->successful();
     }
+
+    /**
+     * Detect PHP version from a repo's composer.json via the GitHub API.
+     */
+    public function detectPhpVersion(string $repo): ?string
+    {
+        $result = Process::timeout(10)->run(
+            "gh api repos/{$repo}/contents/composer.json --jq '.content' 2>/dev/null | base64 -d"
+        );
+
+        if (! $result->successful()) {
+            return null;
+        }
+
+        $composer = json_decode($result->output(), true);
+        $constraint = $composer['require']['php'] ?? null;
+
+        if (! $constraint) {
+            return null;
+        }
+
+        return $this->getRecommendedPhpVersion($constraint);
+    }
+
+    private function getRecommendedPhpVersion(string $constraint): string
+    {
+        $constraint = trim($constraint);
+        $available = ['8.5', '8.4', '8.3'];
+        $default = '8.5';
+
+        if (preg_match("/<\s*(\d+)\.(\d+)/", $constraint, $matches)) {
+            $maxMajor = (int) $matches[1];
+            $maxMinor = (int) $matches[2];
+
+            foreach ($available as $version) {
+                [$major, $minor] = explode('.', $version);
+                if ((int) $major < $maxMajor || ((int) $major === $maxMajor && (int) $minor < $maxMinor)) {
+                    return $version;
+                }
+            }
+        }
+
+        if (preg_match("/~\s*(\d+)\.(\d+)\./", $constraint, $matches)) {
+            return $matches[1] . '.' . $matches[2];
+        }
+
+        if (preg_match("/(\d+)\.(\d+)\.\*/", $constraint, $matches)) {
+            return $matches[1] . '.' . $matches[2];
+        }
+
+        return $default;
+    }
 }

@@ -128,7 +128,7 @@ class CommandService
         if (! $result['success']) {
             return [
                 'success' => false,
-                'error' => $result['error'] ?? 'Command failed',
+                'error' => trim($result['error'] ?? '') ?: 'Remote command failed with no error output',
                 'exit_code' => $result['exit_code'] ?? 1,
             ];
         }

@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Mcp\Tools\Gateway;
 
+use HardImpact\Orbit\Core\Models\Deployment;
 use HardImpact\Orbit\Core\Models\GatewayProject;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\CloudflareService;
 use HardImpact\Orbit\Core\Services\DeploymentService;
+use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
+use HardImpact\Orbit\Core\Services\SshService;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -65,6 +68,12 @@ final class GatewayDeployTool extends Tool
             return Response::structured(['success' => false, 'error' => 'Node is not active']);
         }
 
+        $repo = $request->get('clone') ?? GatewayProject::where('slug', $request->get('project_slug'))->value('github_repo');
+        $preflight = $this->preflight($node, $repo);
+        if ($preflight) {
+            return $preflight;
+        }
+
         // Project-based deployment flow
         if ($projectSlug = $request->get('project_slug')) {
             return $this->deployWithProject($projectSlug, $node, $request);
@@ -100,25 +109,15 @@ final class GatewayDeployTool extends Tool
         if ($deployment->isFailed()) {
             return Response::structured([
                 'success' => false,
-                'error' => $deployment->error_message,
+                'error' => $deployment->error_message ?: 'Deployment failed for unknown reason',
                 'deployment_id' => $deployment->id,
             ]);
         }
 
-        $result = [
+        return Response::structured([
             'success' => true,
-            'deployment' => [
-                'id' => $deployment->id,
-                'project_slug' => $deployment->project_slug,
-                'node' => $node->name,
-                'status' => $deployment->status->value,
-                'domain' => $deployment->domain,
-                'url' => $deployment->url,
-                'cloudflare_record_id' => $deployment->cloudflare_record_id,
-            ],
-        ];
-
-        return Response::structured($result);
+            'deployment' => $this->formatDeploymentResult($deployment, $node),
+        ]);
     }
 
     private function deployLegacy(string $name, Node $node, Request $request): ResponseFactory
@@ -148,21 +147,14 @@ final class GatewayDeployTool extends Tool
         if ($deployment->isFailed()) {
             return Response::structured([
                 'success' => false,
-                'error' => $deployment->error_message,
+                'error' => $deployment->error_message ?: 'Deployment failed for unknown reason',
                 'deployment_id' => $deployment->id,
             ]);
         }
 
         $result = [
             'success' => true,
-            'deployment' => [
-                'id' => $deployment->id,
-                'project_slug' => $deployment->project_slug,
-                'node' => $node->name,
-                'status' => $deployment->status->value,
-                'domain' => $deployment->domain,
-                'url' => $deployment->url,
-            ],
+            'deployment' => $this->formatDeploymentResult($deployment, $node),
         ];
 
         if ($domain && $this->cloudflare->isConfigured() && $node->external_host) {
@@ -181,5 +173,52 @@ final class GatewayDeployTool extends Tool
         }
 
         return Response::structured($result);
+    }
+
+    private function preflight(Node $node, ?string $repo): ?ResponseFactory
+    {
+        $ssh = app(SshService::class)->testConnection($node);
+        if (! $ssh['success']) {
+            return Response::structured([
+                'success' => false,
+                'error' => "Cannot reach node '{$node->name}' via SSH: " . ($ssh['message'] ?: 'connection failed'),
+            ]);
+        }
+
+        $binary = app(CommandService::class)->findBinary($node);
+        if (! $binary) {
+            return Response::structured([
+                'success' => false,
+                'error' => "Orbit CLI not found on node '{$node->name}'. Install it first.",
+            ]);
+        }
+
+        if ($repo) {
+            $repoCheck = app(SshService::class)->execute(
+                $node,
+                "gh repo view {$repo} --json name 2>&1"
+            );
+            if (! $repoCheck['success'] || str_contains($repoCheck['output'] ?? '', 'Could not resolve') || str_contains($repoCheck['error'] ?? '', 'auth login')) {
+                return Response::structured([
+                    'success' => false,
+                    'error' => "Node '{$node->name}' cannot access repo '{$repo}'. Run `gh auth login` on the node to authenticate: ssh {$node->user}@{$node->host}",
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    private function formatDeploymentResult(Deployment $deployment, Node $node): array
+    {
+        return [
+            'id' => $deployment->id,
+            'project_slug' => $deployment->project_slug,
+            'node' => $node->name,
+            'status' => $deployment->status->value,
+            'domain' => $deployment->domain,
+            'url' => $deployment->url,
+            'cloudflare_record_id' => $deployment->cloudflare_record_id,
+        ];
     }
 }
