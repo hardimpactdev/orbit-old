@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Concerns\SupportsJsonMode;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\ConfigManager;
@@ -26,6 +27,7 @@ use LaravelZero\Framework\Commands\Command;
  */
 final class ProjectDeployCommand extends Command
 {
+    use SupportsJsonMode;
     use WithJsonOutput;
 
     protected $signature = 'project:deploy
@@ -95,7 +97,7 @@ final class ProjectDeployCommand extends Command
 
         try {
             if ($isFirstDeploy) {
-                $this->firstDeploy($basePath, $releasePath, $currentLink, $slug, $tld, $project, $pipeline);
+                $this->firstDeploy($basePath, $releasePath, $currentLink, $slug, $tld, $project, $pipeline, $node);
             } else {
                 $this->subsequentDeploy($basePath, $releasePath, $currentLink, $slug, $project, $pipeline, $keep, $node);
             }
@@ -119,6 +121,17 @@ final class ProjectDeployCommand extends Command
             ]);
 
             $this->logger->broadcast('ready');
+
+            // Create production Caddy block (if first deploy on production node)
+            if ($isFirstDeploy && $node->isProduction() && $hasPublicFolder) {
+                $this->createProductionCaddyBlock(
+                    basePath: $basePath,
+                    slug: $slug,
+                    domain: $this->resolveProductionDomain($slug, $tld),
+                    phpVersion: $this->option('php') ?? '8.4',
+                    config: $config
+                );
+            }
 
             if ($hasPublicFolder) {
                 $this->regenerateCaddy();
@@ -167,6 +180,7 @@ final class ProjectDeployCommand extends Command
         string $tld,
         Project $project,
         ProvisionPipeline $pipeline,
+        ?Node $node = null,
     ): void {
         $this->logger->info('First deploy — setting up directory structure...');
 
@@ -191,7 +205,7 @@ final class ProjectDeployCommand extends Command
         }
 
         // Bootstrap .env from .env.example
-        $this->bootstrapEnv($basePath, $releasePath, $slug, $tld);
+        $this->bootstrapEnv($basePath, $releasePath, $slug, $tld, $node);
 
         // Create symlinks in release to shared resources
         $this->createReleaseSymlinks($basePath, $releasePath);
@@ -285,8 +299,13 @@ final class ProjectDeployCommand extends Command
         $this->logger->info('Directory structure created');
     }
 
-    private function bootstrapEnv(string $basePath, string $releasePath, string $slug, string $tld): void
-    {
+    private function bootstrapEnv(
+        string $basePath,
+        string $releasePath,
+        string $slug,
+        string $tld,
+        ?Node $node = null
+    ): void {
         $sharedEnv = "{$basePath}/.env";
         $envExample = "{$releasePath}/.env.example";
 
@@ -296,23 +315,44 @@ final class ProjectDeployCommand extends Command
             return;
         }
 
-        if (! file_exists($envExample)) {
-            $this->logger->warn('No .env.example found in release, creating minimal .env');
-            file_put_contents($sharedEnv, "APP_ENV=production\nAPP_DEBUG=false\nAPP_URL=https://{$slug}.{$tld}\n");
-
-            return;
+        // Copy .env.example or create minimal .env
+        if (file_exists($envExample)) {
+            copy($envExample, $sharedEnv);
+            $env = file_get_contents($sharedEnv);
+        } else {
+            $this->logger->warn('No .env.example found, creating minimal .env');
+            $env = '';
         }
 
-        copy($envExample, $sharedEnv);
+        // Determine APP_URL based on environment
+        $appUrl = $this->determineAppUrl($slug, $tld, $node);
 
-        // Set production defaults
-        $env = file_get_contents($sharedEnv);
+        // Set core production values
         $env = $this->setEnvValue($env, 'APP_ENV', 'production');
         $env = $this->setEnvValue($env, 'APP_DEBUG', 'false');
-        $env = $this->setEnvValue($env, 'APP_URL', "https://{$slug}.{$tld}");
-        file_put_contents($sharedEnv, $env);
+        $env = $this->setEnvValue($env, 'APP_URL', $appUrl);
 
-        $this->logger->info('Bootstrapped .env from .env.example with production defaults');
+        // Generate APP_KEY if missing
+        if (! preg_match('/^APP_KEY=base64:.+$/m', $env)) {
+            $this->logger->info('APP_KEY not found, generating...');
+            $key = $this->generateAppKey();
+            $env = $this->setEnvValue($env, 'APP_KEY', $key);
+        }
+
+        // Set production-optimized defaults (only if missing)
+        if ($node && $node->isProduction()) {
+            $env = $this->setEnvValueIfMissing($env, 'CACHE_DRIVER', 'redis');
+            $env = $this->setEnvValueIfMissing($env, 'SESSION_DRIVER', 'redis');
+            $env = $this->setEnvValueIfMissing($env, 'QUEUE_CONNECTION', 'redis');
+            $env = $this->setEnvValueIfMissing($env, 'REDIS_HOST', '127.0.0.1');
+            $env = $this->setEnvValueIfMissing($env, 'REDIS_PORT', '6379');
+        }
+
+        file_put_contents($sharedEnv, $env);
+        $this->logger->info('Bootstrapped .env with production defaults');
+
+        // Clear config cache
+        $this->clearConfigCache($basePath);
     }
 
     private function createReleaseSymlinks(string $basePath, string $releasePath): void
@@ -468,6 +508,72 @@ final class ProjectDeployCommand extends Command
         return rtrim($env) . "\n{$key}={$value}\n";
     }
 
+    /**
+     * Determine correct APP_URL based on node environment.
+     */
+    private function determineAppUrl(string $slug, string $tld, ?Node $node): string
+    {
+        // Query for registered GatewayProject
+        $project = \HardImpact\Orbit\Core\Models\GatewayProject::where('slug', $slug)->first();
+
+        // Use production domain if available and node is production
+        if ($node && $node->isProduction() && $project && $project->production_domain) {
+            return "https://{$project->production_domain}";
+        }
+
+        // Default to internal domain
+        return "https://{$slug}.{$tld}";
+    }
+
+    /**
+     * Generate Laravel-compatible APP_KEY.
+     */
+    private function generateAppKey(): string
+    {
+        $key = base64_encode(random_bytes(32));
+
+        return "base64:{$key}";
+    }
+
+    /**
+     * Set .env value only if key doesn't already exist.
+     */
+    private function setEnvValueIfMissing(string $env, string $key, string $value): string
+    {
+        if (! preg_match("/^{$key}=.*/m", $env)) {
+            return $this->setEnvValue($env, $key, $value);
+        }
+
+        return $env;
+    }
+
+    /**
+     * Clear Laravel config cache.
+     */
+    private function clearConfigCache(string $basePath): void
+    {
+        $currentLink = "{$basePath}/current";
+        if (! is_link($currentLink)) {
+            return;
+        }
+
+        $artisan = readlink($currentLink).'/artisan';
+        if (! file_exists($artisan)) {
+            return;
+        }
+
+        $this->logger->info('Clearing config cache...');
+
+        $result = Process::path(dirname($artisan))
+            ->run('php artisan config:clear');
+
+        if ($result->successful()) {
+            $this->logger->info('Config cache cleared');
+        } else {
+            $this->logger->warn('Failed to clear config cache: '.$result->errorOutput());
+        }
+    }
+
     private function detectProjectType(string $directory): string
     {
         $hasPublicFolder = is_dir("{$directory}/public");
@@ -498,11 +604,82 @@ final class ProjectDeployCommand extends Command
         return 'unknown';
     }
 
+    /**
+     * Create production Caddy site block with ACME TLS.
+     */
+    private function createProductionCaddyBlock(
+        string $basePath,
+        string $slug,
+        string $domain,
+        string $phpVersion,
+        ConfigManager $config
+    ): void {
+        $sitesDir = $config->getConfigPath().'/caddy/sites';
+        $caddyFile = "{$sitesDir}/{$slug}.caddy";
+
+        // Skip if already exists
+        if (file_exists($caddyFile)) {
+            $this->logger->info("Caddy block already exists: {$caddyFile}");
+
+            return;
+        }
+
+        // Ensure sites directory exists
+        if (! is_dir($sitesDir)) {
+            mkdir($sitesDir, 0755, true);
+        }
+
+        // Load stub template
+        $stubPath = __DIR__.'/../../stubs/caddy/production-site.caddy.stub';
+        if (! file_exists($stubPath)) {
+            $this->logger->warn("Caddy stub template not found: {$stubPath}");
+
+            return;
+        }
+
+        $stub = file_get_contents($stubPath);
+
+        // Resolve PHP-FPM socket path
+        $phpManager = app(\App\Services\PhpManager::class);
+        $socketPath = $phpManager->getSocketPath($phpVersion);
+
+        // Replace placeholders
+        $block = str_replace([
+            'ORBIT_DOMAIN',
+            'ORBIT_ROOT_PATH',
+            'ORBIT_SOCKET_PATH',
+        ], [
+            $domain,
+            "{$basePath}/current/public",
+            $socketPath,
+        ], $stub);
+
+        // Write Caddy block
+        file_put_contents($caddyFile, $block);
+        $this->logger->info("Created production Caddy block: {$caddyFile}");
+    }
+
+    /**
+     * Resolve production domain from GatewayProject or fallback to internal domain.
+     */
+    private function resolveProductionDomain(string $slug, string $tld): string
+    {
+        // Query for registered GatewayProject
+        $project = \HardImpact\Orbit\Core\Models\GatewayProject::where('slug', $slug)->first();
+
+        if ($project && $project->production_domain) {
+            return $project->production_domain;
+        }
+
+        // Fallback to internal domain
+        return "{$slug}.{$tld}";
+    }
+
     private function regenerateCaddy(): void
     {
         $this->logger->info('Regenerating Caddy configuration...');
 
-        $result = $this->call('caddy:reload', ['--json' => true]);
+        $result = $this->callSilentlyWhenJson('caddy:reload', ['--json' => true]);
 
         if ($result === 0) {
             $this->logger->info('Caddy configuration reloaded');

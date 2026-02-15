@@ -1,0 +1,24 @@
+ORBIT_DOMAIN {
+    tls {
+        issuer acme
+    }
+    root * ORBIT_ROOT_PATH
+    encode gzip
+
+    # Vite dev server proxy (safe if not running, convenient for development)
+    @vite path /@vite/* /@id/* /@fs/* /resources/* /node_modules/* /lang/* /__devtools__/*
+    reverse_proxy @vite localhost:5173 {
+        header_up Host localhost
+    }
+
+    @ws {
+        header Connection *Upgrade*
+        header Upgrade websocket
+    }
+    reverse_proxy @ws localhost:5173 {
+        header_up Host localhost
+    }
+
+    php_fastcgi unix/ORBIT_SOCKET_PATH
+    file_server
+}

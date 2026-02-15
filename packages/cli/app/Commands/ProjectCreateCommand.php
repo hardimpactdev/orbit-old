@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Concerns\SupportsJsonMode;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\ConfigManager;
@@ -28,6 +29,7 @@ use LaravelZero\Framework\Commands\Command;
  */
 final class ProjectCreateCommand extends Command
 {
+    use SupportsJsonMode;
     use WithJsonOutput;
 
     protected $signature = 'project:create
@@ -396,7 +398,7 @@ final class ProjectCreateCommand extends Command
         $this->logger->info('Regenerating Caddy configuration...');
 
         // Call our own caddy:reload command
-        $result = $this->call('caddy:reload', ['--json' => true]);
+        $result = $this->callSilentlyWhenJson('caddy:reload', ['--json' => true]);
 
         if ($result === 0) {
             $this->logger->info('Caddy configuration reloaded');

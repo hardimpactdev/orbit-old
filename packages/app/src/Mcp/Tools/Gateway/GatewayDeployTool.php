@@ -69,7 +69,9 @@ final class GatewayDeployTool extends Tool
         }
 
         $repo = $request->get('clone') ?? GatewayProject::where('slug', $request->get('project_slug'))->value('github_repo');
-        $preflight = $this->preflight($node, $repo);
+        $phpVersion = $request->get('php_version');
+
+        $preflight = $this->preflight($node, $repo, $phpVersion);
         if ($preflight) {
             return $preflight;
         }
@@ -179,7 +181,7 @@ final class GatewayDeployTool extends Tool
         return Response::structured($result);
     }
 
-    private function preflight(Node $node, ?string $repo): ?ResponseFactory
+    private function preflight(Node $node, ?string $repo, ?string $phpVersion = null): ?ResponseFactory
     {
         $ssh = app(SshService::class)->testConnection($node);
         if (! $ssh['success']) {
@@ -206,6 +208,25 @@ final class GatewayDeployTool extends Tool
                 return Response::structured([
                     'success' => false,
                     'error' => "Node '{$node->name}' cannot access repo '{$repo}'. Run `gh auth login` on the node to authenticate: ssh {$node->user}@{$node->host}",
+                ]);
+            }
+        }
+
+        // PHP version availability
+        if ($phpVersion) {
+            $socket = "~/.config/orbit/php/php{$phpVersion}.sock";
+            $check = app(SshService::class)->execute($node, "[ -S {$socket} ] && echo exists || echo missing");
+
+            if (trim($check['output'] ?? '') === 'missing') {
+                // Get available PHP versions
+                $available = app(SshService::class)->execute(
+                    $node,
+                    "ls ~/.config/orbit/php/php*.sock 2>/dev/null | grep -oP 'php\K[0-9]+' | sort -rn | tr '\n' ', ' | sed 's/,$//'"
+                );
+
+                return Response::structured([
+                    'success' => false,
+                    'error' => "PHP {$phpVersion} not available on node '{$node->name}'. Available versions: " . trim($available['output'] ?: 'none'),
                 ]);
             }
         }
