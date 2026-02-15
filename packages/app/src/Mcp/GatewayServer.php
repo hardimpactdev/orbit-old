@@ -35,6 +35,8 @@ final class GatewayServer extends Server
 
     protected string $version = '1.0.0';
 
+    public int $defaultPaginationLength = 50;
+
     protected string $instructions = <<<'INSTRUCTIONS'
         # Orbit Gateway
 

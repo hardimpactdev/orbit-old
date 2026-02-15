@@ -564,8 +564,17 @@ final class ProjectDeployCommand extends Command
 
         $this->logger->info('Clearing config cache...');
 
+        // Suppress all output when in JSON mode
+        if ($this->option('json')) {
+            ob_start();
+        }
+
         $result = Process::path(dirname($artisan))
-            ->run('php artisan config:clear');
+            ->run('php artisan config:clear 2>&1');
+
+        if ($this->option('json')) {
+            ob_end_clean();
+        }
 
         if ($result->successful()) {
             $this->logger->info('Config cache cleared');

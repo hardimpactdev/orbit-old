@@ -127,10 +127,13 @@ final class GatewayDeployTool extends Tool
         $domain = $request->get('domain');
 
         if ($domain && $this->cloudflare->isConfigured()) {
-            if (! $this->cloudflare->isDomainAvailable($domain)) {
+            // Check for existing DNS records
+            $existing = $this->cloudflare->listRecords(name: $domain);
+            if (count($existing) > 0) {
+                $conflicts = array_map(fn($r) => "{$r['type']} → {$r['content']}", $existing);
                 return Response::structured([
                     'success' => false,
-                    'error' => "Domain '{$domain}' already has a DNS record in Cloudflare",
+                    'error' => "Domain '{$domain}' has existing DNS records: " . implode(', ', $conflicts) . ". Delete them first with gateway_cloudflare_remove_record.",
                 ]);
             }
         }
@@ -214,14 +217,16 @@ final class GatewayDeployTool extends Tool
 
         // PHP version availability
         if ($phpVersion) {
-            $socket = "~/.config/orbit/php/php{$phpVersion}.sock";
+            // Remove dots from version (8.4 -> 84, 8.5 -> 85)
+            $versionClean = str_replace('.', '', $phpVersion);
+            $socket = "~/.config/orbit/php/php{$versionClean}.sock";
             $check = app(SshService::class)->execute($node, "[ -S {$socket} ] && echo exists || echo missing");
 
             if (trim($check['output'] ?? '') === 'missing') {
                 // Get available PHP versions
                 $available = app(SshService::class)->execute(
                     $node,
-                    "ls ~/.config/orbit/php/php*.sock 2>/dev/null | grep -oP 'php\K[0-9]+' | sort -rn | tr '\n' ', ' | sed 's/,$//'"
+                    "ls ~/.config/orbit/php/php*.sock 2>/dev/null | grep -oP 'php\K[0-9]+' | sed 's/\\(.\\)\\(.\\)/\\1.\\2/' | sort -rn | tr '\n' ', ' | sed 's/,$//'"
                 );
 
                 return Response::structured([
