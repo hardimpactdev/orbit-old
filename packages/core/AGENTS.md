@@ -23,14 +23,14 @@ src/
   Models/                    # Eloquent models
     Node.php                 # Has editor_scheme, node_type (local/gateway/client), environment (dev/staging/prod)
     Gateway.php              # Gateway config (ip, subnet, ssh_user, vpn fields)
-    Project.php
-    Site.php                 # Site model for local dev sites
-    TrackedJob.php           # Job tracking
-    Deployment.php           # Cross-node deployment tracking (project_slug, node_id, gateway_project_id, status, cloudflare_record_id)
     GatewayProject.php       # Gateway-level project registry (slug, production_domain, cloudflare_zone_id)
+    Project.php              # Project model (local dev projects, deployed projects)
+    Workspace.php            # Workspace model for project organization
+    Deployment.php           # Cross-node deployment tracking (project_slug, node_id, gateway_project_id, status, cloudflare_record_id)
     Setting.php              # Key-value store (wg_easy_password, cloudflare_api_token, etc.)
     SshKey.php
     TemplateFavorite.php
+    TrackedJob.php           # Job tracking
     UserPreference.php
   Contracts/
     ProvisionLoggerContract.php  # Interface for provision loggers
@@ -41,37 +41,36 @@ src/
       GatewayDnsService.php  # TLD→IP mappings via dnsmasq config files
     CloudflareService.php    # Cloudflare API v4 wrapper (multi-zone DNS records, zone detection, SSL)
     DeploymentService.php    # Cross-node deployment orchestration (deploy, deployProject, undeploy, sync)
+    ProvisioningService.php  # Project provisioning orchestration
+    ProjectService.php       # Project management
+    NodeService.php          # Node operations
+    NodeManager.php          # Node CRUD and management
     SettingEncryptor.php     # Transparent encryption for sensitive Setting values
-    OrbitService.php         # Main orchestration service
-    ProvisioningService.php  # Site provisioning logic
-    SiteService.php          # Site management
     DoctorService.php        # Health checks
     SshService.php           # SSH operations
     CliUpdateService.php     # CLI update handling
     DnsResolverService.php   # DNS resolution
     NotificationService.php  # Notifications
-    GitHubService.php        # GitHub API operations
-    CaddyService.php         # Caddy configuration
-    TemplateAnalyzer/        # Template analysis utilities
-    Provision/               # Site provisioning pipeline
+    HorizonService.php       # Horizon queue management
+    SetupService.php         # Setup and initialization
+    WorkspaceDbService.php   # Workspace database operations
+    MacPhpFpmConfigService.php  # macOS PHP-FPM configuration
+    Provision/               # Project provisioning pipeline
       ProvisionPipeline.php  # Main orchestrator (accepts ProvisionLoggerContract)
       ProvisionLogger.php    # orbit-core's logger (native Laravel events)
       Actions/               # Provisioning steps (CloneRepository, etc.)
-    Deletion/                # Site deletion pipeline
+    Deletion/                # Project deletion pipeline
       DeletionPipeline.php   # Main orchestrator
       DeletionLogger.php     # orbit-core's deletion logger
       Actions/               # Deletion steps (DropPostgresDatabase, etc.)
     OrbitCli/                # CLI interaction wrappers
-      SiteCliService.php     # Site CLI operations
+      ProjectCliService.php  # Project CLI operations
       ConfigurationService.php  # Includes DNS mapping methods
       ServiceControlService.php
       StatusService.php
       PackageService.php     # Package management
       WorkspaceService.php   # Workspace management
       WorktreeService.php    # Git worktree support
-      Shared/
-        CommandService.php
-        ConnectorService.php
   Data/
     ProvisionContext.php     # Context for provisioning actions
     DeletionContext.php      # Context for deletion actions
@@ -82,11 +81,11 @@ src/
     NodeEnvironment.php      # development, staging, production
     DeploymentStatus.php     # pending → deploying → ... → active/failed/removed
   Events/
-    SiteProvisioningStatus.php  # Broadcasting provisioning progress
-    SiteDeletionStatus.php      # Broadcasting deletion progress
+    ProjectProvisioningStatus.php  # Broadcasting provisioning progress
+    ProjectDeletionStatus.php      # Broadcasting deletion progress
   Jobs/
-    CreateSiteJob.php        # Async site creation
-    DeleteSiteJob.php        # Async site deletion
+    CreateProjectJob.php     # Async project creation
+    DeleteProjectJob.php     # Async project deletion
   Console/Commands/
     OrbitInit.php            # CLI initialization
 config/
@@ -102,7 +101,7 @@ All classes use `HardImpact\Orbit\Core` namespace:
 
 ```php
 use HardImpact\Orbit\Core\Models\Node;
-use HardImpact\Orbit\Core\Services\OrbitCli\SiteCliService;
+use HardImpact\Orbit\Core\Services\OrbitCli\ProjectCliService;
 use HardImpact\Orbit\Core\Data\ProvisionContext;
 use HardImpact\Orbit\Core\Contracts\ProvisionLoggerContract;
 ```
@@ -148,12 +147,12 @@ composer format         # Format with Pint
 orbit-core is a business logic package that provides models, services, jobs, and data structures. It contains no UI components.
 
 **What orbit-core provides:**
-- Eloquent Models (Node, Gateway, GatewayProject, Project, Site, Setting, Deployment, etc.)
+- Eloquent Models (Node, Gateway, GatewayProject, Project, Workspace, Setting, Deployment, etc.)
 - Gateway Services (GatewayManager, WgEasyService, GatewayDnsService)
 - CloudflareService (multi-zone DNS management with per-zone operations)
 - Pipelines (ProvisionPipeline, DeletionPipeline)
 - CLI Wrapper Services (StatusService, ProjectCliService, etc.)
-- Jobs (CreateSiteJob, DeleteSiteJob)
+- Jobs (CreateProjectJob, DeleteProjectJob)
 - Data Transfer Objects (ProvisionContext, DeletionContext)
 - Database migrations and factories
 
@@ -168,13 +167,13 @@ orbit-core is a business logic package that provides models, services, jobs, and
 
 | Flow | Document | Status |
 |------|----------|--------|
-| Site Creation | [docs/flows/site-creation.md](docs/flows/site-creation.md) | Authoritative |
+| Project Creation | [docs/flows/site-creation.md](docs/flows/site-creation.md) | Authoritative |
 
 **Always reference these documents during refactoring to ensure consistency.**
 
 ### Core Architecture Principle
 
-All long-running operations (site creation, provisioning, etc.) MUST:
+All long-running operations (project creation, provisioning, etc.) MUST:
 1. Dispatch a Job to the queue
 2. Return immediately to the user
 3. Process asynchronously via Horizon
@@ -186,7 +185,7 @@ All long-running operations (site creation, provisioning, etc.) MUST:
 
 ## Site Provisioning Pipeline
 
-Site provisioning logic lives in orbit-core and can be invoked from:
+Project provisioning logic lives in orbit-core and can be invoked from:
 1. **Jobs** (via Horizon) - for web UI initiated creation
 2. **CLI** (synchronously) - for `site:create` command with real-time output
 
@@ -195,13 +194,13 @@ Site provisioning logic lives in orbit-core and can be invoked from:
 The `ProvisionPipeline` accepts a `ProvisionLoggerContract` interface, allowing different consumers to provide their own logging implementation:
 
 ```
-Web UI → CreateSiteJob (Horizon)        CLI → SiteCreateCommand
+Web UI → CreateProjectJob (Horizon)        CLI → ProjectCreateCommand
               ↓                                    ↓
        ProvisionPipeline (shared)          ProvisionPipeline (shared)
               ↓                                    ↓
   ProvisionLogger (native events)     ProvisionLogger (console + Pusher)
               ↓                                    ↓
-    SiteProvisioningStatus → Reverb        Pusher SDK → Reverb
+    ProjectProvisioningStatus → Reverb        Pusher SDK → Reverb
               ↓                                    ↓
           Frontend                            Frontend
 ```
@@ -250,8 +249,8 @@ Located in `src/Services/Provision/Actions/`:
 Status updates use `ShouldBroadcastNow` for immediate delivery:
 
 ```php
-// SiteProvisioningStatus
-event(new SiteProvisioningStatus(
+// ProjectProvisioningStatus
+event(new ProjectProvisioningStatus(
     slug: $slug,
     status: 'installing_composer',
     error: null,
@@ -260,23 +259,23 @@ event(new SiteProvisioningStatus(
 ```
 
 Events broadcast on the `provisioning` channel with event names:
-- `site.provision.status` - Site creation progress
-- `site.deletion.status` - Site deletion progress
+- `project.provision.status` - Site creation progress
+- `project.deletion.status` - Project deletion progress
 
 ## Site Deletion Pipeline
 
-Site deletion mirrors the provisioning architecture with discrete, testable actions:
+Project deletion mirrors the provisioning architecture with discrete, testable actions:
 
 ### Architecture
 
 ```
-Web UI → DeleteSiteJob (Horizon)        CLI → SiteDeleteCommand
+Web UI → DeleteProjectJob (Horizon)        CLI → ProjectDeleteCommand
               ↓                                    ↓
        DeletionPipeline (shared)          DeletionPipeline (shared)
               ↓                                    ↓
   DeletionLogger (native events)     DeletionLogger (console + Pusher)
               ↓                                    ↓
-    SiteDeletionStatus → Reverb          Pusher SDK → Reverb
+    ProjectDeletionStatus → Reverb          Pusher SDK → Reverb
               ↓                                    ↓
           Frontend                            Frontend
 ```
@@ -288,7 +287,7 @@ Web UI → DeleteSiteJob (Horizon)        CLI → SiteDeleteCommand
 | `DeletionPipeline` | Main orchestrator - runs actions in sequence |
 | `DeletionContext` | Data transfer object with site info + options |
 | `DeletionLogger` | orbit-core's logger (native Laravel events) |
-| `DeleteSiteJob` | Queueable job for web-initiated deletion |
+| `DeleteProjectJob` | Queueable job for web-initiated deletion |
 
 ### Deletion Actions
 
@@ -304,7 +303,7 @@ Located in `src/Services/Deletion/Actions/`:
 
 ```php
 // From Site model
-$context = DeletionContext::fromSite($site, keepDatabase: false);
+$context = DeletionContext::fromProject($project, keepDatabase: false);
 
 // Load database config from .env file
 $context = $context->withDatabaseFromEnv();
@@ -316,7 +315,7 @@ $context = $context->withDatabaseFromEnv();
 2. **DeleteProjectFiles** - Required step (pipeline fails if this fails)
 3. **RegenerateCaddyConfig** - Removes site from Caddyfile
 
-**Note:** Site model deletion is handled by the caller (CLI/Job), not the pipeline.
+**Note:** Project model deletion is handled by the caller (CLI/Job), not the pipeline.
 
 ### Broadcast Statuses
 
