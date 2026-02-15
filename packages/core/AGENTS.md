@@ -163,13 +163,9 @@ orbit-core is a business logic package that provides models, services, jobs, and
 
 ## Flow Documentation
 
-**Critical workflow documentation lives in `/docs/flows/`.**
+**Critical workflow documentation belongs in `/docs/flows/` (not yet created).**
 
-| Flow | Document | Status |
-|------|----------|--------|
-| Project Creation | [docs/flows/site-creation.md](docs/flows/site-creation.md) | Authoritative |
-
-**Always reference these documents during refactoring to ensure consistency.**
+When adding complex workflows, document them as markdown files with step-by-step flows, data structures, and architectural diagrams.
 
 ### Core Architecture Principle
 

@@ -148,7 +148,7 @@ app/
 | DTOs | `app/Data/` | Type-safe data containers |
 | ReverbBroadcaster | `app/Services/` | WebSocket broadcasting to Reverb |
 | ProvisionLogger | `app/Services/` | CLI's provisioning logger (implements `ProvisionLoggerContract`) |
-| DeletionLogger | `app/Services/` | CLI's deletion logger (implements `ProvisionLoggerContract`) |
+| DeletionLogger | `app/Services/` | CLI's deletion logger (implements `ProvisionLoggerContract` - interface reused for both pipelines) |
 
 ### Site Provisioning Architecture
 
@@ -190,7 +190,7 @@ Site record deleted from database
 The CLI provides its own `DeletionLogger` implementation that:
 1. Outputs to console for real-time feedback
 2. Broadcasts to Reverb via Pusher SDK for web UI updates
-3. Implements `ProvisionLoggerContract` interface from orbit-core
+3. Implements `ProvisionLoggerContract` interface from orbit-core (same interface used for both provisioning and deletion)
 
 **Key flags:**
 - `--force` - Skip confirmation prompt

@@ -1,10 +1,12 @@
 # orbit-web
 
-Empty Laravel 12 shell for orbit-core. All UI, routes, and assets come from the package.
+Empty Laravel 12 shell for orbit-app. All UI, routes, and assets come from the orbit-app package (which depends on orbit-core for business logic).
 
 ## Architecture
 
-orbit-web is intentionally minimal - just Laravel boilerplate + `composer require orbit-core`.
+orbit-web is intentionally minimal - just Laravel boilerplate + `composer require orbit-app` (orbit-app depends on orbit-core).
+
+**Dependency chain:** orbit-web → orbit-app → orbit-core
 
 ```
 orbit-web/
@@ -27,31 +29,31 @@ orbit-web/
 
 ## How It Works
 
-1. **Routes**: `OrbitAppServiceProvider::routes()` registers all routes from orbit-core
-2. **Views**: orbit-core provides `resources/views/app.blade.php` via `loadViewsFrom()`
-3. **Assets**: In dev, Vite serves from orbit-core's dev server. In prod, published to `public/vendor/orbit/build/`
-4. **Middleware**: `HandleInertiaRequests` comes from orbit-core
+1. **Routes**: `OrbitAppServiceProvider::routes()` registers all routes from orbit-app
+2. **Views**: orbit-app provides `resources/views/app.blade.php` via `loadViewsFrom()`
+3. **Assets**: In dev, Vite serves from orbit-app's dev server. In prod, published to `public/vendor/orbit/build/`
+4. **Middleware**: `HandleInertiaRequests` comes from orbit-app
 
 ## Development
 
-**You don't develop here.** All UI development happens in orbit-core.
+**You don't develop here.** All UI development happens in orbit-app.
 
 ```bash
-# Start dev server in orbit-core
-cd ~/projects/orbit-core
+# Start dev server in orbit-app
+cd ~/projects/orbit-app
 bun run dev
 
 # View in browser
 open https://orbit-web.ccc
 ```
 
-HMR works because orbit-core's service provider configures `Vite::useHotFile()` to point to the package's hot file.
+HMR works because orbit-app's service provider configures `Vite::useHotFile()` to point to the package's hot file.
 
 ## Production
 
 ```bash
-# Build assets in orbit-core
-cd ~/projects/orbit-core
+# Build assets in orbit-app
+cd ~/projects/orbit-app
 bun run build
 
 # Publish to this shell
@@ -71,8 +73,8 @@ php artisan vendor:publish --tag=orbit-assets --force
 ## Commands
 
 ```bash
-# Update orbit-core
-composer update hardimpactdev/orbit-core
+# Update orbit-app (pulls in orbit-core)
+composer update hardimpactdev/orbit-app
 
 # Publish config
 php artisan vendor:publish --tag=orbit-config
@@ -108,11 +110,11 @@ cd ~/projects/orbit-web
 php artisan migrate
 ```
 
-This runs orbit-core's migrations against the shared CLI database.
+This runs orbit-core's migrations (via orbit-app) against the shared CLI database.
 
 ## Testing
 
-Tests live in orbit-core. This shell only needs basic smoke tests.
+Tests live in orbit-app and orbit-core. This shell only needs basic smoke tests.
 
 ```bash
 php artisan test
@@ -120,6 +122,7 @@ php artisan test
 
 ## Related Projects
 
-- **orbit-core**: The actual product - all UI, routes, controllers, assets
-- **orbit-cli**: CLI tool that bundles orbit-web
-- **orbit-desktop**: NativePHP shell (also uses orbit-core)
+- **orbit-app**: UI package - controllers, routes, Vue components, MCP servers
+- **orbit-core**: Business logic package - models, services, pipelines, migrations
+- **orbit-cli**: CLI tool
+- **orbit-desktop**: NativePHP shell (also uses orbit-app → orbit-core)
