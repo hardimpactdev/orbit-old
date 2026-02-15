@@ -36,7 +36,7 @@
     "electron-builder": "^26.0.12",
     "laravel-vite-plugin": "^2.1.0",
     "oxfmt": "^0.24.0",
-    "oxlint": "^1.39.0",
+    "oxlint": "^1.47.0",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "unplugin-auto-import": "^20.3.0",
