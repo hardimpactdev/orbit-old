@@ -141,7 +141,7 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
         // Add Reverb WebSocket service if enabled
         // NOTE: ServiceManager is resolved lazily to avoid early file reads during DI resolution
         if (app(ServiceManager::class)->isEnabled('reverb')) {
-            $caddyfile .= "reverb.{$tld} {
+            $caddyfile .= "reverb.orbit.{$tld} {
     tls {
         issuer internal {
             lifetime 3598d

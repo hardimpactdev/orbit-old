@@ -337,7 +337,7 @@ Config location: `~/.config/orbit/caddy/Caddyfile` (imported by `/etc/caddy/Cadd
 
 - Docker container: `orbit-reverb`
 - Port: `8080`
-- Caddy proxies `reverb.{tld}` to `localhost:8080`
+- Caddy proxies `reverb.orbit.{tld}` to `localhost:8080` (WSS with TLS termination)
 
 ## Session Completion (Landing the Plane)
 
