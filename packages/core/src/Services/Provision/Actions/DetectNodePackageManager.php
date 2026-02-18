@@ -87,5 +87,4 @@ final readonly class DetectNodePackageManager
 
         return ! empty(trim($result ?? ''));
     }
-    }
 }
