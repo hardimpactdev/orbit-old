@@ -1,6 +1,7 @@
 <?php
 
 use App\Commands\ProjectCreateCommand;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 
 /**
  * Tests for ProjectCreateCommand.
@@ -73,37 +74,21 @@ describe('option definitions', function () {
 
 describe('URL normalization', function () {
     it('normalizes https github URLs', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('normalizeRepoUrl');
-
-        expect($method->invoke($command, 'https://github.com/user/repo'))->toBe('user/repo');
-        expect($method->invoke($command, 'https://github.com/user/repo.git'))->toBe('user/repo');
+        expect(ProjectHelper::normalizeRepoUrl('https://github.com/user/repo'))->toBe('user/repo');
+        expect(ProjectHelper::normalizeRepoUrl('https://github.com/user/repo.git'))->toBe('user/repo');
     });
 
     it('normalizes ssh github URLs', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('normalizeRepoUrl');
-
-        expect($method->invoke($command, 'git@github.com:user/repo.git'))->toBe('user/repo');
-        expect($method->invoke($command, 'git@github.com:user/repo'))->toBe('user/repo');
+        expect(ProjectHelper::normalizeRepoUrl('git@github.com:user/repo.git'))->toBe('user/repo');
+        expect(ProjectHelper::normalizeRepoUrl('git@github.com:user/repo'))->toBe('user/repo');
     });
 
     it('passes through owner/repo format unchanged', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('normalizeRepoUrl');
-
-        expect($method->invoke($command, 'user/repo'))->toBe('user/repo');
+        expect(ProjectHelper::normalizeRepoUrl('user/repo'))->toBe('user/repo');
     });
 
     it('handles null input', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('normalizeRepoUrl');
-
-        expect($method->invoke($command, null))->toBeNull();
+        expect(ProjectHelper::normalizeRepoUrl(null))->toBeNull();
     });
 });
 
@@ -118,24 +103,14 @@ describe('project type detection', function () {
     });
 
     it('detects laravel-app correctly', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('detectProjectType');
-
-        // Create test project with public folder and artisan
         $projectDir = $this->tempDir.'/laravel-app';
         mkdir("{$projectDir}/public", 0755, true);
         touch("{$projectDir}/artisan");
 
-        expect($method->invoke($command, $projectDir))->toBe('laravel-app');
+        expect(ProjectHelper::detectProjectType($projectDir))->toBe('laravel-app');
     });
 
     it('detects cli app correctly', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('detectProjectType');
-
-        // Create test CLI project
         $projectDir = $this->tempDir.'/cli-app';
         mkdir($projectDir, 0755, true);
         touch("{$projectDir}/artisan");
@@ -143,30 +118,20 @@ describe('project type detection', function () {
             'require' => ['laravel-zero/framework' => '^12.0'],
         ]));
 
-        expect($method->invoke($command, $projectDir))->toBe('cli');
+        expect(ProjectHelper::detectProjectType($projectDir))->toBe('cli');
     });
 
     it('detects laravel-package correctly', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('detectProjectType');
-
-        // Create test package
         $projectDir = $this->tempDir.'/package';
         mkdir($projectDir, 0755, true);
         file_put_contents("{$projectDir}/composer.json", json_encode([
             'type' => 'laravel-package',
         ]));
 
-        expect($method->invoke($command, $projectDir))->toBe('laravel-package');
+        expect(ProjectHelper::detectProjectType($projectDir))->toBe('laravel-package');
     });
 
     it('detects package by laravel extra config', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('detectProjectType');
-
-        // Create test package with laravel providers
         $projectDir = $this->tempDir.'/package-providers';
         mkdir($projectDir, 0755, true);
         file_put_contents("{$projectDir}/composer.json", json_encode([
@@ -177,31 +142,21 @@ describe('project type detection', function () {
             ],
         ]));
 
-        expect($method->invoke($command, $projectDir))->toBe('laravel-package');
+        expect(ProjectHelper::detectProjectType($projectDir))->toBe('laravel-package');
     });
 
     it('detects web project without artisan', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('detectProjectType');
-
-        // Create simple web project
         $projectDir = $this->tempDir.'/web';
         mkdir("{$projectDir}/public", 0755, true);
 
-        expect($method->invoke($command, $projectDir))->toBe('web');
+        expect(ProjectHelper::detectProjectType($projectDir))->toBe('web');
     });
 
     it('returns unknown for empty directory', function () {
-        $command = $this->app->make(ProjectCreateCommand::class);
-        $reflection = new ReflectionClass($command);
-        $method = $reflection->getMethod('detectProjectType');
-
-        // Empty project
         $projectDir = $this->tempDir.'/empty';
         mkdir($projectDir, 0755, true);
 
-        expect($method->invoke($command, $projectDir))->toBe('unknown');
+        expect(ProjectHelper::detectProjectType($projectDir))->toBe('unknown');
     });
 });
 

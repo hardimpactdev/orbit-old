@@ -7,6 +7,7 @@ namespace App\Commands;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\ConfigManager;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
@@ -30,11 +31,11 @@ final class ProjectScanCommand extends Command
         $pathsToScan = [];
 
         if ($specificPath) {
-            $pathsToScan[] = $this->expandPath($specificPath);
+            $pathsToScan[] = ProjectHelper::expandPath($specificPath);
         } else {
             $configPaths = $config->get('paths', []);
             foreach ($configPaths as $p) {
-                $pathsToScan[] = $this->expandPath($p);
+                $pathsToScan[] = ProjectHelper::expandPath($p);
             }
         }
 
@@ -176,15 +177,6 @@ final class ProjectScanCommand extends Command
         return null;
     }
 
-    private function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            return $_SERVER['HOME'].substr($path, 1);
-        }
-
-        return $path;
-    }
-
     private function failWithMessage(string $message): int
     {
         if ($this->wantsJson()) {
@@ -196,8 +188,4 @@ final class ProjectScanCommand extends Command
         return ExitCode::GeneralError->value;
     }
 
-    private function wantsJson(): bool
-    {
-        return (bool) $this->option('json') || ! $this->input->isInteractive();
-    }
 }

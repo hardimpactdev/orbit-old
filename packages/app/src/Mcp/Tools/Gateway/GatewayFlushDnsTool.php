@@ -44,7 +44,7 @@ final class GatewayFlushDnsTool extends Tool
         }
 
         // Restart dnsmasq container to flush cache
-        $result = $this->ssh->execute($node, 'docker restart orbit-dnsmasq 2>&1');
+        $result = $this->ssh->execute($node, 'docker restart orbit-dns 2>&1');
 
         if (! $result['success']) {
             return Response::structured([

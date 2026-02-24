@@ -6,6 +6,7 @@ namespace HardImpact\Orbit\App\Mcp\Tools;
 
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -28,7 +29,7 @@ class PhpTool extends Tool
         return [
             'site' => $schema->string()->required()->description('The project name'),
             'action' => $schema->string()->enum(['get', 'set', 'reset'])->required()->description('Action to perform: get current version, set new version, or reset to default'),
-            'version' => $schema->string()->enum(['8.3', '8.4', '8.5'])->description('PHP version to set (required for "set" action)'),
+            'version' => $schema->string()->enum(PhpVersion::SUPPORTED)->description('PHP version to set (required for "set" action)'),
         ];
     }
 
@@ -58,8 +59,8 @@ class PhpTool extends Tool
                     return Response::error('Version parameter is required for "set" action');
                 }
 
-                if (! in_array($version, ['8.3', '8.4', '8.5'])) {
-                    return Response::error('Invalid PHP version. Must be one of: 8.3, 8.4, 8.5');
+                if (! PhpVersion::isValid($version)) {
+                    return Response::error('Invalid PHP version. Must be one of: ' . implode(', ', PhpVersion::SUPPORTED));
                 }
 
                 return $this->setPhpVersion($node, $site, $version);
@@ -81,7 +82,7 @@ class PhpTool extends Tool
         }
 
         $configResult = $this->configService->getConfig($node);
-        $defaultVersion = $configResult['success'] ? ($configResult['data']['default_php_version'] ?? '8.4') : '8.4';
+        $defaultVersion = $configResult['success'] ? ($configResult['data']['default_php_version'] ?? PhpVersion::DEFAULT) : PhpVersion::DEFAULT;
         $phpVersion = $result['data']['php_version'] ?? $defaultVersion;
 
         return Response::structured([
@@ -117,7 +118,7 @@ class PhpTool extends Tool
         }
 
         $configResult = $this->configService->getConfig($node);
-        $defaultVersion = $configResult['success'] ? ($configResult['data']['default_php_version'] ?? '8.4') : '8.4';
+        $defaultVersion = $configResult['success'] ? ($configResult['data']['default_php_version'] ?? PhpVersion::DEFAULT) : PhpVersion::DEFAULT;
 
         return Response::structured([
             'success' => true,

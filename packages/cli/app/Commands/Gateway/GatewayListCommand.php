@@ -26,17 +26,17 @@ final class GatewayListCommand extends Command
         }
 
         $active = $adapter->detectActive();
-        $activeId = $active['gateway']['id'] ?? null;
+        $activeId = $active['gateway']->id ?? null;
 
         $this->newLine();
 
         foreach ($gateways as $gateway) {
-            $isActive = $gateway['id'] === $activeId;
+            $isActive = $gateway->id === $activeId;
             $dot = $isActive ? '<fg=green>●</>' : '<fg=gray>○</>';
             $nameColor = $isActive ? 'green' : 'white';
             $badge = $isActive ? ' <fg=green>connected</>' : '';
 
-            $this->line("  {$dot}  <fg={$nameColor}>{$gateway['name']}</>  <fg=gray>{$gateway['ip']}</>  <fg=gray>{$gateway['subnet']}</>{$badge}");
+            $this->line("  {$dot}  <fg={$nameColor}>{$gateway->name}</>  <fg=gray>{$gateway->ip_address}</>  <fg=gray>{$gateway->subnet}</>{$badge}");
         }
 
         $this->newLine();

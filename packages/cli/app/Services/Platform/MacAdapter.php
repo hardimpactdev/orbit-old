@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Platform;
 
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use Illuminate\Support\Facades\Process;
 
 final class MacAdapter implements PlatformAdapter
@@ -250,7 +251,7 @@ final class MacAdapter implements PlatformAdapter
 
         // First unlink all PHP versions, then link the requested one
         Process::run('brew unlink php 2>/dev/null');
-        foreach (['8.3', '8.4', '8.5'] as $v) {
+        foreach (PhpVersion::SUPPORTED as $v) {
             if ($v !== $normalizedVersion) {
                 Process::run("brew unlink php@{$v} 2>/dev/null");
             }

@@ -42,7 +42,7 @@ The app automatically detects git worktrees created by vibekanban (or manually) 
 2. Branches follow the pattern `vk/{task-id}` (e.g., `vk/0d16-update-homepage`)
 3. Detection runs via `git worktree list --porcelain` in each site directory
 4. Auto-linking creates Caddy routes for each worktree subdomain
-5. Subdomain format: `{worktree-name}.{site-name}.{tld}` (e.g., `0d16-update-homepage.platform11-2026.ccc`)
+5. Subdomain format: `{worktree-name}.{site-name}.{tld}` (e.g., `0d16-update-homepage.platform11-2026.bear`)
 
 **CLI Commands (orbit-cli):**
 
@@ -94,7 +94,7 @@ Caddy config: `~/.config/orbit/caddy/Caddyfile` (imported by `/etc/caddy/Caddyfi
 
 ## Asset Publishing (orbit-app -> orbit-web)
 
-When making UI changes that you want to see on orbit-web.ccc:
+When making UI changes that you want to see on orbit-web.bear:
 
 1. **If Vite dev server is NOT running**: You must build AND publish
    ```bash
@@ -125,16 +125,16 @@ When running the Vite dev server behind Caddy for HTTPS:
    ```
 
 2. **Why this matters**: craft-ui's vite config reads `VITE_APP_URL` to:
-   - Configure HMR websocket to connect through proxy (`wss://domain.ccc:443`)
+   - Configure HMR websocket to connect through proxy (`wss://domain.bear:443`)
    - Set proper origin for CORS and asset URLs
    - Write HTTPS URL to hot file instead of `http://0.0.0.0:5173`
 
 3. **Symptoms of incorrect config**:
    - Browser error: "Mixed Content: page loaded over HTTPS but requested insecure script"
    - HMR not working (changes don't reflect instantly)
-   - Hot file contains `http://0.0.0.0:5173` instead of `https://domain.ccc`
+   - Hot file contains `http://0.0.0.0:5173` instead of `https://domain.bear`
 
 4. **To verify it's working**:
    ```bash
-   cat ~/projects/orbit-app/public/hot  # Should show https://orbit-web.ccc
+   cat ~/projects/orbit-app/public/hot  # Should show https://orbit-web.bear
    ```

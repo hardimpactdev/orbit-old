@@ -142,3 +142,159 @@ describe('GatewayCloudflareRemoveRecordTool', function () {
         expect($result)->toBeTrue();
     });
 });
+
+describe('GatewayCloudflareFlushCacheTool', function () {
+    it('purges everything when no urls provided', function () {
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/purge_cache' => Http::response([
+                'success' => true,
+                'result' => ['id' => 'zone-abc'],
+            ]),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->purgeCache();
+
+        expect($result)->toBeTrue();
+    });
+
+    it('purges by urls when urls provided', function () {
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/purge_cache' => Http::response([
+                'success' => true,
+                'result' => ['id' => 'zone-abc'],
+            ]),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->purgeCacheByUrls(['https://example.com/page']);
+
+        expect($result)->toBeTrue();
+    });
+
+    it('resolves zone from project_slug', function () {
+        $project = \HardImpact\Orbit\Core\Models\GatewayProject::create([
+            'slug' => 'flush-test',
+            'name' => 'Flush Test',
+            'cloudflare_zone_id' => 'zone-abc',
+        ]);
+
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/purge_cache' => Http::response([
+                'success' => true,
+                'result' => ['id' => 'zone-abc'],
+            ]),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->purgeCache('zone-abc');
+
+        expect($result)->toBeTrue();
+    });
+});
+
+describe('CloudflareService createCacheRule', function () {
+    it('creates a cache everything rule via rulesets API', function () {
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/rulesets/phases/http_request_cache_settings/entrypoint' => Http::response([
+                'success' => true,
+                'result' => ['id' => 'ruleset-123'],
+            ]),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->createCacheRule();
+
+        expect($result)->toBeTrue();
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/rulesets/phases/http_request_cache_settings/entrypoint')
+                && $request->method() === 'PUT'
+                && $request['rules'][0]['action'] === 'set_cache_settings'
+                && $request['rules'][0]['action_parameters']['cache'] === true
+                && $request['rules'][0]['action_parameters']['browser_ttl']['mode'] === 'respect_origin';
+        });
+    });
+
+    it('returns false on API failure', function () {
+        Http::fake([
+            'api.cloudflare.com/*' => Http::response([
+                'success' => false,
+                'errors' => [['code' => 10000, 'message' => 'Authentication error']],
+            ], 403),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->createCacheRule();
+
+        expect($result)->toBeFalse();
+    });
+});
+
+describe('CloudflareService cache purge', function () {
+    it('purges entire cache with purge_everything', function () {
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/purge_cache' => Http::response([
+                'success' => true,
+                'result' => ['id' => 'zone-abc'],
+            ]),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->purgeCache();
+
+        expect($result)->toBeTrue();
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/purge_cache')
+                && $request->method() === 'POST'
+                && $request['purge_everything'] === true;
+        });
+    });
+
+    it('returns false on API failure', function () {
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/purge_cache' => Http::response([
+                'success' => false,
+                'errors' => [['message' => 'Rate limited']],
+            ], 429),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->purgeCache();
+
+        expect($result)->toBeFalse();
+    });
+
+    it('returns false on exception', function () {
+        Http::fake([
+            'api.cloudflare.com/*' => Http::response([], 500),
+        ]);
+
+        $service = new CloudflareService;
+        $result = $service->purgeCache();
+
+        expect($result)->toBeFalse();
+    });
+
+    it('purges cache by specific URLs', function () {
+        Http::fake([
+            'api.cloudflare.com/client/v4/zones/zone-abc/purge_cache' => Http::response([
+                'success' => true,
+                'result' => ['id' => 'zone-abc'],
+            ]),
+        ]);
+
+        $service = new CloudflareService;
+        $urls = ['https://example.com/build/app.js', 'https://example.com/build/app.css'];
+        $result = $service->purgeCacheByUrls($urls);
+
+        expect($result)->toBeTrue();
+
+        Http::assertSent(function ($request) {
+            return str_contains($request->url(), '/purge_cache')
+                && $request->method() === 'POST'
+                && $request['files'] === ['https://example.com/build/app.js', 'https://example.com/build/app.css'];
+        });
+    });
+});

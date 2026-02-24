@@ -133,12 +133,15 @@ composer install --no-dev
 builds/orbit.phar
 ```
 
+## Update (2026-02-15)
+
+The `CommandRegistry` and `getCommandClasses()` approach was removed. Laravel Zero's kernel recursively discovers all commands from `config/commands.php` paths, which works fine in both development and PHAR builds. The CI workflow (`build-cli.yml`) compiles PHARs without generating a `CommandRegistry`. Do NOT re-introduce manual command registration in `AppServiceProvider`.
+
 ## Prevention
 - **Always test PHAR after changes**: `php builds/orbit.phar list`
 - **Check PHAR size**: Keep under 100MB for GitHub releases
 - **Unlink packages before build**: Run `composer unlink` for any linked packages
 - **Build without dev deps**: Use `composer install --no-dev` before building
-- **Document special build requirements**: Note if CommandRegistry generation needed
 
 ## Related
 - [Laravel Zero PHAR Documentation](https://laravel-zero.com/docs/build-a-standalone-application)

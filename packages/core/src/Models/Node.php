@@ -189,12 +189,6 @@ class Node extends Model
         return static::where('is_default', true)->first();
     }
 
-    /** @deprecated Use getSelf() instead */
-    public static function getDefault(): ?self
-    {
-        return static::getSelf();
-    }
-
     public static function getActive(): ?self
     {
         return app(\HardImpact\Orbit\Core\Services\NodeManager::class)->current();

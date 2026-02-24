@@ -44,7 +44,7 @@ cd ~/projects/orbit-app
 bun run dev
 
 # View in browser
-open https://orbit-web.ccc
+open https://orbit-web.bear
 ```
 
 HMR works because orbit-app's service provider configures `Vite::useHotFile()` to point to the package's hot file.
@@ -94,7 +94,7 @@ Key orbit-specific variables in `.env`:
 ORBIT_MODE=web
 ORBIT_CLI_PATH=/home/nckrtl/projects/orbit-cli/orbit  # Path to orbit CLI executable
 DB_DATABASE=/home/nckrtl/.config/orbit/database.sqlite  # Shared with CLI
-VITE_REVERB_HOST=reverb.ccc
+VITE_REVERB_HOST=reverb.bear
 ```
 
 For development:

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HardImpact\Orbit\Core\Models;
 
 use HardImpact\Orbit\Core\Enums\DeploymentStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -29,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Deployment extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'node_id',
         'gateway_project_id',

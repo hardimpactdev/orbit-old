@@ -31,10 +31,10 @@ final class GatewayListClientsCommand extends Command
 
         $gateway = $active['gateway'];
 
-        $output = $adapter->sshCommand($gateway['id'], 'gateway:clients --json');
+        $output = $adapter->sshCommand($gateway->id, 'gateway:clients --json');
 
         if ($output === null) {
-            return $this->failWithMessage("Failed to connect to gateway '{$gateway['name']}' via SSH.");
+            return $this->failWithMessage("Failed to connect to gateway '{$gateway->name}' via SSH.");
         }
 
         $decoded = json_decode($output, true);
@@ -49,12 +49,12 @@ final class GatewayListClientsCommand extends Command
 
         if ($this->wantsJson()) {
             return $this->outputJsonSuccess([
-                'gateway' => $gateway['name'],
+                'gateway' => $gateway->name,
                 'clients' => $clients,
             ]);
         }
 
-        $this->line("  <fg=gray>Gateway:</> {$gateway['name']}");
+        $this->line("  <fg=gray>Gateway:</> {$gateway->name}");
         $this->newLine();
 
         if ($clients === []) {

@@ -143,7 +143,7 @@ describe('PhpProductionTemplate', function () {
     it('returns base linux steps without services', function () {
         $steps = $this->template->installSteps('Linux');
 
-        expect($steps)->toHaveCount(13);
+        expect($steps)->toHaveCount(15);
         expect($steps[0]['action'])->toBe(Linux\CheckPrerequisites::class);
         expect($steps[count($steps) - 1]['action'])->toBe(Shared\HealthCheck::class);
     });
@@ -163,7 +163,7 @@ describe('PhpProductionTemplate', function () {
         $linuxSteps = $this->template->installSteps('Linux', $context);
 
         expect($macSteps)->toHaveCount(18);
-        expect($linuxSteps)->toHaveCount(18);
+        expect($linuxSteps)->toHaveCount(20);
 
         $macActions = collect($macSteps)->pluck('action');
         $linuxActions = collect($linuxSteps)->pluck('action');

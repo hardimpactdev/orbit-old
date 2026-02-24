@@ -18,19 +18,19 @@ describe('GatewayFlushDnsTool', function () {
             ->once()
             ->withArgs(function ($node, $cmd) use ($gateway) {
                 return $node->id === $gateway->id
-                    && str_contains($cmd, 'docker restart orbit-dnsmasq');
+                    && str_contains($cmd, 'docker restart orbit-dns');
             })
             ->andReturn([
                 'success' => true,
-                'output' => 'orbit-dnsmasq',
+                'output' => 'orbit-dns',
                 'error' => '',
             ]);
 
         // Verify the SSH command is executed with correct arguments
-        $result = $this->sshService->execute($gateway, 'docker restart orbit-dnsmasq 2>&1');
+        $result = $this->sshService->execute($gateway, 'docker restart orbit-dns 2>&1');
 
         expect($result['success'])->toBeTrue();
-        expect($result['output'])->toBe('orbit-dnsmasq');
+        expect($result['output'])->toBe('orbit-dns');
     });
 
     it('reports error when docker command fails', function () {
@@ -44,7 +44,7 @@ describe('GatewayFlushDnsTool', function () {
                 'error' => 'Container not found',
             ]);
 
-        $result = $this->sshService->execute($gateway, 'docker restart orbit-dnsmasq 2>&1');
+        $result = $this->sshService->execute($gateway, 'docker restart orbit-dns 2>&1');
 
         expect($result['success'])->toBeFalse();
         expect($result['error'])->toContain('Container not found');

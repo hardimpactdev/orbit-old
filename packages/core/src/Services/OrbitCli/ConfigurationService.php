@@ -13,6 +13,7 @@ use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\ConnectorService;
 use HardImpact\Orbit\Core\Services\SshService;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 
 /**
  * Service for orbit configuration management.
@@ -127,6 +128,26 @@ class ConfigurationService
     }
 
     /**
+     * Get formatted reverb config for Inertia page props.
+     */
+    public function getFormattedReverbConfig(Node $node): array
+    {
+        $reverb = $this->getReverbConfig($node);
+
+        if (! $reverb['success']) {
+            return ['enabled' => false];
+        }
+
+        return [
+            'enabled' => $reverb['enabled'] ?? false,
+            'host' => $reverb['host'] ?? null,
+            'port' => $reverb['port'] ?? null,
+            'scheme' => $reverb['scheme'] ?? null,
+            'app_key' => $reverb['app_key'] ?? null,
+        ];
+    }
+
+    /**
      * Get default configuration values.
      */
     public function getDefaultConfig(): array
@@ -198,7 +219,7 @@ class ConfigurationService
 
         usort($versions, version_compare(...));
 
-        return $versions === [] ? ['8.3', '8.4', '8.5'] : $versions;
+        return $versions === [] ? PhpVersion::SUPPORTED : $versions;
     }
 
     /**
@@ -247,7 +268,7 @@ class ConfigurationService
             }
 
             // Fallback to default versions
-            return ['8.3', '8.4', '8.5'];
+            return PhpVersion::SUPPORTED;
         }
 
         return $this->getLocalAvailablePhpVersions();

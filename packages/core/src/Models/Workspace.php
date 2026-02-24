@@ -105,7 +105,7 @@ class Workspace extends Model
             ])->all(),
             'project_count' => $this->project_count,
             'has_workspace_file' => $this->hasWorkspaceFile(),
-            'has_claude_md' => false, // TODO: implement
+            'has_claude_md' => $this->path && file_exists(rtrim($this->path, '/') . '/CLAUDE.md'),
         ];
     }
 }

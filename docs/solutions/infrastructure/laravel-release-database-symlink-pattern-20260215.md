@@ -162,7 +162,7 @@ private function ensureDatabaseStructure(string $basePath, string $releasePath):
     }
 
     if (! is_link($sqliteFile)) {
-        symlink('../../database/database.sqlite', $sqliteFile);
+        symlink('../../../database/database.sqlite', $sqliteFile);
     }
 
     // migrations/, factories/, seeders/ stay as-is from the release ✓
@@ -174,7 +174,7 @@ private function ensureDatabaseStructure(string $basePath, string $releasePath):
 ```
 releases/20260215_143000/
 └── database/
-    ├── database.sqlite → ../../database/database.sqlite  ← Symlink (shared)
+    ├── database.sqlite → ../../../database/database.sqlite  ← Symlink (shared)
     ├── migrations/  ← From release (version-controlled)
     ├── factories/   ← From release (version-controlled)
     └── seeders/     ← From release (version-controlled)
@@ -258,7 +258,7 @@ ls current/database/migrations/
 
 # Check SQLite file is symlinked
 ls -la current/database/database.sqlite
-# Should show: database.sqlite -> ../../database/database.sqlite ✓
+# Should show: database.sqlite -> ../../../database/database.sqlite ✓
 
 # Run migrations
 php artisan migrate
@@ -282,7 +282,7 @@ DB_HOST=127.0.0.1
 
 ### Approach 3: Symlink Only SQLite File (✓ Recommended for SQLite)
 ```php
-symlink('../../database/database.sqlite',
+symlink('../../../database/database.sqlite',
         $releasePath.'/database/database.sqlite');
 ```
 **Why yes**: Shares data, preserves migrations. This solution.

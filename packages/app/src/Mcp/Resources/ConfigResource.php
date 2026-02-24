@@ -6,6 +6,7 @@ namespace HardImpact\Orbit\App\Mcp\Resources;
 
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Resource;
@@ -57,7 +58,7 @@ class ConfigResource extends Resource
             'tld' => $config['tld'] ?? 'test',
             'default_php_version' => $config['default_php_version'] ?? '8.4',
             'paths' => $config['paths'] ?? [],
-            'available_php_versions' => $config['available_php_versions'] ?? ['8.3', '8.4', '8.5'],
+            'available_php_versions' => $config['available_php_versions'] ?? PhpVersion::SUPPORTED,
             'enabled_services' => $config['enabled_services'] ?? [],
         ]);
     }

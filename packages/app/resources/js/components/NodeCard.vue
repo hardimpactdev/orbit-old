@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import { ExternalLink, Zap } from 'lucide-vue-next';
 import { Button, Badge } from '@hardimpactdev/craft-ui';
+import { useCsrf } from '@/composables/useCsrf';
 
 interface Node {
     id: number;
@@ -27,9 +28,7 @@ const testConnection = async () => {
         const response = await fetch(`/nodes/${props.node.id}/test-connection`, {
             method: 'POST',
             headers: {
-                'X-CSRF-TOKEN':
-                    document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
-                    '',
+                'X-CSRF-TOKEN': useCsrf(),
                 Accept: 'application/json',
             },
         });

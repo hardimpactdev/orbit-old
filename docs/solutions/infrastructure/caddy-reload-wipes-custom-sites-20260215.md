@@ -25,7 +25,7 @@ The `srpm.nl` production domain block (with ACME TLS) was also wiped.
 
 ## Root Cause
 
-`CaddyfileGenerator::generateCaddyfile()` rebuilds the entire Caddyfile from scratch using only orbit-managed projects (scanned from `~/Projects/`). Any manually added Caddy blocks — production domains with ACME, reverse proxies to external services — are lost on every regeneration.
+`CaddyfileGenerator::generateCaddyfile()` rebuilds the entire Caddyfile from scratch using only orbit-managed projects (scanned from `~/projects/`). Any manually added Caddy blocks — production domains with ACME, reverse proxies to external services — are lost on every regeneration.
 
 This was triggered during the zero-downtime deployment migration when `caddy:reload` was called after restructuring SRPM to a release-based layout.
 
@@ -55,7 +55,7 @@ srpm.nl {
     tls {
         issuer acme
     }
-    root * /home/orbit/Projects/srpm/current/public
+    root * /home/orbit/projects/srpm/current/public
     encode gzip
     php_fastcgi unix//home/orbit/.config/orbit/php/php85.sock
     file_server

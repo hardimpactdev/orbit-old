@@ -29,8 +29,8 @@ use Laravel\Mcp\Facades\Mcp;
 Mcp::local('orbit', OrbitServer::class);
 Mcp::local('gateway', GatewayServer::class);
 
-// HTTP transport - restricted to gateway VPN network
-Route::middleware(McpAccessControl::class)->group(function () {
+// HTTP transport - restricted to gateway VPN network, rate limited
+Route::middleware([McpAccessControl::class, 'throttle:60,1'])->group(function () {
     Mcp::web('mcp/orbit', OrbitServer::class);
     Mcp::web('mcp/gateway', GatewayServer::class);
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     FolderGit2,
@@ -90,6 +90,11 @@ const checkingRepo = ref(false);
 const repoCheckError = ref<string | null>(null);
 let repoCheckTimer: ReturnType<typeof setTimeout> | null = null;
 let repoCheckController: AbortController | null = null;
+
+onBeforeUnmount(() => {
+    repoCheckController?.abort();
+    if (repoCheckTimer) clearTimeout(repoCheckTimer);
+});
 
 // Slugify helper
 const slugify = (str: string) =>

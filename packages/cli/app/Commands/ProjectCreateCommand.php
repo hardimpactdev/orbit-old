@@ -16,6 +16,7 @@ use HardImpact\Orbit\Core\Enums\RepoIntent;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Str;
 use LaravelZero\Framework\Commands\Command;
 
@@ -121,7 +122,7 @@ final class ProjectCreateCommand extends Command
             $intent = RepoIntent::fromPayload($options);
 
             // Phase 1: Repository Operations (fork/template)
-            $context = $this->handleRepositoryOperations($context, $intent, $pipeline);
+            $context = ProjectHelper::handleRepositoryOperations($context, $intent, $pipeline, $this->logger);
 
             // Phase 2: Clone repository (for clone/fork/template flows)
             if ($context->cloneUrl) {
@@ -145,7 +146,7 @@ final class ProjectCreateCommand extends Command
 
             // Detect project type and public folder
             $hasPublicFolder = is_dir("{$projectPath}/public");
-            $projectType = $this->detectProjectType($projectPath);
+            $projectType = ProjectHelper::detectProjectType($projectPath);
             $tld = $config->getTld();
 
             // Update project with final details
@@ -207,14 +208,14 @@ final class ProjectCreateCommand extends Command
     {
         // If directory option provided, use it
         if ($this->option('directory')) {
-            return $this->expandPath($this->option('directory'));
+            return ProjectHelper::expandPath($this->option('directory'));
         }
 
         // Get default path from config
         $paths = $config->getPaths();
         $basePath = $paths[0] ?? '~/projects';
 
-        return $this->expandPath("{$basePath}/{$slug}");
+        return ProjectHelper::expandPath("{$basePath}/{$slug}");
     }
 
     /**
@@ -227,7 +228,7 @@ final class ProjectCreateCommand extends Command
         // Parse clone URL if provided
         $cloneUrl = $this->option('clone') ?? $this->option('template');
         if ($cloneUrl) {
-            $cloneUrl = $this->normalizeRepoUrl($cloneUrl);
+            $cloneUrl = ProjectHelper::normalizeRepoUrl($cloneUrl);
         }
 
         return new ProvisionContext(
@@ -257,9 +258,9 @@ final class ProjectCreateCommand extends Command
         $options = ['name' => $name];
 
         if ($this->option('clone')) {
-            $options['template'] = $this->normalizeRepoUrl($this->option('clone'));
+            $options['template'] = ProjectHelper::normalizeRepoUrl($this->option('clone'));
         } elseif ($this->option('template')) {
-            $options['template'] = $this->normalizeRepoUrl($this->option('template'));
+            $options['template'] = ProjectHelper::normalizeRepoUrl($this->option('template'));
             $options['is_template'] = true;
         }
 
@@ -268,126 +269,6 @@ final class ProjectCreateCommand extends Command
         }
 
         return $options;
-    }
-
-    /**
-     * Handle repository operations (fork/template creation).
-     */
-    private function handleRepositoryOperations(
-        ProvisionContext $context,
-        RepoIntent $intent,
-        ProvisionPipeline $pipeline
-    ): ProvisionContext {
-        $github = $pipeline->getGitHubService();
-
-        // Fork flow
-        if ($intent === RepoIntent::Fork && $context->cloneUrl) {
-            $result = $pipeline->forkRepository($context, $this->logger);
-            if ($result->isFailed()) {
-                throw new \RuntimeException($result->error ?? 'Fork failed');
-            }
-
-            return $context->withRepoInfo(
-                $result->data['repo'] ?? null,
-                $result->data['cloneUrl'] ?? null
-            );
-        }
-
-        // Template flow
-        if ($intent === RepoIntent::Template && $context->template) {
-            $owner = $context->getGitHubOwner($github->getUsername());
-            if (! $owner) {
-                throw new \RuntimeException('Could not determine GitHub username for template');
-            }
-
-            $targetRepo = "{$owner}/{$context->slug}";
-            $result = $pipeline->createFromTemplate($context, $this->logger, $targetRepo);
-
-            if ($result->isFailed()) {
-                throw new \RuntimeException($result->error ?? 'Template creation failed');
-            }
-
-            return $context->withRepoInfo(
-                $result->data['repo'] ?? null,
-                $result->data['cloneUrl'] ?? null
-            );
-        }
-
-        return $context;
-    }
-
-    /**
-     * Normalize repo URL to owner/repo format.
-     */
-    private function normalizeRepoUrl(?string $url): ?string
-    {
-        if (! $url) {
-            return null;
-        }
-
-        // Handle git@github.com:owner/repo.git or https URLs
-        if (preg_match('/github\.com[:\\/]([^\\/]+\\/[^\\/\\s]+?)(?:\\.git)?$/', $url, $matches)) {
-            return $matches[1];
-        }
-
-        // Assume already in owner/repo format
-        return str_replace('.git', '', $url);
-    }
-
-    /**
-     * Expand ~ to home directory.
-     */
-    private function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            $home = $_SERVER['HOME'] ?? '/home/orbit';
-
-            return $home.substr($path, 1);
-        }
-
-        return $path;
-    }
-
-    /**
-     * Detect the project type based on file structure.
-     */
-    private function detectProjectType(string $directory): string
-    {
-        $hasPublicFolder = is_dir("{$directory}/public");
-        $hasArtisan = file_exists("{$directory}/artisan");
-        $composerJson = "{$directory}/composer.json";
-
-        if (file_exists($composerJson)) {
-            $composer = json_decode(file_get_contents($composerJson), true);
-
-            $type = $composer['type'] ?? null;
-            if ($type === 'library' || $type === 'laravel-package') {
-                return 'laravel-package';
-            }
-
-            $extra = $composer['extra'] ?? [];
-            if (isset($extra['laravel']['providers']) || isset($extra['laravel']['aliases'])) {
-                return 'laravel-package';
-            }
-
-            if (isset($composer['require']['laravel-zero/framework'])) {
-                return 'cli';
-            }
-        }
-
-        if ($hasPublicFolder && $hasArtisan) {
-            return 'laravel-app';
-        }
-
-        if ($hasArtisan) {
-            return 'cli';
-        }
-
-        if ($hasPublicFolder) {
-            return 'web';
-        }
-
-        return 'unknown';
     }
 
     /**
@@ -418,8 +299,4 @@ final class ProjectCreateCommand extends Command
         return ExitCode::GeneralError->value;
     }
 
-    private function wantsJson(): bool
-    {
-        return (bool) $this->option('json') || ! $this->input->isInteractive();
-    }
 }

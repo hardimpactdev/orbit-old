@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace HardImpact\Orbit\Core\Services\Gateway;
 
 use HardImpact\Orbit\Core\Models\Gateway;
+use Illuminate\Database\Eloquent\Collection;
 
 final class GatewayManager
 {
     /**
-     * @return array<int, array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}>
+     * @return Collection<int, Gateway>
      */
-    public function all(): array
+    public function all(): Collection
     {
-        return Gateway::all()->map(fn (Gateway $g) => $this->toArray($g))->values()->all();
+        return Gateway::all();
     }
 
     public function hasAny(): bool
@@ -21,28 +22,18 @@ final class GatewayManager
         return Gateway::exists();
     }
 
-    /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}|null
-     */
-    public function get(int|string $id): ?array
+    public function get(int|string $id): ?Gateway
     {
-        $gateway = Gateway::find($id);
-
-        return $gateway ? $this->toArray($gateway) : null;
+        return Gateway::find($id);
     }
 
-    /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}
-     */
-    public function add(string $name, string $ip, string $subnet): array
+    public function add(string $name, string $ip, string $subnet): Gateway
     {
-        $gateway = Gateway::create([
+        return Gateway::create([
             'name' => $name,
             'ip_address' => $ip,
             'subnet' => $subnet,
         ]);
-
-        return $this->toArray($gateway);
     }
 
     public function remove(int|string $id): bool
@@ -75,10 +66,7 @@ final class GatewayManager
         return Gateway::find($id)->wg_api_port ?? 51821;
     }
 
-    /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}|null
-     */
-    public function findBySubnet(string $ip): ?array
+    public function findBySubnet(string $ip): ?Gateway
     {
         $ipLong = ip2long($ip);
         if ($ipLong === false) {
@@ -86,7 +74,7 @@ final class GatewayManager
         }
 
         foreach ($this->all() as $gateway) {
-            $subnet = $gateway['subnet'];
+            $subnet = $gateway->subnet;
             $parts = explode('/', $subnet);
             if (count($parts) !== 2) {
                 continue;
@@ -122,35 +110,18 @@ final class GatewayManager
             return null;
         }
 
-        $password = $this->getPassword($gatewayId);
-        if ($password === null) {
+        if ($gateway->wg_password === null) {
             throw new \RuntimeException("Gateway {$gatewayId} has no WG Easy password configured");
         }
 
         $wgService = WgEasyService::forGateway(
-            $gateway['vpn_gateway_ip'],
-            $gateway['wg_api_port'],
-            $password
+            $gateway->getVpnGatewayIp(),
+            $gateway->wg_api_port,
+            $gateway->wg_password
         );
 
         $client = $wgService->createClient($clientName);
 
         return $client['ip'] ?? null;
-    }
-
-    /**
-     * @return array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}
-     */
-    private function toArray(Gateway $gateway): array
-    {
-        return [
-            'id' => $gateway->id,
-            'name' => $gateway->name,
-            'ip' => $gateway->ip_address,
-            'subnet' => $gateway->subnet,
-            'wg_password' => $gateway->wg_password,
-            'wg_api_port' => $gateway->wg_api_port,
-            'vpn_gateway_ip' => $gateway->getVpnGatewayIp(),
-        ];
     }
 }

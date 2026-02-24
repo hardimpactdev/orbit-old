@@ -6,6 +6,7 @@ namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
 use App\Services\ConfigManager;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use App\Services\DatabaseService;
 use Illuminate\Support\Facades\File;
 use LaravelZero\Framework\Commands\Command;
@@ -93,7 +94,7 @@ final class ConfigMigrateCommand extends Command
     private function findProjectPath(string $slug, array $paths): ?string
     {
         foreach ($paths as $path) {
-            $expandedPath = $this->expandPath($path);
+            $expandedPath = ProjectHelper::expandPath($path);
             $projectPath = "{$expandedPath}/{$slug}";
 
             if (File::isDirectory($projectPath)) {
@@ -104,12 +105,4 @@ final class ConfigMigrateCommand extends Command
         return null;
     }
 
-    private function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            return $_SERVER['HOME'].substr($path, 1);
-        }
-
-        return $path;
-    }
 }

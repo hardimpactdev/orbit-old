@@ -50,6 +50,13 @@ final class GatewayRegisterProjectTool extends Tool
 
         $slug = $request->get('slug') ?: Str::slug($request->get('name'));
 
+        if (! preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
+            return Response::structured([
+                'success' => false,
+                'error' => "Invalid slug '{$slug}': must contain only lowercase alphanumeric characters and hyphens",
+            ]);
+        }
+
         if (GatewayProject::where('slug', $slug)->exists()) {
             return Response::structured([
                 'success' => false,

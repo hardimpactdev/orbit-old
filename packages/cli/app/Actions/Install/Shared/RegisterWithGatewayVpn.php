@@ -43,7 +43,7 @@ final readonly class RegisterWithGatewayVpn
             $clientName = $context->nodeName ?? gethostname();
 
             $vpnIp = $this->gatewayManager->registerVpnClient(
-                $gateway['id'],
+                $gateway->id,
                 $clientName,
             );
 

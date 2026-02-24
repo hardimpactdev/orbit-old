@@ -39,10 +39,9 @@ final class CloudflareConfigureCommand extends Command
             return self::FAILURE;
         }
 
-        $gatewayData = $active['gateway'];
-        $gateway = Gateway::find($gatewayData['id']);
+        $gateway = $active['gateway'];
 
-        if ($gateway === null) {
+        if (! $gateway instanceof Gateway) {
             $this->error('Gateway not found in database.');
 
             return self::FAILURE;

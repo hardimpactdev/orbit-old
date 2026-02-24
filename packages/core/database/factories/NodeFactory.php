@@ -32,7 +32,7 @@ class NodeFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'name' => 'Local',
             'host' => '127.0.0.1',
-            'user' => 'nckrtl',
+            'user' => 'orbit',
             'is_default' => true,
         ]);
     }

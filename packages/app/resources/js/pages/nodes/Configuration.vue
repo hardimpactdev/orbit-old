@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from "vue";
 import { Head, useForm, router, usePage } from "@inertiajs/vue3";
 import { toast } from "vue-sonner";
 import DnsSettings from "@/components/DnsSettings.vue";
+import { useCsrf } from "@/composables/useCsrf";
 import Modal from "@/components/Modal.vue";
 import {
     Loader2,
@@ -102,7 +103,7 @@ const page = usePage();
 const multiNode = computed(() => page.props.multi_node);
 const orbitVersion = computed(() => (page.props.orbit_version as string) || "unknown");
 
-const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || "";
+const csrfToken = useCsrf();
 
 // Tab navigation - 4 main tabs
 type TabId = "configuration" | "dns" | "templates" | "advanced";

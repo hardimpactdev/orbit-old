@@ -68,12 +68,12 @@ BEFORE (slow):
 Vue → fetch('/api/environments/1/status') → NativePHP (single-threaded) → SSH → CLI
 
 AFTER (fast):
-Vue → fetch('https://orbit.ccc/api/status') → Direct to remote server
+Vue → fetch('https://orbit.bear/api/status') → Direct to remote server
 ```
 
 **Implementation:**
 
-1. `EnvironmentController` passes `remoteApiUrl` prop to Vue pages (e.g., `https://orbit.ccc/api`)
+1. `EnvironmentController` passes `remoteApiUrl` prop to Vue pages (e.g., `https://orbit.bear/api`)
 2. Vue pages use a `getApiUrl(path)` helper that returns the remote URL when available
 3. For local environments or when TLD isn't set, falls back to NativePHP backend
 4. The TLD is cached in the `environments.tld` database column

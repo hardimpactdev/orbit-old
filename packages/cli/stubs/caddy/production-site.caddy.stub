@@ -1,22 +1,37 @@
 ORBIT_DOMAIN {
     tls {
-        issuer acme
+        issuer acme {
+            dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+        }
     }
     root * ORBIT_ROOT_PATH
     encode gzip
 
-    # Vite dev server proxy (safe if not running, convenient for development)
-    @vite path /@vite/* /@id/* /@fs/* /resources/* /node_modules/* /lang/* /__devtools__/*
-    reverse_proxy @vite localhost:5173 {
-        header_up Host localhost
+    @static {
+        path /build/*
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        -Server
     }
 
-    @ws {
-        header Connection *Upgrade*
-        header Upgrade websocket
-    }
-    reverse_proxy @ws localhost:5173 {
-        header_up Host localhost
+    @blocked path /.env /.env.* /.git/* /vendor/* /storage/* /config/* /database/* /node_modules/* /.htaccess /composer.json /composer.lock /package.json /package-lock.json /bun.lock* /vite.config.* /artisan
+    respond @blocked 404
+
+    handle /.well-known/security.txt {
+        header Content-Type "text/plain"
+        respond <<TXT
+            Contact: mailto:nick@platform11.nl
+            Expires: 2027-02-16T00:00:00.000Z
+            Preferred-Languages: en, nl
+            TXT 200
     }
 
     php_fastcgi unix/ORBIT_SOCKET_PATH

@@ -126,6 +126,46 @@ class SshService
         return "ssh {$options} {$node->user}@{$node->host} {$escapedCommand}";
     }
 
+    /**
+     * Write content to a remote file using base64 encoding to avoid shell escaping issues.
+     */
+    public function writeFile(Node $node, string $path, string $content): array
+    {
+        $encoded = base64_encode($content);
+
+        return $this->execute($node, "echo {$encoded} | base64 -d > " . escapeshellarg($path), 30);
+    }
+
+    /**
+     * Read a file from a remote node.
+     */
+    public function readFile(Node $node, string $path): ?string
+    {
+        $result = $this->execute($node, 'cat ' . escapeshellarg($path));
+
+        return $result['success'] ? $result['output'] : null;
+    }
+
+    /**
+     * Check if a file exists on a remote node.
+     */
+    public function fileExists(Node $node, string $path): bool
+    {
+        $result = $this->execute($node, '[ -e ' . escapeshellarg($path) . ' ] && echo yes || echo no');
+
+        return trim($result['output'] ?? '') === 'yes';
+    }
+
+    /**
+     * Check if a directory exists on a remote node.
+     */
+    public function directoryExists(Node $node, string $path): bool
+    {
+        $result = $this->execute($node, '[ -d ' . escapeshellarg($path) . ' ] && echo yes || echo no');
+
+        return trim($result['output'] ?? '') === 'yes';
+    }
+
     public function closeConnection(Node $node): void
     {
         if ($node->isLocal()) {

@@ -25,7 +25,6 @@ defineProps<{
 
     <div>
         <!-- Header -->
-        aaa
         <header class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight text-zinc-100">Dashboard</h1>

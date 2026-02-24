@@ -42,7 +42,6 @@ src/
     CloudflareService.php    # Cloudflare API v4 wrapper (multi-zone DNS records, zone detection, SSL)
     DeploymentService.php    # Cross-node deployment orchestration (deploy, deployProject, undeploy, sync)
     ProvisioningService.php  # Project provisioning orchestration
-    ProjectService.php       # Project management
     NodeService.php          # Node operations
     NodeManager.php          # Node CRUD and management
     SettingEncryptor.php     # Transparent encryption for sensitive Setting values

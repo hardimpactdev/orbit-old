@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Middleware;
 
+use HardImpact\Orbit\Core\Enums\NodeStatus;
 use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -33,7 +34,7 @@ class HandleInertiaRequests extends Middleware
         $appUrl = config('app.url', 'https://orbit.test');
         $host = parse_url($appUrl, PHP_URL_HOST) ?? 'orbit.test';
 
-        // Extract TLD (everything after first dot, e.g., "ccc" from "orbit.ccc")
+        // Extract TLD (everything after first dot, e.g., "bear" from "orbit.bear")
         $parts = explode('.', $host);
         $tld = count($parts) > 1 ? end($parts) : 'test';
 
@@ -136,7 +137,7 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'provisioning' => fn () => $request->session()->get('provisioning'),
             ],
-            'nodes' => fn () => Node::where('status', 'active')
+            'nodes' => fn () => Node::where('status', NodeStatus::Active)
                 ->orderBy('is_default', 'desc')
                 ->orderBy('name')
                 ->get(['id', 'name', 'host', 'is_default']),

@@ -64,6 +64,8 @@ const projectReadyCount = ref(0);
 const projectDeletedCount = ref(0);
 const processedEvents = new Map<string, string>();
 const processedDeletionEvents = new Map<string, string>();
+const provisioningTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const deletionTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /**
  * Global event handler for provisioning events - called from app.ts
@@ -100,10 +102,13 @@ function handleGlobalProvisionEvent(event: ProvisionEvent) {
         if (event.status === 'ready') {
             projectReadyCount.value++;
         }
-        setTimeout(() => {
+        const existing = provisioningTimers.get(event.slug);
+        if (existing) clearTimeout(existing);
+        provisioningTimers.set(event.slug, setTimeout(() => {
             provisioningProjects.value.delete(event.slug);
             processedEvents.delete(event.slug);
-        }, 15000);
+            provisioningTimers.delete(event.slug);
+        }, 15000));
     }
 }
 
@@ -125,11 +130,24 @@ function handleGlobalDeletionEvent(event: DeletionEvent) {
         if (event.status === 'deleted') {
             projectDeletedCount.value++;
         }
-        setTimeout(() => {
+        const existingTimer = deletionTimers.get(event.slug);
+        if (existingTimer) clearTimeout(existingTimer);
+        deletionTimers.set(event.slug, setTimeout(() => {
             deletingProjects.value.delete(event.slug);
             processedDeletionEvents.delete(event.slug);
-        }, 2000);
+            deletionTimers.delete(event.slug);
+        }, 2000));
     }
+}
+
+/**
+ * Clean up all active timers — call during app teardown.
+ */
+export function cleanupProvisioningTimers() {
+    provisioningTimers.forEach(clearTimeout);
+    provisioningTimers.clear();
+    deletionTimers.forEach(clearTimeout);
+    deletionTimers.clear();
 }
 
 /**
@@ -178,9 +196,12 @@ export function useProjectProvisioning() {
             status: 'deleted',
         });
         projectDeletedCount.value++;
-        setTimeout(() => {
+        const existingTimer = deletionTimers.get(slug);
+        if (existingTimer) clearTimeout(existingTimer);
+        deletionTimers.set(slug, setTimeout(() => {
             deletingProjects.value.delete(slug);
-        }, 2000);
+            deletionTimers.delete(slug);
+        }, 2000));
     }
 
     function markDeletionFailed(slug: string, error?: string) {

@@ -12,6 +12,7 @@ use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionLogger;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -95,7 +96,7 @@ final class CreateProjectJob implements ShouldQueue
             $intent = RepoIntent::fromPayload($this->options);
 
             // Phase 1: Repository Operations
-            $context = $this->handleRepositoryOperations($context, $intent, $pipeline, $logger);
+            $context = ProjectHelper::handleRepositoryOperations($context, $intent, $pipeline, $logger);
 
             // Phase 2: Clone repository (for clone/fork/template flows)
             if ($context->cloneUrl) {
@@ -119,7 +120,7 @@ final class CreateProjectJob implements ShouldQueue
 
             // Detect project type and public folder
             $hasPublicFolder = is_dir("{$projectPath}/public");
-            $projectType = $this->detectProjectType($projectPath);
+            $projectType = ProjectHelper::detectProjectType($projectPath);
 
             // Update project with final details
             $project->update([
@@ -174,7 +175,7 @@ final class CreateProjectJob implements ShouldQueue
 
         // If directory option provided, use it
         if (! empty($this->options['directory'])) {
-            return $this->expandPath($this->options['directory']);
+            return ProjectHelper::expandPath($this->options['directory']);
         }
 
         // Get default path from config
@@ -182,7 +183,7 @@ final class CreateProjectJob implements ShouldQueue
         $paths = $config['data']['paths'] ?? [];
         $basePath = $paths[0] ?? '~/projects';
 
-        return $this->expandPath("{$basePath}/{$this->slug}");
+        return ProjectHelper::expandPath("{$basePath}/{$this->slug}");
     }
 
     /**
@@ -215,66 +216,6 @@ final class CreateProjectJob implements ShouldQueue
         );
     }
 
-    /**
-     * Handle repository operations (fork/template creation).
-     */
-    protected function handleRepositoryOperations(
-        ProvisionContext $context,
-        RepoIntent $intent,
-        ProvisionPipeline $pipeline,
-        ProvisionLogger $logger
-    ): ProvisionContext {
-        $github = $pipeline->getGitHubService();
-
-        // Fork flow
-        if ($intent === RepoIntent::Fork && $context->cloneUrl) {
-            $result = $pipeline->forkRepository($context, $logger);
-            if ($result->isFailed()) {
-                throw new \RuntimeException($result->error ?? 'Fork failed');
-            }
-
-            return $context->withRepoInfo(
-                $result->data['repo'] ?? null,
-                $result->data['cloneUrl'] ?? null
-            );
-        }
-
-        // Template flow
-        if ($intent === RepoIntent::Template && $context->template) {
-            $owner = $context->getGitHubOwner($github->getUsername());
-            if (! $owner) {
-                throw new \RuntimeException('Could not determine GitHub username for template');
-            }
-
-            $targetRepo = "{$owner}/{$context->slug}";
-            $result = $pipeline->createFromTemplate($context, $logger, $targetRepo);
-
-            if ($result->isFailed()) {
-                throw new \RuntimeException($result->error ?? 'Template creation failed');
-            }
-
-            return $context->withRepoInfo(
-                $result->data['repo'] ?? null,
-                $result->data['cloneUrl'] ?? null
-            );
-        }
-
-        return $context;
-    }
-
-    /**
-     * Expand ~ to home directory.
-     */
-    protected function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            $home = $_SERVER['HOME'] ?? config('orbit.home_directory');
-
-            return $home.substr($path, 1);
-        }
-
-        return $path;
-    }
 
     /**
      * Get the slug for this project.
@@ -296,53 +237,6 @@ final class CreateProjectJob implements ShouldQueue
         ];
     }
 
-    /**
-     * Detect the project type based on file structure.
-     */
-    protected function detectProjectType(string $directory): string
-    {
-        $hasPublicFolder = is_dir("{$directory}/public");
-        $hasArtisan = file_exists("{$directory}/artisan");
-        $composerJson = "{$directory}/composer.json";
-
-        if (file_exists($composerJson)) {
-            $composer = json_decode(file_get_contents($composerJson), true);
-
-            // Check if it's a Laravel package
-            $type = $composer['type'] ?? null;
-            if ($type === 'library' || $type === 'laravel-package') {
-                return 'laravel-package';
-            }
-
-            // Check for package indicators in composer.json
-            $extra = $composer['extra'] ?? [];
-            if (isset($extra['laravel']['providers']) || isset($extra['laravel']['aliases'])) {
-                return 'laravel-package';
-            }
-
-            // Check for Laravel Zero CLI apps
-            if (isset($composer['require']['laravel-zero/framework'])) {
-                return 'cli';
-            }
-        }
-
-        // Laravel web application
-        if ($hasPublicFolder && $hasArtisan) {
-            return 'laravel-app';
-        }
-
-        // Laravel Zero or other CLI app
-        if ($hasArtisan) {
-            return 'cli';
-        }
-
-        // Generic PHP project with web interface
-        if ($hasPublicFolder) {
-            return 'web';
-        }
-
-        return 'unknown';
-    }
 
     /**
      * Regenerate Caddyfile and reload Caddy.

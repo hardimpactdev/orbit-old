@@ -1,6 +1,6 @@
 <?php
 
-use App\Contracts\CaddyfileGeneratorInterface;
+use App\Services\CaddyfileGenerator;
 use App\Enums\ExitCode;
 use App\Services\CaddyManager;
 use App\Services\PhpManager;
@@ -8,11 +8,11 @@ use App\Services\ServiceManager;
 
 beforeEach(function () {
     $this->serviceManager = Mockery::mock(ServiceManager::class);
-    $this->caddyfileGenerator = Mockery::mock(CaddyfileGeneratorInterface::class);
+    $this->caddyfileGenerator = Mockery::mock(CaddyfileGenerator::class);
     $this->phpManager = Mockery::mock(PhpManager::class);
     $this->caddyManager = Mockery::mock(CaddyManager::class);
     $this->app->instance(ServiceManager::class, $this->serviceManager);
-    $this->app->instance(CaddyfileGeneratorInterface::class, $this->caddyfileGenerator);
+    $this->app->instance(CaddyfileGenerator::class, $this->caddyfileGenerator);
     $this->app->instance(PhpManager::class, $this->phpManager);
     $this->app->instance(CaddyManager::class, $this->caddyManager);
 });

@@ -117,7 +117,7 @@ Route::middleware('implicit.node')->group(function (): void {
     Route::get('php-versions', function () {
         return response()->json([
             'success' => true,
-            'versions' => ['8.3', '8.4', '8.5'],
+            'versions' => \HardImpact\Orbit\Core\Support\PhpVersion::SUPPORTED,
         ]);
     });
     Route::post('php/{project}', [PhpConfigController::class, 'changePhp'])->name('api.php.set');

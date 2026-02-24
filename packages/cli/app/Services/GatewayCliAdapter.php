@@ -21,7 +21,7 @@ final readonly class GatewayCliAdapter
     /**
      * Detect the active gateway by checking network interfaces against configured subnets.
      *
-     * @return array{gateway: array{id: int, name: string, ip: string, subnet: string, wg_password: string|null, wg_api_port: int, vpn_gateway_ip: string}, vpn_ip: string}|null
+     * @return array{gateway: \HardImpact\Orbit\Core\Models\Gateway, vpn_ip: string}|null
      */
     public function detectActive(): ?array
     {

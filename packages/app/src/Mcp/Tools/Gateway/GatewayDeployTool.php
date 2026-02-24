@@ -166,7 +166,7 @@ final class GatewayDeployTool extends Tool
             $record = $this->cloudflare->createRecord(
                 $domain,
                 $node->external_host,
-                proxied: false
+                proxied: $node->isProduction()
             );
             if ($record) {
                 $deployment->update([
@@ -186,26 +186,50 @@ final class GatewayDeployTool extends Tool
 
     private function preflight(Node $node, ?string $repo, ?string $phpVersion = null): ?ResponseFactory
     {
-        $ssh = app(SshService::class)->testConnection($node);
-        if (! $ssh['success']) {
+        $ssh = app(SshService::class);
+
+        $connection = $ssh->testConnection($node);
+        if (! $connection['success']) {
             return Response::structured([
                 'success' => false,
-                'error' => "Cannot reach node '{$node->name}' via SSH: " . ($ssh['message'] ?: 'connection failed'),
+                'error' => "Cannot reach node '{$node->name}' via SSH: " . ($connection['message'] ?: 'connection failed'),
             ]);
         }
 
-        $binary = app(CommandService::class)->findBinary($node);
-        if (! $binary) {
-            return Response::structured([
-                'success' => false,
-                'error' => "Orbit CLI not found on node '{$node->name}'. Install it first.",
-            ]);
+        $useRemoteDeploy = $node->isProduction() || $node->isStaging();
+
+        if ($useRemoteDeploy) {
+            // Remote deploy: check for required tools (no CLI needed)
+            $toolCheck = $ssh->execute($node, 'command -v gh && command -v php && command -v composer');
+            if (! $toolCheck['success']) {
+                $missing = [];
+                foreach (['gh', 'php', 'composer'] as $tool) {
+                    $check = $ssh->execute($node, "command -v {$tool}");
+                    if (! $check['success']) {
+                        $missing[] = $tool;
+                    }
+                }
+
+                return Response::structured([
+                    'success' => false,
+                    'error' => "Missing required tools on node '{$node->name}': " . implode(', ', $missing) . ". Install them before deploying.",
+                ]);
+            }
+        } else {
+            // Dev deploy: CLI binary required
+            $binary = app(CommandService::class)->findBinary($node);
+            if (! $binary) {
+                return Response::structured([
+                    'success' => false,
+                    'error' => "Orbit CLI not found on node '{$node->name}'. Install it first.",
+                ]);
+            }
         }
 
         if ($repo) {
-            $repoCheck = app(SshService::class)->execute(
+            $repoCheck = $ssh->execute(
                 $node,
-                "gh repo view {$repo} --json name 2>&1"
+                'gh repo view ' . escapeshellarg($repo) . ' --json name 2>&1'
             );
             if (! $repoCheck['success'] || str_contains($repoCheck['output'] ?? '', 'Could not resolve') || str_contains($repoCheck['error'] ?? '', 'auth login')) {
                 return Response::structured([
@@ -217,17 +241,22 @@ final class GatewayDeployTool extends Tool
 
         // PHP version availability
         if ($phpVersion) {
-            // Remove dots from version (8.4 -> 84, 8.5 -> 85)
-            $versionClean = str_replace('.', '', $phpVersion);
-            $socket = "~/.config/orbit/php/php{$versionClean}.sock";
-            $check = app(SshService::class)->execute($node, "[ -S {$socket} ] && echo exists || echo missing");
+            $versionClean = preg_replace('/[^0-9]/', '', $phpVersion);
+            $check = $ssh->execute($node, "[ -S ~/.config/orbit/php/php{$versionClean}.sock ] && echo exists || echo missing");
 
             if (trim($check['output'] ?? '') === 'missing') {
-                // Get available PHP versions
-                $available = app(SshService::class)->execute(
+                $available = $ssh->execute(
                     $node,
-                    "ls ~/.config/orbit/php/php*.sock 2>/dev/null | grep -oP 'php\K[0-9]+' | sed 's/\\(.\\)\\(.\\)/\\1.\\2/' | sort -rn | tr '\n' ', ' | sed 's/,$//'"
+                    'ls ~/.config/orbit/php/php*.sock 2>/dev/null'
                 );
+                $versions = [];
+                if (preg_match_all('/php(\d)(\d)\.sock/', $available['output'] ?? '', $matches, PREG_SET_ORDER)) {
+                    foreach ($matches as $match) {
+                        $versions[] = $match[1] . '.' . $match[2];
+                    }
+                    rsort($versions);
+                }
+                $available = ['output' => implode(', ', $versions) ?: 'none'];
 
                 return Response::structured([
                     'success' => false,

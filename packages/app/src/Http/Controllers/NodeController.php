@@ -118,22 +118,12 @@ class NodeController extends Controller
         $installation = $this->status->checkInstallation($node);
         $editor = $node->getEditor();
         $remoteApiUrl = $this->getRemoteApiUrl($node);
-        $reverb = $this->config->getReverbConfig($node);
-
         return \Inertia\Inertia::render('nodes/Show', [
             'node' => $node,
             'installation' => $installation,
             'editor' => $editor,
             'remoteApiUrl' => $remoteApiUrl,
-            'reverb' => $reverb['success'] ? [
-                'enabled' => $reverb['enabled'] ?? false,
-                'host' => $reverb['host'] ?? null,
-                'port' => $reverb['port'] ?? null,
-                'scheme' => $reverb['scheme'] ?? null,
-                'app_key' => $reverb['app_key'] ?? null,
-            ] : [
-                'enabled' => false,
-            ],
+            'reverb' => $this->config->getFormattedReverbConfig($node),
         ]);
     }
 
@@ -254,23 +244,13 @@ class NodeController extends Controller
         $remoteApiUrl = $this->getRemoteApiUrl($node);
         $editor = $node->getEditor();
 
-        $reverb = $this->config->getReverbConfig($node);
-
         return \Inertia\Inertia::render('nodes/Services', [
             'node' => $node,
             'remoteApiUrl' => $remoteApiUrl,
             'editor' => $editor,
             'localPhpIniPath' => $node->isLocal() ? $this->macPhpFpm->getGlobalIniPath() : null,
             'homebrewPrefix' => $node->isLocal() ? $this->macPhpFpm->getHomebrewPrefix() : null,
-            'reverb' => $reverb['success'] ? [
-                'enabled' => $reverb['enabled'] ?? false,
-                'host' => $reverb['host'] ?? null,
-                'port' => $reverb['port'] ?? null,
-                'scheme' => $reverb['scheme'] ?? null,
-                'app_key' => $reverb['app_key'] ?? null,
-            ] : [
-                'enabled' => false,
-            ],
+            'reverb' => $this->config->getFormattedReverbConfig($node),
         ]);
     }
 

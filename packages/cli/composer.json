@@ -70,5 +70,10 @@
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
-    "bin": ["orbit"]
+    "bin": ["orbit"],
+    "repositories": [{
+        "name": "core",
+        "type": "path",
+        "url": "../core"
+    }]
 }

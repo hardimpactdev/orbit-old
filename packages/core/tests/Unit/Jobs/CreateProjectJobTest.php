@@ -5,6 +5,7 @@ declare(strict_types=1);
 use HardImpact\Orbit\Core\Data\ProvisionContext;
 use HardImpact\Orbit\Core\Jobs\CreateProjectJob;
 use HardImpact\Orbit\Core\Models\Node;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Provision\GitHubService;
 
@@ -153,37 +154,18 @@ describe('CreateProjectJob', function () {
 
     describe('project type detection', function () {
         it('detects laravel-app correctly', function () {
-            $job = new CreateProjectJob(
-                projectId: test()->project->id,
-                options: ['name' => 'test-project'],
-            );
-
-            $reflection = new ReflectionClass($job);
-            $method = $reflection->getMethod('detectProjectType');
-
-            // Create test project
             $projectDir = sys_get_temp_dir().'/laravel-app-'.uniqid();
             mkdir("{$projectDir}/public", 0755, true);
             touch("{$projectDir}/artisan");
 
-            expect($method->invoke($job, $projectDir))->toBe('laravel-app');
+            expect(ProjectHelper::detectProjectType($projectDir))->toBe('laravel-app');
 
-            // Cleanup
             @unlink("{$projectDir}/artisan");
             @rmdir("{$projectDir}/public");
             @rmdir($projectDir);
         });
 
         it('detects cli app correctly', function () {
-            $job = new CreateProjectJob(
-                projectId: test()->project->id,
-                options: ['name' => 'test-project'],
-            );
-
-            $reflection = new ReflectionClass($job);
-            $method = $reflection->getMethod('detectProjectType');
-
-            // Create test project
             $projectDir = sys_get_temp_dir().'/cli-app-'.uniqid();
             mkdir($projectDir, 0755, true);
             touch("{$projectDir}/artisan");
@@ -191,33 +173,22 @@ describe('CreateProjectJob', function () {
                 'require' => ['laravel-zero/framework' => '^12.0'],
             ]));
 
-            expect($method->invoke($job, $projectDir))->toBe('cli');
+            expect(ProjectHelper::detectProjectType($projectDir))->toBe('cli');
 
-            // Cleanup
             @unlink("{$projectDir}/artisan");
             @unlink("{$projectDir}/composer.json");
             @rmdir($projectDir);
         });
 
         it('detects laravel-package correctly', function () {
-            $job = new CreateProjectJob(
-                projectId: test()->project->id,
-                options: ['name' => 'test-project'],
-            );
-
-            $reflection = new ReflectionClass($job);
-            $method = $reflection->getMethod('detectProjectType');
-
-            // Create test project
             $projectDir = sys_get_temp_dir().'/package-'.uniqid();
             mkdir($projectDir, 0755, true);
             file_put_contents("{$projectDir}/composer.json", json_encode([
                 'type' => 'laravel-package',
             ]));
 
-            expect($method->invoke($job, $projectDir))->toBe('laravel-package');
+            expect(ProjectHelper::detectProjectType($projectDir))->toBe('laravel-package');
 
-            // Cleanup
             @unlink("{$projectDir}/composer.json");
             @rmdir($projectDir);
         });

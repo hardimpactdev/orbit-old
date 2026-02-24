@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Contracts\CaddyfileGeneratorInterface;
 use Illuminate\Support\Facades\File;
 
-final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
+class CaddyfileGenerator
 {
     protected string $caddyfilePath;
 
@@ -49,6 +48,47 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
     }
 }
 
+(security_headers) {
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+}
+
+(security_headers_production) {
+    import security_headers
+    header {
+        Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    }
+}
+
+(path_blocking) {
+    @blocked path /.env /.env.* /.git/* /vendor/* /storage/* /config/* /database/* /node_modules/* /.htaccess /composer.json /composer.lock /package.json /package-lock.json /bun.lock* /vite.config.* /artisan
+    respond @blocked 404
+}
+
+(security_txt) {
+    handle /.well-known/security.txt {
+        header Content-Type "text/plain"
+        respond <<TXT
+            Contact: mailto:nick@platform11.nl
+            Expires: 2027-02-16T00:00:00.000Z
+            Preferred-Languages: en, nl
+            TXT 200
+    }
+}
+
+(cache_headers) {
+    @static {
+        path /build/*
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
+}
+
 ';
 
         // Add orbit management UI site
@@ -62,6 +102,10 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
     }
     root * {$webAppPath}/public
     encode gzip
+    import security_headers
+    import path_blocking
+    import security_txt
+    import cache_headers
     php_fastcgi unix/{$defaultSocket}
     file_server
 }
@@ -110,6 +154,10 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
         header_up Host localhost
     }
 
+    import security_headers
+    import path_blocking
+    import security_txt
+    import cache_headers
     php_fastcgi unix/{$socket}
     file_server
 }
@@ -131,6 +179,10 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
     }
     root * {$root}
     encode gzip
+    import security_headers
+    import path_blocking
+    import security_txt
+    import cache_headers
     php_fastcgi unix/{$socket}
     file_server
 }
@@ -147,6 +199,7 @@ final readonly class CaddyfileGenerator implements CaddyfileGeneratorInterface
             lifetime 3598d
         }
     }
+    import security_headers
     @websocket {
         path /app /app/*
         header Connection *Upgrade*

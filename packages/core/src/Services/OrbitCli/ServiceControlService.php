@@ -29,12 +29,23 @@ use Illuminate\Support\Facades\Process;
  */
 class ServiceControlService
 {
+    private const ALLOWED_DOCKER_SERVICES = ['dns', 'postgres', 'redis', 'mailpit', 'reverb'];
+
+    private const ALLOWED_HOST_SERVICES = ['caddy', 'horizon', 'horizon-dev', 'php-8.1', 'php-8.2', 'php-8.3', 'php-8.4', 'php-8.5'];
+
     public function __construct(
         protected ConnectorService $connector,
         protected CommandService $command,
         protected SshService $ssh,
         protected HorizonService $horizon
     ) {}
+
+    private function validateServiceName(string $service, array $allowlist): void
+    {
+        if (! in_array($service, $allowlist, true)) {
+            throw new \InvalidArgumentException("Invalid service name '{$service}'. Allowed: " . implode(', ', $allowlist));
+        }
+    }
 
     /**
      * List all services and their status.
@@ -65,6 +76,8 @@ class ServiceControlService
      */
     public function enable(Node $node, string $service, array $options = []): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
+
         if ($node->isLocal()) {
             return $this->command->executeCommand($node, "service:enable {$service} --json");
         }
@@ -77,6 +90,8 @@ class ServiceControlService
      */
     public function disable(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
+
         if ($node->isLocal()) {
             return $this->command->executeCommand($node, "service:disable {$service} --json");
         }
@@ -89,6 +104,8 @@ class ServiceControlService
      */
     public function configure(Node $node, string $service, array $config): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
+
         if ($node->isLocal()) {
             $configJson = json_encode($config);
             $escapedConfig = escapeshellarg($configJson);
@@ -104,6 +121,8 @@ class ServiceControlService
      */
     public function info(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
+
         if ($node->isLocal()) {
             return $this->command->executeCommand($node, "service:info {$service} --json");
         }
@@ -159,6 +178,7 @@ class ServiceControlService
      */
     public function startService(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
         $container = $this->getContainerName($service);
 
         if ($node->isLocal()) {
@@ -173,6 +193,7 @@ class ServiceControlService
      */
     public function stopService(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
         $container = $this->getContainerName($service);
 
         if ($node->isLocal()) {
@@ -187,6 +208,7 @@ class ServiceControlService
      */
     public function restartService(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
         $container = $this->getContainerName($service);
 
         if ($node->isLocal()) {
@@ -201,6 +223,8 @@ class ServiceControlService
      */
     public function startHostService(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_HOST_SERVICES);
+
         if ($node->isLocal()) {
             return $this->hostServiceAction($node, $service, 'start');
         }
@@ -213,6 +237,8 @@ class ServiceControlService
      */
     public function stopHostService(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_HOST_SERVICES);
+
         if ($node->isLocal()) {
             return $this->hostServiceAction($node, $service, 'stop');
         }
@@ -225,6 +251,8 @@ class ServiceControlService
      */
     public function restartHostService(Node $node, string $service): array
     {
+        $this->validateServiceName($service, self::ALLOWED_HOST_SERVICES);
+
         if ($node->isLocal()) {
             return $this->hostServiceAction($node, $service, 'restart');
         }
@@ -239,6 +267,7 @@ class ServiceControlService
      */
     public function serviceLogs(Node $node, string $service, int $lines = 200, ?string $since = null): array
     {
+        $this->validateServiceName($service, self::ALLOWED_DOCKER_SERVICES);
         $container = $this->getContainerName($service);
 
         if ($node->isLocal()) {
@@ -272,6 +301,8 @@ class ServiceControlService
      */
     public function hostServiceLogs(Node $node, string $service, int $lines = 200, ?string $since = null): array
     {
+        $this->validateServiceName($service, self::ALLOWED_HOST_SERVICES);
+
         if ($node->isLocal()) {
             return $this->getLocalHostServiceLogs($service, $lines, $since);
         }

@@ -64,12 +64,12 @@ final class GatewayAddCommand extends Command
         $this->newLine();
         $this->info('Gateway added successfully!');
         $this->newLine();
-        $this->line("  Name:   {$gateway['name']}");
-        $this->line("  IP:     {$gateway['ip']}");
-        $this->line("  Subnet: {$gateway['subnet']}");
+        $this->line("  Name:   {$gateway->name}");
+        $this->line("  IP:     {$gateway->ip_address}");
+        $this->line("  Subnet: {$gateway->subnet}");
         $this->newLine();
         $this->line('To set up this gateway server, run:');
-        $this->line("  <fg=cyan>orbit setup:gateway {$gateway['ip']}</>");
+        $this->line("  <fg=cyan>orbit setup:gateway {$gateway->ip_address}</>");
 
         return self::SUCCESS;
     }

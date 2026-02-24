@@ -87,7 +87,7 @@ use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
 ```bash
 cd ~/projects/orbit-app
 bun run dev                     # Creates public/hot, enables HMR
-# Visit https://orbit-web.ccc   # Changes reflect instantly
+# Visit https://orbit-web.bear   # Changes reflect instantly
 ```
 
 ### Production Build

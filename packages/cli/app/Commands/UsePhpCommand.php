@@ -7,6 +7,7 @@ namespace App\Commands;
 use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\PhpManager;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use LaravelZero\Framework\Commands\Command;
 
 final class UsePhpCommand extends Command
@@ -19,7 +20,7 @@ final class UsePhpCommand extends Command
 
     protected $description = 'Set the default PHP CLI version';
 
-    protected array $validVersions = ['8.3', '8.4', '8.5'];
+    protected array $validVersions = PhpVersion::SUPPORTED;
 
     public function handle(PhpManager $phpManager): int
     {

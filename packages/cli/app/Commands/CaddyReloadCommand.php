@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Contracts\CaddyfileGeneratorInterface;
+use App\Services\CaddyfileGenerator;
 use App\Services\CaddyManager;
 use LaravelZero\Framework\Commands\Command;
 
@@ -18,7 +18,7 @@ final class CaddyReloadCommand extends Command
     protected $description = 'Regenerate Caddyfile and reload Caddy';
 
     public function handle(
-        CaddyfileGeneratorInterface $caddyfileGenerator,
+        CaddyfileGenerator $caddyfileGenerator,
         CaddyManager $caddyManager
     ): int {
         // Regenerate Caddyfile

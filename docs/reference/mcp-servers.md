@@ -32,7 +32,7 @@ claude mcp add --transport stdio orbit -- php artisan mcp:start orbit --cwd /pat
 
 **Connect from Claude Code (remote via HTTP):**
 ```bash
-claude mcp add --transport http orbit-remote https://orbit.ccc/mcp/orbit
+claude mcp add --transport http orbit-remote https://orbit.bear/mcp/orbit
 ```
 
 ## GatewayServer (`gateway`)
@@ -61,6 +61,12 @@ VPN client management, DNS/TLD routing, project registry, cross-node deployment 
 | `gateway_cloudflare_dns` | read-only | List Cloudflare DNS records |
 | `gateway_cloudflare_add_record` | mutating | Create a Cloudflare DNS record |
 | `gateway_cloudflare_remove_record` | destructive | Delete a Cloudflare DNS record |
+| `gateway_cloudflare_set_ssl` | mutating | Set Cloudflare SSL mode (off/flexible/full/strict) |
+| `gateway_cloudflare_flush_cache` | mutating | Purge Cloudflare CDN cache (zone-wide or specific URLs) |
+| `gateway_cloudflare_create_cache_rule` | mutating | Create "Cache Everything" rule for a zone (idempotent) |
+| `gateway_flush_dns` | mutating | Flush gateway dnsmasq DNS cache |
+| `gateway_update_tld` | mutating | Update TLD for a node (dnsmasq + DNS mappings) |
+| `gateway_update_caddy` | mutating | Update Caddy security headers on a node's project sites |
 
 **Resources:** `gateway://clients`, `gateway://dns`, `gateway://deployments`
 

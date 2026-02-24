@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use HardImpact\Orbit\Core\Support\PhpVersion;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Facades\File;
 
 class ProjectScanner
@@ -29,7 +31,7 @@ class ProjectScanner
         // First, process custom projects with explicit paths defined in config
         foreach ($projectOverrides as $name => $override) {
             if (isset($override['path'])) {
-                $customPath = $this->expandPath($override['path']);
+                $customPath = ProjectHelper::expandPath($override['path']);
 
                 if (File::isDirectory($customPath)) {
                     $seenNames[$name] = true;
@@ -65,7 +67,7 @@ class ProjectScanner
 
         // Then scan configured paths for auto-discovered projects (ALL directories)
         foreach ($paths as $path) {
-            $expandedPath = $this->expandPath($path);
+            $expandedPath = ProjectHelper::expandPath($path);
 
             if (! File::isDirectory($expandedPath)) {
                 continue;
@@ -158,7 +160,7 @@ class ProjectScanner
 
     protected function isValidPhpVersion(string $version): bool
     {
-        return in_array($version, ['8.3', '8.4', '8.5']);
+        return PhpVersion::isValid($version);
     }
 
     /**
@@ -173,15 +175,6 @@ class ProjectScanner
         }
 
         return $directory;
-    }
-
-    protected function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            return $_SERVER['HOME'].substr($path, 1);
-        }
-
-        return $path;
     }
 
     public function findProject(string $name): ?array

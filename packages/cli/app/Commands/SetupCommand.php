@@ -228,8 +228,8 @@ final class SetupCommand extends Command
         }
 
         $this->newLine();
-        $this->info("Selected gateway: {$gateway['name']}");
-        $this->line("  IP: {$gateway['ip']}");
+        $this->info("Selected gateway: {$gateway->name}");
+        $this->line("  IP: {$gateway->ip_address}");
         $this->newLine();
 
         $action = select(
@@ -245,13 +245,13 @@ final class SetupCommand extends Command
             $this->newLine();
 
             return $this->call('setup:gateway', [
-                'ip' => $gateway['ip'],
+                'ip' => $gateway->ip_address,
             ]);
         }
 
         $this->newLine();
         $this->info('To connect to this gateway:');
-        $this->line("  <fg=cyan>ssh orbit@{$gateway['ip']}</>");
+        $this->line("  <fg=cyan>ssh orbit@{$gateway->ip_address}</>");
         $this->newLine();
         $this->info('Once connected, set up this machine as a client:');
         $this->line('  1. Create a VPN client: <fg=cyan>orbit gateway:make:client</>');

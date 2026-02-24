@@ -143,7 +143,7 @@ class ProjectCliService
                 'projects' => $projects,
                 'tld' => $configData['tld'] ?? 'test',
                 'default_php_version' => $configData['default_php_version'] ?? '8.4',
-                'available_php_versions' => $configData['available_php_versions'] ?? ['8.3', '8.4', '8.5'],
+                'available_php_versions' => $configData['available_php_versions'] ?? \HardImpact\Orbit\Core\Support\PhpVersion::SUPPORTED,
             ],
         ];
     }

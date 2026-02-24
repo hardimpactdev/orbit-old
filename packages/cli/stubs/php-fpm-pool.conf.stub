@@ -26,10 +26,20 @@ catch_workers_output = yes
 decorate_workers_output = no
 
 ; Resource limits
-php_admin_value[memory_limit] = 128M
+php_admin_value[memory_limit] = ORBIT_MEMORY_LIMIT
 php_admin_value[upload_max_filesize] = 10M
 php_admin_value[post_max_size] = 10M
 php_admin_value[max_execution_time] = 60
+
+; Security hardening
+php_admin_flag[display_errors] = off
+php_admin_flag[display_startup_errors] = off
+php_admin_flag[expose_php] = off
+php_admin_flag[allow_url_include] = off
+php_admin_flag[session.cookie_httponly] = on
+php_admin_flag[session.cookie_secure] = on
+php_admin_value[session.cookie_samesite] = Lax
+php_admin_flag[session.use_strict_mode] = on
 
 ; Environment variables (critical for CLI/Bun access)
 env[PATH] = ORBIT_ENV_PATH

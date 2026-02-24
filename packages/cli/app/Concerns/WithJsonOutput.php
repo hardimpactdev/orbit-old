@@ -8,7 +8,7 @@ trait WithJsonOutput
 {
     protected function wantsJson(): bool
     {
-        return $this->option('json') === true;
+        return (bool) $this->option('json') || ! $this->input->isInteractive();
     }
 
     protected function outputJson(array $data, int $exitCode = self::SUCCESS): int

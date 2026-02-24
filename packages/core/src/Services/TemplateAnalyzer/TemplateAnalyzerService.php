@@ -66,7 +66,7 @@ final class TemplateAnalyzerService
 
         // Find a matching analyzer
         $analyzer = $this->findAnalyzer($contents);
-        if (! $analyzer instanceof \App\Services\TemplateAnalyzer\Contracts\TemplateAnalyzerInterface) {
+        if (! $analyzer instanceof TemplateAnalyzerInterface) {
             return [
                 'success' => false,
                 'error' => 'Could not detect project type. Only Laravel templates are currently supported.',

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Contracts\CaddyfileGeneratorInterface;
+use App\Services\CaddyfileGenerator;
 use App\Enums\ExitCode;
 use App\Services\CaddyManager;
 use App\Services\PhpManager;
@@ -22,7 +22,7 @@ final class StartCommand extends Command
 
     public function handle(
         ServiceManager $serviceManager,
-        CaddyfileGeneratorInterface $caddyfileGenerator,
+        CaddyfileGenerator $caddyfileGenerator,
         PhpManager $phpManager,
         CaddyManager $caddyManager,
     ): int {

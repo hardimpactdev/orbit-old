@@ -13,6 +13,7 @@ use App\Services\ReverbBroadcaster;
 use HardImpact\Orbit\Core\Data\DeletionContext;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Deletion\DeletionPipeline;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use LaravelZero\Framework\Commands\Command;
 
 /**
@@ -231,7 +232,7 @@ final class ProjectDeleteCommand extends Command
 
         $paths = $config->getPaths();
         foreach ($paths as $basePath) {
-            $expandedPath = $this->expandPath($basePath);
+            $expandedPath = ProjectHelper::expandPath($basePath);
             $projectPath = "{$expandedPath}/{$slug}";
             if (is_dir($projectPath)) {
                 return $projectPath;
@@ -239,15 +240,6 @@ final class ProjectDeleteCommand extends Command
         }
 
         return null;
-    }
-
-    private function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            return $_SERVER['HOME'].substr($path, 1);
-        }
-
-        return $path;
     }
 
     private function failWithMessage(string $message): int
@@ -264,8 +256,4 @@ final class ProjectDeleteCommand extends Command
         return ExitCode::GeneralError->value;
     }
 
-    private function wantsJson(): bool
-    {
-        return (bool) $this->option('json') || ! $this->input->isInteractive();
-    }
 }

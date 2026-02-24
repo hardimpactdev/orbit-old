@@ -100,9 +100,4 @@ class Setting extends Model
         static::set('ssh_public_key', trim($key));
     }
 
-    /** @deprecated Use SshKey::getAvailableLocalKeys() instead */
-    public static function getAvailableSshKeys(): array
-    {
-        return SshKey::getAvailableLocalKeys();
-    }
 }

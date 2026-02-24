@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace HardImpact\Orbit\Core\Services\Provision;
 
 use HardImpact\Orbit\Core\Contracts\ProvisionLoggerContract;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use Illuminate\Support\Facades\Process;
 
 /**
@@ -113,30 +114,6 @@ final class GitHubService
 
     private function getRecommendedPhpVersion(string $constraint): string
     {
-        $constraint = trim($constraint);
-        $available = ['8.5', '8.4', '8.3'];
-        $default = '8.5';
-
-        if (preg_match("/<\s*(\d+)\.(\d+)/", $constraint, $matches)) {
-            $maxMajor = (int) $matches[1];
-            $maxMinor = (int) $matches[2];
-
-            foreach ($available as $version) {
-                [$major, $minor] = explode('.', $version);
-                if ((int) $major < $maxMajor || ((int) $major === $maxMajor && (int) $minor < $maxMinor)) {
-                    return $version;
-                }
-            }
-        }
-
-        if (preg_match("/~\s*(\d+)\.(\d+)\./", $constraint, $matches)) {
-            return $matches[1] . '.' . $matches[2];
-        }
-
-        if (preg_match("/(\d+)\.(\d+)\.\*/", $constraint, $matches)) {
-            return $matches[1] . '.' . $matches[2];
-        }
-
-        return $default;
+        return PhpVersion::recommendedForConstraint($constraint);
     }
 }

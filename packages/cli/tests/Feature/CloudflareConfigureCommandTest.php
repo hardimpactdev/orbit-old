@@ -30,29 +30,19 @@ beforeEach(function () {
     }
 
     Gateway::query()->delete();
-    Gateway::create([
+    $this->gateway = Gateway::create([
         'id' => 1,
         'name' => 'test-gateway',
         'ip_address' => '188.245.156.201',
         'ssh_user' => 'gateway',
         'subnet' => '10.8.0.0/24',
     ]);
-
-    $this->gatewayData = [
-        'id' => 1,
-        'name' => 'test-gateway',
-        'ip' => '188.245.156.201',
-        'subnet' => '10.8.0.0/24',
-        'wg_password' => null,
-        'wg_api_port' => 51821,
-        'vpn_gateway_ip' => '10.8.0.1',
-    ];
 });
 
 it('stores token and lists available zones', function () {
     $this->gatewayManager->shouldReceive('hasAny')->andReturn(true);
     $this->adapter->shouldReceive('detectActive')->andReturn([
-        'gateway' => $this->gatewayData,
+        'gateway' => $this->gateway,
         'vpn_ip' => '10.8.0.2',
     ]);
 
@@ -96,7 +86,7 @@ it('fails when no active VPN connection', function () {
 it('fails when token validation returns error', function () {
     $this->gatewayManager->shouldReceive('hasAny')->andReturn(true);
     $this->adapter->shouldReceive('detectActive')->andReturn([
-        'gateway' => $this->gatewayData,
+        'gateway' => $this->gateway,
         'vpn_ip' => '10.8.0.2',
     ]);
 
@@ -118,7 +108,7 @@ it('fails when token validation returns error', function () {
 it('fails when SSH connection fails', function () {
     $this->gatewayManager->shouldReceive('hasAny')->andReturn(true);
     $this->adapter->shouldReceive('detectActive')->andReturn([
-        'gateway' => $this->gatewayData,
+        'gateway' => $this->gateway,
         'vpn_ip' => '10.8.0.2',
     ]);
 

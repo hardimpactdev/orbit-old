@@ -12,6 +12,8 @@ use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayClientsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareAddRecordTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareDnsTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareRemoveRecordTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareCreateCacheRuleTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareFlushCacheTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareSetSslTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareStatusTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayCloudflareZonesTool;
@@ -27,6 +29,9 @@ use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayRemoveTldTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayStatusTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewaySyncNodeTool;
 use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayUndeployTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayUpdateCaddyTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayUpdateNodeTool;
+use HardImpact\Orbit\App\Mcp\Tools\Gateway\GatewayUpdateTldTool;
 use Laravel\Mcp\Server;
 
 final class GatewayServer extends Server
@@ -56,7 +61,7 @@ final class GatewayServer extends Server
         ## Key Concepts
 
         - **VPN Clients**: Machines connected to the gateway via WireGuard
-        - **TLD Mappings**: DNS entries routing custom TLDs (e.g. `.ccc`) to specific VPN client IPs
+        - **TLD Mappings**: DNS entries routing custom TLDs (e.g. `.bear`) to specific VPN client IPs
         - **Nodes**: Registered machines with an environment (development/staging/production)
         - **Gateway Projects**: Registered projects that own deployments across nodes, with optional Cloudflare zone
         - **Deployments**: Project instances tracked across nodes
@@ -95,6 +100,19 @@ final class GatewayServer extends Server
 
         8. **View gateway health**:
            - Use `gateway_status` for an overview of the gateway node
+
+        9. **Enable Cloudflare CDN caching** (see docs/reference/cloudflare-caching.md):
+           - Use `gateway_cloudflare_create_cache_rule` with `project_slug` to enable caching for a zone
+           - Use `gateway_cloudflare_flush_cache` with `project_slug` to purge after changes
+           - Full-page caching also requires app-level changes (stateless middleware group)
+
+        10. **Update node properties**:
+           - Use `gateway_update_node` to change host, external_host, name, environment, status, or is_active
+
+        11. **Update Caddy security headers**:
+           - Use `gateway_update_caddy` with `dry_run: true` to preview changes
+           - Use `gateway_update_caddy` with `dry_run: false` to apply (creates .bak backups)
+           - Pass `slug` to update a single project, or omit for all projects on a node
         INSTRUCTIONS;
 
     protected array $tools = [
@@ -117,7 +135,12 @@ final class GatewayServer extends Server
         GatewayCloudflareAddRecordTool::class,
         GatewayCloudflareRemoveRecordTool::class,
         GatewayCloudflareSetSslTool::class,
+        GatewayCloudflareFlushCacheTool::class,
+        GatewayCloudflareCreateCacheRuleTool::class,
         GatewayFlushDnsTool::class,
+        GatewayUpdateTldTool::class,
+        GatewayUpdateNodeTool::class,
+        GatewayUpdateCaddyTool::class,
     ];
 
     protected array $resources = [

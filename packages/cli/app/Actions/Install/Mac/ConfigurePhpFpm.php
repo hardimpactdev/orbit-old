@@ -121,6 +121,9 @@ final readonly class ConfigurePhpFpm
         $home = $context->homeDir;
         $envPath = trim(Process::run('echo $PATH')->output());
 
+        // Determine memory limit based on template
+        $memoryLimit = in_array($context->template, ['php-production', 'client'], true) ? '128M' : '512M';
+
         // Replace placeholders - use normalized version for pool name to ensure consistency
         $config = str_replace([
             'ORBIT_PHP_VERSION',
@@ -128,6 +131,7 @@ final readonly class ConfigurePhpFpm
             'ORBIT_GROUP',
             'ORBIT_SOCKET_PATH',
             'ORBIT_LOG_PATH',
+            'ORBIT_MEMORY_LIMIT',
             'ORBIT_ENV_PATH',
             'ORBIT_HOME',
         ], [
@@ -136,9 +140,16 @@ final readonly class ConfigurePhpFpm
             $group,
             $socketPath,
             $logPath,
+            $memoryLimit,
             $envPath,
             $home,
         ], $stub);
+
+        // Append disable_functions for production templates
+        if (in_array($context->template, ['php-production', 'client'], true)) {
+            $config .= "\n; Production: disable dangerous functions\n";
+            $config .= "php_admin_value[disable_functions] = exec,passthru,shell_exec,system,popen,pcntl_exec,dl,show_source\n";
+        }
 
         // Write pool configuration
         return File::put($poolConfigPath, $config) !== false;

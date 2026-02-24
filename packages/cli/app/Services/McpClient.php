@@ -19,10 +19,12 @@ final class McpClient
         $sequenceUrl = $config->get('sequence.url', 'http://localhost:8000');
         $this->baseUrl = rtrim((string) $sequenceUrl, '/').'/mcp';
 
-        // Check if URL uses .ccc TLD - resolve to localhost for background processes
+        // Check if URL uses the node's custom TLD — resolve to localhost for background processes
+        // Custom TLDs (e.g. .bear, .beast) don't resolve in background processes without DNS access
+        $tld = $config->get('tld');
         $parsedUrl = parse_url($this->baseUrl);
         $host = $parsedUrl['host'] ?? null;
-        if ($host && str_ends_with($host, '.ccc')) {
+        if ($host && $tld && str_ends_with($host, ".{$tld}")) {
             $this->resolveHost = $host;
         }
     }
@@ -42,7 +44,7 @@ final class McpClient
     {
         $http = Http::timeout(120);
 
-        // Add CURL resolve option to bypass DNS for .ccc domains
+        // Add CURL resolve option to bypass DNS for custom TLD domains
         // This ensures the request works even in background processes without DNS access
         if ($this->resolveHost) {
             $http = $http->withOptions([

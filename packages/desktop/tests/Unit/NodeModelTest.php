@@ -109,7 +109,7 @@ test('get default node', function () {
         'is_default' => true,
     ]);
 
-    expect(Node::getDefault()->id)->toBe($default->id);
+    expect(Node::getSelf()->id)->toBe($default->id);
 });
 
 test('get default returns null when no default', function () {
@@ -121,7 +121,7 @@ test('get default returns null when no default', function () {
         'is_default' => false,
     ]);
 
-    expect(Node::getDefault())->toBeNull();
+    expect(Node::getSelf())->toBeNull();
 });
 
 test('getSelf returns default node', function () {

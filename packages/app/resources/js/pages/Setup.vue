@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import { Loader2, Check, X, Rocket, AlertCircle, RefreshCw } from 'lucide-vue-next';
+import { useCsrf } from '@/composables/useCsrf';
 
 interface SetupStatus {
     needs_setup: boolean;
@@ -79,7 +80,7 @@ async function startSetup() {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'X-CSRF-TOKEN': useCsrf(),
             },
             body: JSON.stringify({ tld: tld.value }),
         });

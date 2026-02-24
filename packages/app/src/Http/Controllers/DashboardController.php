@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\App\Http\Controllers;
 
+use HardImpact\Orbit\Core\Enums\NodeStatus;
 use HardImpact\Orbit\Core\Models\Node;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,7 +41,7 @@ class DashboardController extends Controller
         }
 
         // No default node - check if any nodes exist
-        $firstNode = Node::where('status', 'active')->first();
+        $firstNode = Node::where('status', NodeStatus::Active)->first();
 
         if ($firstNode) {
             $firstNode->update(['is_default' => true]);

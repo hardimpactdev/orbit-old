@@ -117,7 +117,7 @@ class DnsController extends Controller
      */
     protected function validateDnsServer(Node $node, string $ip): bool
     {
-        $command = "timeout 2 ping -c 1 -W 1 {$ip} > /dev/null 2>&1 && echo 'reachable' || echo 'unreachable'";
+        $command = 'timeout 2 ping -c 1 -W 1 ' . escapeshellarg($ip) . " > /dev/null 2>&1 && echo 'reachable' || echo 'unreachable'";
         $result = $this->ssh->execute($node, $command, 5);
 
         if (! $result['success']) {

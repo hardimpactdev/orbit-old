@@ -190,6 +190,37 @@ class ConfigManager
         $this->setDnsMappings($mappings);
     }
 
+    /**
+     * Update the TLD in dns_mappings address entries.
+     *
+     * Finds the first 'address' mapping and updates its TLD to match.
+     * If no address mapping exists, inserts one pointing to 127.0.0.1.
+     */
+    public function updateTldInDnsMappings(string $newTld): void
+    {
+        $mappings = $this->getDnsMappings();
+        $updated = false;
+
+        foreach ($mappings as &$mapping) {
+            if ($mapping['type'] === 'address') {
+                $mapping['tld'] = $newTld;
+                $updated = true;
+                break;
+            }
+        }
+        unset($mapping);
+
+        if (! $updated) {
+            array_unshift($mappings, [
+                'type' => 'address',
+                'tld' => $newTld,
+                'value' => '127.0.0.1',
+            ]);
+        }
+
+        $this->setDnsMappings($mappings);
+    }
+
     public function removeDnsMapping(int $index): void
     {
         $mappings = $this->getDnsMappings();

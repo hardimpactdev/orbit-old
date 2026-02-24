@@ -15,6 +15,7 @@ use HardImpact\Orbit\Core\Enums\ProjectStatus;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Models\Project;
 use HardImpact\Orbit\Core\Services\Provision\ProvisionPipeline;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Str;
 use LaravelZero\Framework\Commands\Command;
@@ -108,7 +109,7 @@ final class ProjectDeployCommand extends Command
                 $effectivePath = "{$basePath}/{$effectivePath}";
             }
             $hasPublicFolder = is_dir("{$effectivePath}/public");
-            $projectType = $this->detectProjectType($effectivePath);
+            $projectType = ProjectHelper::detectProjectType($effectivePath);
 
             $project->update([
                 'status' => ProjectStatus::Ready,
@@ -188,7 +189,7 @@ final class ProjectDeployCommand extends Command
         $this->createDirectoryStructure($basePath);
 
         // Clone into release directory
-        $cloneUrl = $this->normalizeRepoUrl($this->option('clone'));
+        $cloneUrl = ProjectHelper::normalizeRepoUrl($this->option('clone'));
         $context = new ProvisionContext(
             slug: $slug,
             projectPath: $releasePath,
@@ -496,7 +497,7 @@ final class ProjectDeployCommand extends Command
     {
         // Use --clone option if provided
         if ($this->option('clone')) {
-            return $this->normalizeRepoUrl($this->option('clone'));
+            return ProjectHelper::normalizeRepoUrl($this->option('clone'));
         }
 
         // Try to read from current release's git remote
@@ -508,7 +509,7 @@ final class ProjectDeployCommand extends Command
             if ($result->successful()) {
                 $url = trim($result->output());
 
-                return $this->normalizeRepoUrl($url) ?: $url;
+                return ProjectHelper::normalizeRepoUrl($url) ?: $url;
             }
         }
 
@@ -518,38 +519,15 @@ final class ProjectDeployCommand extends Command
     private function determineBasePath(ConfigManager $config, string $slug): string
     {
         if ($this->option('directory')) {
-            return $this->expandPath($this->option('directory'));
+            return ProjectHelper::expandPath($this->option('directory'));
         }
 
         $paths = $config->getPaths();
         $basePath = $paths[0] ?? '~/projects';
 
-        return $this->expandPath("{$basePath}/{$slug}");
+        return ProjectHelper::expandPath("{$basePath}/{$slug}");
     }
 
-    private function normalizeRepoUrl(?string $url): ?string
-    {
-        if (! $url) {
-            return null;
-        }
-
-        if (preg_match('/github\.com[:\\/]([^\\/]+\\/[^\\/\\s]+?)(?:\\.git)?$/', $url, $matches)) {
-            return $matches[1];
-        }
-
-        return str_replace('.git', '', $url);
-    }
-
-    private function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            $home = $_SERVER['HOME'] ?? '/home/orbit';
-
-            return $home . substr($path, 1);
-        }
-
-        return $path;
-    }
 
     private function setEnvValue(string $env, string $key, string $value): string
     {
@@ -635,35 +613,6 @@ final class ProjectDeployCommand extends Command
         }
     }
 
-    private function detectProjectType(string $directory): string
-    {
-        $hasPublicFolder = is_dir("{$directory}/public");
-        $hasArtisan = file_exists("{$directory}/artisan");
-        $composerJson = "{$directory}/composer.json";
-
-        if (file_exists($composerJson)) {
-            $composer = json_decode(file_get_contents($composerJson), true);
-
-            $type = $composer['type'] ?? null;
-            if ($type === 'library' || $type === 'laravel-package') {
-                return 'laravel-package';
-            }
-
-            if (isset($composer['require']['laravel-zero/framework'])) {
-                return 'cli';
-            }
-        }
-
-        if ($hasPublicFolder && $hasArtisan) {
-            return 'laravel-app';
-        }
-
-        if ($hasPublicFolder) {
-            return 'web';
-        }
-
-        return 'unknown';
-    }
 
     /**
      * Create production Caddy site block with ACME TLS.
@@ -760,8 +709,4 @@ final class ProjectDeployCommand extends Command
         return ExitCode::GeneralError->value;
     }
 
-    private function wantsJson(): bool
-    {
-        return (bool) $this->option('json') || ! $this->input->isInteractive();
-    }
 }

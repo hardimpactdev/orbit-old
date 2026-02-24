@@ -52,7 +52,7 @@ Desktop App                    Remote Server (ai)
 ssh orbit@ai 'gh repo delete nckrtl/test-api --yes 2>/dev/null; rm -rf ~/projects/test-api'
 
 # Create via API
-curl -s -X POST https://orbit.ccc/api/projects \
+curl -s -X POST https://orbit.bear/api/projects \
   -H "Content-Type: application/json" \
   -d '{"name": "test-api", "template": "hardimpactdev/liftoff-starterkit", "db_driver": "pgsql", "visibility": "private"}'
 ```
@@ -89,10 +89,10 @@ CreateProjectJob: Completed {"slug":"test-api"}
 ssh orbit@ai 'ls -la ~/projects/test-api/.env'
 
 # Check if site responds
-curl -s -o /dev/null -w "%{http_code}" https://test-api.ccc/
+curl -s -o /dev/null -w "%{http_code}" https://test-api.bear/
 
 # Check if project appears in API
-curl -s https://orbit.ccc/api/projects | jq '.data.projects[] | select(.name=="test-api")'
+curl -s https://orbit.bear/api/projects | jq '.data.projects[] | select(.name=="test-api")'
 ```
 
 ### Step 4: Cleanup
@@ -195,7 +195,7 @@ ssh orbit@ai 'grep ORBIT_CLI_PATH ~/.config/orbit/web/.env'
 
 ### Broadcast Exceptions Failing Jobs
 
-- **Issue**: Jobs failed with "Could not resolve host: reverb.ccc"
+- **Issue**: Jobs failed with "Could not resolve host: reverb.bear"
 - **Cause**: Horizon runs on HOST which doesn't use orbit DNS
 - **Fix**: Made broadcast() catch exceptions (non-blocking)
 

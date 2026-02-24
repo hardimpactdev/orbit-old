@@ -181,6 +181,22 @@ class CloudflareService
         return $response['result'] ?? null;
     }
 
+    public function getDnssec(string $zoneId): ?array
+    {
+        $response = $this->request('GET', "/zones/{$zoneId}/dnssec");
+
+        return $response['result'] ?? null;
+    }
+
+    public function enableDnssec(string $zoneId): ?array
+    {
+        $response = $this->request('PATCH', "/zones/{$zoneId}/dnssec", [
+            'status' => 'active',
+        ]);
+
+        return $response['result'] ?? null;
+    }
+
     public function setSslMode(string $zoneId, string $mode): bool
     {
         try {
@@ -198,6 +214,91 @@ class CloudflareService
             Log::error("Failed to set Cloudflare SSL mode: {$e->getMessage()}", [
                 'zone_id' => $zoneId,
                 'mode' => $mode,
+            ]);
+
+            return false;
+        }
+    }
+
+    public function purgeCache(?string $zoneId = null): bool
+    {
+        try {
+            $response = $this->request('POST', $this->zonePath('/purge_cache', $zoneId), [
+                'purge_everything' => true,
+            ]);
+
+            Log::info('Purged Cloudflare cache', [
+                'zone_id' => $this->resolveZoneId($zoneId),
+            ]);
+
+            return $response['success'] ?? false;
+        } catch (\Throwable $e) {
+            Log::error("Failed to purge Cloudflare cache: {$e->getMessage()}", [
+                'zone_id' => $zoneId,
+            ]);
+
+            return false;
+        }
+    }
+
+    public function purgeCacheByUrls(array $urls, ?string $zoneId = null): bool
+    {
+        try {
+            $response = $this->request('POST', $this->zonePath('/purge_cache', $zoneId), [
+                'files' => $urls,
+            ]);
+
+            Log::info('Purged Cloudflare cache by URLs', [
+                'zone_id' => $this->resolveZoneId($zoneId),
+                'url_count' => count($urls),
+            ]);
+
+            return $response['success'] ?? false;
+        } catch (\Throwable $e) {
+            Log::error("Failed to purge Cloudflare cache by URLs: {$e->getMessage()}", [
+                'zone_id' => $zoneId,
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Create a "Cache Everything" cache rule for a zone.
+     * Idempotent — overwrites any existing cache rules in the zone.
+     */
+    public function createCacheRule(?string $zoneId = null): bool
+    {
+        try {
+            $resolved = $this->resolveZoneId($zoneId);
+
+            $response = $this->request('PUT', "/zones/{$resolved}/rulesets/phases/http_request_cache_settings/entrypoint", [
+                'rules' => [[
+                    'expression' => 'true',
+                    'description' => 'Cache everything - respect origin Cache-Control',
+                    'action' => 'set_cache_settings',
+                    'action_parameters' => [
+                        'cache' => true,
+                        'browser_ttl' => ['mode' => 'respect_origin'],
+                    ],
+                ]],
+            ]);
+
+            if ($response['success'] ?? false) {
+                Log::info('Created Cloudflare cache rule', ['zone_id' => $resolved]);
+
+                return true;
+            }
+
+            Log::warning('Failed to create Cloudflare cache rule', [
+                'zone_id' => $resolved,
+                'errors' => $response['errors'] ?? [],
+            ]);
+
+            return false;
+        } catch (\Throwable $e) {
+            Log::error("Failed to create Cloudflare cache rule: {$e->getMessage()}", [
+                'zone_id' => $zoneId,
             ]);
 
             return false;

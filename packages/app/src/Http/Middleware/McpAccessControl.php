@@ -16,7 +16,8 @@ class McpAccessControl
      * @var array<string>
      */
     private array $allowedSubnets = [
-        '127.0.0.1/32',    // Localhost (development)
+        '127.0.0.1/32',    // Localhost IPv4
+        '::1/128',         // Localhost IPv6
         '10.6.0.0/24',     // Gateway VPN network
     ];
 
@@ -65,15 +66,38 @@ class McpAccessControl
             ? explode('/', $subnet)
             : [$subnet, '32'];
 
-        $ipLong = ip2long($ip);
-        $subnetLong = ip2long($subnetIp);
+        $ipBin = @inet_pton($ip);
+        $subnetBin = @inet_pton($subnetIp);
 
-        if ($ipLong === false || $subnetLong === false) {
+        if ($ipBin === false || $subnetBin === false) {
             return false;
         }
 
-        $maskLong = -1 << (32 - (int) $mask);
+        // Both must be the same address family (IPv4 = 4 bytes, IPv6 = 16 bytes)
+        if (strlen($ipBin) !== strlen($subnetBin)) {
+            return false;
+        }
 
-        return ($ipLong & $maskLong) === ($subnetLong & $maskLong);
+        $maskInt = (int) $mask;
+        $byteLen = strlen($ipBin);
+        $fullBytes = intdiv($maskInt, 8);
+        $remainingBits = $maskInt % 8;
+
+        // Compare full bytes
+        for ($i = 0; $i < $fullBytes && $i < $byteLen; $i++) {
+            if ($ipBin[$i] !== $subnetBin[$i]) {
+                return false;
+            }
+        }
+
+        // Compare remaining bits
+        if ($remainingBits > 0 && $fullBytes < $byteLen) {
+            $bitMask = 0xFF << (8 - $remainingBits) & 0xFF;
+            if ((ord($ipBin[$fullBytes]) & $bitMask) !== (ord($subnetBin[$fullBytes]) & $bitMask)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

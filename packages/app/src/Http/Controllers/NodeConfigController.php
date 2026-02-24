@@ -8,6 +8,7 @@ use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\DnsResolverService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\ServiceControlService;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -39,7 +40,7 @@ class NodeConfigController extends Controller
             $config = $this->config->getConfig($node);
             $availableVersions = $config['success'] && isset($config['data']['available_php_versions'])
                 ? $config['data']['available_php_versions']
-                : config('orbit-ui.php.versions', ['8.3', '8.4', '8.5']);
+                : config('orbit-ui.php.versions', PhpVersion::SUPPORTED);
 
             $validated = $request->validate([
                 'paths' => 'required|array',
@@ -72,8 +73,9 @@ class NodeConfigController extends Controller
                 try {
                     $resolverResult = $this->dnsResolver->updateResolver($node, $newTld);
 
-                    // Remove the old resolver if no other nodes use it
-                    if ($oldTld) {
+                    // Only remove the old resolver if this is the local node's own TLD changing.
+                    // Remote node TLD changes should never touch local resolver files.
+                    if ($oldTld && $node->isLocal()) {
                         $otherNodesWithTld = $this->countNodesWithTld($oldTld, $node->id);
                         if ($otherNodesWithTld === 0) {
                             $this->dnsResolver->removeResolver($oldTld);

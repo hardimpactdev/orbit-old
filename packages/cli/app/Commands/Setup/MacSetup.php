@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Setup;
 
-use App\Contracts\CaddyfileGeneratorInterface;
+use App\Services\CaddyfileGenerator;
 use App\Services\CaddyManager;
 use App\Services\ConfigManager;
 use App\Services\DockerManager;
@@ -32,7 +32,7 @@ final class MacSetup
         bool $jsonOutput,
         ConfigManager $configManager,
         DockerManager $dockerManager,
-        CaddyfileGeneratorInterface $caddyfileGenerator,
+        CaddyfileGenerator $caddyfileGenerator,
         CaddyManager $caddyManager,
         PhpManager $phpManager,
         PlatformService $platformService
@@ -367,7 +367,7 @@ final class MacSetup
         return true;
     }
 
-    protected function configureCaddy(ConfigManager $configManager, CaddyfileGeneratorInterface $generator, string $tld): bool
+    protected function configureCaddy(ConfigManager $configManager, CaddyfileGenerator $generator, string $tld): bool
     {
         $configPath = $configManager->getConfigPath();
         $caddyfilePath = "{$configPath}/caddy/Caddyfile";

@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-02-19T22:32:56.399Z",
+  "slug": "fully-review-this-project-focus-on-packa",
+  "prompt": "Fully review this project, focus on packages cli, core and app",
+  "promptSource": "inline",
+  "readOnlyPolicy": "bestEffort",
+  "tools": [
+    {
+      "toolId": "claude-opus",
+      "status": "success",
+      "exitCode": 0,
+      "durationMs": 139869,
+      "wordCount": 1348,
+      "outputFile": "agents/counselors/fully-review-this-project-focus-on-packa/claude-opus.md",
+      "stderrFile": "agents/counselors/fully-review-this-project-focus-on-packa/claude-opus.stderr"
+    },
+    {
+      "toolId": "codex-5.3-high",
+      "status": "success",
+      "exitCode": 0,
+      "durationMs": 323929,
+      "wordCount": 380,
+      "outputFile": "agents/counselors/fully-review-this-project-focus-on-packa/codex-5.3-high.md",
+      "stderrFile": "agents/counselors/fully-review-this-project-focus-on-packa/codex-5.3-high.stderr"
+    },
+    {
+      "toolId": "gemini-3-pro",
+      "status": "success",
+      "exitCode": 0,
+      "durationMs": 100314,
+      "wordCount": 1031,
+      "outputFile": "agents/counselors/fully-review-this-project-focus-on-packa/gemini-3-pro.md",
+      "stderrFile": "agents/counselors/fully-review-this-project-focus-on-packa/gemini-3-pro.stderr"
+    },
+    {
+      "toolId": "amp-smart",
+      "status": "success",
+      "exitCode": 0,
+      "durationMs": 196365,
+      "wordCount": 944,
+      "outputFile": "agents/counselors/fully-review-this-project-focus-on-packa/amp-smart.md",
+      "stderrFile": "agents/counselors/fully-review-this-project-focus-on-packa/amp-smart.stderr",
+      "cost": {
+        "cost_usd": 2.42,
+        "free_used_usd": 0.01,
+        "credits_used_usd": 2.41,
+        "source": "credits",
+        "free_remaining_usd": 9.99,
+        "free_total_usd": 10,
+        "credits_remaining_usd": 47.59
+      }
+    }
+  ]
+}

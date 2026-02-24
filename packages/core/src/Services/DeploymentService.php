@@ -12,6 +12,8 @@ use HardImpact\Orbit\Core\Models\GatewayProject;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\Provision\GitHubService;
+use HardImpact\Orbit\Core\Services\RemoteDeploy\RemoteDeployContext;
+use HardImpact\Orbit\Core\Services\RemoteDeploy\RemoteDeploymentOrchestrator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -20,12 +22,17 @@ class DeploymentService
     public function __construct(
         protected CommandService $command,
         protected CloudflareService $cloudflare,
+        protected RemoteDeploymentOrchestrator $orchestrator,
     ) {}
 
-    public function deploy(Node $target, array $options): Deployment
+    public function deploy(Node $target, array $options, ?GatewayProject $project = null): Deployment
     {
         $slug = $options['name'];
         $name = $options['name'];
+
+        if (! preg_match('/^[a-z0-9][a-z0-9-]*$/', $slug)) {
+            throw new \InvalidArgumentException("Invalid project slug '{$slug}': must contain only lowercase alphanumeric characters and hyphens");
+        }
         $repo = $options['clone'] ?? null;
         $template = $options['template'] ?? null;
         $phpVersion = $options['php_version'] ?? null;
@@ -55,14 +62,68 @@ class DeploymentService
                 'status' => DeploymentStatus::Deploying,
             ]);
 
-        $useReleaseDeploy = $target->isProduction() || $target->isStaging();
-        $command = $useReleaseDeploy ? 'project:deploy' : 'project:create';
+        $useRemoteDeploy = $target->isProduction() || $target->isStaging();
 
-        $args = [$command, escapeshellarg($name), '--json'];
+        if ($useRemoteDeploy) {
+            $result = $this->deployRemote($target, $deployment, $slug, $repo, $phpVersion, $project);
+        } else {
+            $result = $this->deployViaCli($target, $name, $repo, $template, $phpVersion);
+        }
+
+        if (! ($result['success'] ?? false)) {
+            $deployment->update([
+                'status' => DeploymentStatus::Failed,
+                'error_message' => trim($result['error'] ?? '') ?: 'Deployment failed — check node connectivity',
+            ]);
+
+            $this->cleanupDnsOnFailure($deployment);
+
+            return $deployment->fresh();
+        }
+
+        $deployment->update([
+            'status' => DeploymentStatus::Active,
+            'domain' => $result['domain'] ?? null,
+            'url' => $result['url'] ?? null,
+        ]);
+
+        return $deployment->fresh();
+    }
+
+    /**
+     * Deploy via the RemoteDeploymentOrchestrator (prod/staging — no CLI needed on target).
+     */
+    private function deployRemote(Node $target, Deployment $deployment, string $slug, ?string $repo, ?string $phpVersion, ?GatewayProject $project): array
+    {
+        // Auto-detect PHP version from the server if not specified
+        if (! $phpVersion) {
+            $phpVersion = $this->orchestrator->detectPhpVersion($target);
+            Log::info("Auto-detected PHP {$phpVersion} on node {$target->name}");
+        }
+
+        $ctx = new RemoteDeployContext(
+            node: $target,
+            slug: $slug,
+            repo: $repo ?? $project?->github_repo ?? '',
+            timestamp: date('Ymd_His'),
+            deployment: $deployment,
+            project: $project,
+            phpVersion: $phpVersion,
+        );
+
+        return $this->orchestrator->deploy($ctx);
+    }
+
+    /**
+     * Deploy via orbit CLI on the target node (dev nodes).
+     */
+    private function deployViaCli(Node $target, string $name, ?string $repo, ?string $template, ?string $phpVersion): array
+    {
+        $args = ['project:create', escapeshellarg($name), '--json'];
         if ($repo) {
             $args[] = '--clone=' . escapeshellarg($repo);
         }
-        if (! $useReleaseDeploy && $template) {
+        if ($template) {
             $args[] = '--template=' . escapeshellarg($template);
         }
         if ($phpVersion) {
@@ -72,36 +133,37 @@ class DeploymentService
         $result = $this->command->executeCommand($target, implode(' ', $args), 120);
 
         if (! ($result['success'] ?? false)) {
-            $deployment->update([
-                'status' => DeploymentStatus::Failed,
-                'error_message' => trim($result['error'] ?? '') ?: 'Deployment command failed — check node connectivity and CLI installation',
-            ]);
-
-            // Clean up existing DNS record on failed re-deploy
-            if ($deployment->hasCloudflareRecord()) {
-                try {
-                    $zoneId = $deployment->gatewayProject?->cloudflare_zone_id;
-                    if ($this->cloudflare->isConfigured($zoneId)) {
-                        $this->cloudflare->deleteRecord($deployment->cloudflare_record_id, $zoneId);
-                        Log::info("Cleaned up DNS record for failed deployment {$deployment->id}");
-                    }
-                    $deployment->update(['cloudflare_record_id' => null]);
-                } catch (\Throwable $e) {
-                    Log::warning("DNS cleanup failed for deployment {$deployment->id}: {$e->getMessage()}");
-                }
-            }
-
-            return $deployment->fresh();
+            return [
+                'success' => false,
+                'error' => trim($result['error'] ?? '') ?: 'CLI deployment command failed — check node connectivity and CLI installation',
+            ];
         }
 
         $siteData = $result['data'] ?? $result;
-        $deployment->update([
-            'status' => DeploymentStatus::Active,
+
+        return [
+            'success' => true,
             'domain' => $siteData['domain'] ?? null,
             'url' => $siteData['url'] ?? null,
-        ]);
+        ];
+    }
 
-        return $deployment->fresh();
+    private function cleanupDnsOnFailure(Deployment $deployment): void
+    {
+        if (! $deployment->hasCloudflareRecord()) {
+            return;
+        }
+
+        try {
+            $zoneId = $deployment->gatewayProject?->cloudflare_zone_id;
+            if ($this->cloudflare->isConfigured($zoneId)) {
+                $this->cloudflare->deleteRecord($deployment->cloudflare_record_id, $zoneId);
+                Log::info("Cleaned up DNS record for failed deployment {$deployment->id}");
+            }
+            $deployment->update(['cloudflare_record_id' => null]);
+        } catch (\Throwable $e) {
+            Log::warning("DNS cleanup failed for deployment {$deployment->id}: {$e->getMessage()}");
+        }
     }
 
     public function deployProject(GatewayProject $project, Node $target, array $options = []): Deployment
@@ -118,7 +180,7 @@ class DeploymentService
         $deployment = $this->deploy($target, array_merge([
             'name' => $project->slug,
             'clone' => $options['clone'] ?? $project->github_repo,
-        ], $options));
+        ], $options), $project);
 
         // Don't create DNS for failed deployments (cleanup already handled by deploy())
         if ($deployment->isFailed()) {
@@ -135,11 +197,20 @@ class DeploymentService
 
         if ($domain && $target->external_host && $project->hasCloudflareZone()) {
             $zoneId = $project->cloudflare_zone_id;
+
+            if ($target->isProduction()) {
+                try {
+                    $this->cloudflare->setSslMode($zoneId, 'strict');
+                } catch (\Throwable $e) {
+                    Log::warning("Failed to set SSL mode for zone {$zoneId}: {$e->getMessage()}");
+                }
+            }
+
             if ($this->cloudflare->isConfigured($zoneId) && $this->cloudflare->isDomainAvailable($domain, $zoneId)) {
                 $record = $this->cloudflare->createRecord(
                     $domain,
                     $target->external_host,
-                    proxied: false,
+                    proxied: $target->isProduction(),
                     zoneId: $zoneId
                 );
                 if ($record) {
@@ -150,22 +221,46 @@ class DeploymentService
 
         $deployment->update($updates);
 
+        if ($project->hasCloudflareZone()) {
+            try {
+                $this->cloudflare->purgeCache($project->cloudflare_zone_id);
+            } catch (\Throwable $e) {
+                Log::warning("Cache purge failed for deployment {$deployment->id}: {$e->getMessage()}");
+            }
+        }
+
         return $deployment->fresh();
     }
 
     public function undeploy(Deployment $deployment): bool
     {
         $node = $deployment->node;
-        $result = $this->command->executeCommand(
-            $node,
-            'project:delete ' . escapeshellarg($deployment->project_slug) . ' --force --json',
-        );
+        $useRemote = $node->isProduction() || $node->isStaging();
+
+        if ($useRemote) {
+            $ctx = new RemoteDeployContext(
+                node: $node,
+                slug: $deployment->project_slug,
+                repo: $deployment->github_repo ?? '',
+                timestamp: date('Ymd_His'),
+                deployment: $deployment,
+                project: $deployment->gatewayProject,
+                phpVersion: $deployment->php_version,
+            );
+            $result = $this->orchestrator->undeploy($ctx);
+        } else {
+            $result = $this->command->executeCommand(
+                $node,
+                'project:delete ' . escapeshellarg($deployment->project_slug) . ' --force --json',
+            );
+        }
 
         if ($deployment->hasCloudflareRecord()) {
             try {
                 $zoneId = $deployment->gatewayProject?->cloudflare_zone_id;
                 if ($this->cloudflare->isConfigured($zoneId)) {
                     $this->cloudflare->deleteRecord($deployment->cloudflare_record_id, $zoneId);
+                    $this->cloudflare->purgeCache($zoneId);
                 }
             } catch (\Throwable $e) {
                 Log::warning("Cloudflare cleanup failed for deployment {$deployment->id}: {$e->getMessage()}");
@@ -178,7 +273,7 @@ class DeploymentService
             Log::warning("Failed to mark deployment {$deployment->id} as removed: {$e->getMessage()}");
         }
 
-        return $result['success'] ?? true;
+        return $result['success'] ?? false;
     }
 
     public function syncNode(Node $node): array

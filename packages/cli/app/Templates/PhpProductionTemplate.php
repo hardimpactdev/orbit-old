@@ -115,6 +115,9 @@ final readonly class PhpProductionTemplate implements Template
             ['action' => Shared\GenerateCaddyfile::class, 'name' => 'Generating Caddyfile'],
             ['action' => Shared\InstallComposerLink::class, 'name' => 'Installing composer-link'],
             ['action' => Linux\TrustRootCa::class, 'name' => 'Trusting SSL certificate'],
+
+            ['action' => Linux\InstallFail2ban::class, 'name' => 'Installing fail2ban'],
+            ['action' => Linux\ConfigureUnattendedUpgrades::class, 'name' => 'Configuring security updates'],
         ];
 
         if ($context?->needsDocker()) {

@@ -4,7 +4,7 @@ A monorepo containing the orbit infrastructure management stack: CLI, core servi
 
 ## Important: Working with Environments
 
-**Projects/sites run on remote servers, not locally.** When referencing a URL like `https://orbit-cli.ccc/` or `https://platform11-2026.ccc/`:
+**Projects/sites run on remote servers, not locally.** When referencing a URL like `https://orbit-cli.bear/` or `https://platform11-2026.bear/`:
 
 1. **Look up the environment** - Check which server hosts this site (TLD indicates the server)
 2. **SSH into the server** - Use `ssh user@IP` to access the server
@@ -13,7 +13,7 @@ A monorepo containing the orbit infrastructure management stack: CLI, core servi
 **Current environments:**
 | Environment | SSH Command | TLD | MCP Endpoint | Notes |
 |-------------|-------------|-----|--------------|-------|
-| Ubuntu VPS | `ssh orbit@ai` | `.ccc` | `POST https://orbit.ccc/mcp/orbit` | Main dev server, CLI source at `~/projects/orbit-cli/` |
+| Ubuntu VPS | `ssh orbit@ai` | `.bear` | `POST https://orbit.bear/mcp/orbit` | Main dev server, CLI source at `~/projects/orbit-cli/` |
 | Gateway | `ssh gateway` | N/A | `POST https://orbit.gateway/mcp/gateway` | VPN hub, DNS routing (user: `gateway`) |
 | Production | `ssh orbit@46.225.89.66` | N/A | N/A | Hetzner, hosts srpm.nl, proxies whisper.hardimpact.dev→Beast |
 | Local | N/A (localhost) | `.test` | N/A | Local machine |
@@ -58,23 +58,29 @@ The remote environments being managed can run any Linux distribution (Ubuntu rec
 - **Node host validation**: The `Node` model validates hosts on save. It accepts IPs, FQDNs, and single-label SSH aliases (e.g. `ai`, `gateway`). If adding new validation, test against `Node::factory()->create()` to ensure Faker data still passes.
 - **SQLite test databases**: Always set `'foreign_key_constraints' => true` when using SQLite `:memory:` test databases with CASCADE foreign keys.
 - **CLI command namespace**: The CLI public commands use `project:*` (`project:create`, `project:delete`, `project:list`), NOT `site:*`. The `Site` model is internal to orbit-core. When writing services that call CLI commands, verify names against `packages/cli/app/Commands/`.
+- **CLI command discovery is automatic**: Laravel Zero's kernel recursively scans `app/Commands/` (including subdirectories like `Gateway/`, `Node/`, `Host/`, `Service/`). Do NOT manually register commands in `AppServiceProvider` — the kernel handles it via `config/commands.php` paths. The old `CommandRegistry` / `getCommandClasses()` pattern was removed as redundant.
+- **Gateway commands: local vs remote**: `gateway:clients` runs ON the gateway server (talks to WireGuard locally). `list:gateway-clients` runs FROM a client machine (SSHes to gateway). These are not duplicates — they serve different execution contexts.
 - **CLI argument escaping**: When building CLI command strings in services (e.g. `DeploymentService`), always use `escapeshellarg()` for user-supplied values. Use array-based building (`$args[] = '--flag=' . escapeshellarg($val)`) and `implode(' ', $args)`.
 - **Never pass secrets as CLI arguments**: Tokens/passwords passed as CLI arguments are visible in `ps aux`. Use stdin piping instead. See `docs/solutions/security-issues/api-token-cli-argument-leaks-process-list-20260215.md`.
 - **Capture model state before service mutations**: When an MCP tool or controller calls a service that modifies a model, capture any needed values BEFORE the service call. The in-memory model may be stale after mutation. See `docs/solutions/logic-errors/stale-model-after-service-mutation-20260215.md`.
-- **macOS VPN custom TLDs need `/etc/resolver/` files**: macOS system resolver ignores WireGuard supplemental DNS for non-standard TLDs. Each custom TLD (`.ccc`, `.gateway`, `.beast`) needs a `/etc/resolver/{tld}` file pointing to the gateway DNS (`10.6.0.1`). See `docs/solutions/infrastructure/macos-vpn-custom-tld-resolution-20260215.md`.
+- **macOS VPN custom TLDs need `/etc/resolver/` files**: macOS system resolver ignores WireGuard supplemental DNS for non-standard TLDs. Each custom TLD (`.bear`, `.gateway`, `.beast`) needs a `/etc/resolver/{tld}` file pointing to the gateway DNS (`10.6.0.1`). See `docs/solutions/infrastructure/macos-vpn-custom-tld-resolution-20260215.md`.
 - **Gateway dnsmasq IPs**: The `.gateway` TLD must point to `10.6.0.2` (host VPN IP where Caddy runs), not `10.6.0.1` (wg-easy container). Always verify with `ssh gateway "ip addr show wg0"`.
 - **Verify MCP connectivity end-to-end**: After configuring MCP servers, always test the full chain from the actual client before declaring it works: `curl -sf -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' http://orbit.gateway/mcp/gateway`
 - **Shared SQLite database path**: All packages (CLI, web, desktop) must default to `~/.config/orbit/database.sqlite`. The canonical path is in `packages/cli/config/database.php`. Never use `database_path()` as default — it resolves to a package-specific path. `DB_DATABASE` env var can override per-deployment. See `docs/solutions/database-issues/web-cli-sqlite-path-mismatch-20260215.md`.
 - **Register pre-existing deployments**: Projects deployed outside the gateway flow (manual SSH, direct CLI) must be retroactively registered as `GatewayProject` + `Deployment` records. Otherwise MCP tools can't see them. Use `gateway_register_project` then insert a deployment with `status: active`.
-- **Production server uses `~/Projects/`** (capital P): The Hetzner production node stores projects at `~/Projects/`, not `~/projects/`. The `gateway_sync_node` tool and any SSH-based project discovery must check both paths.
-- **Auto-detect project info before asking**: When deploying or registering a project, never ask the user for information you can look up yourself. Check the local filesystem for the project directory (`~/Projects/`, `~/Clients/`, `~/projects/`), then read `git remote -v` to get the repo URL. Pass `github_repo` to `gateway_register_project` so subsequent deploys auto-retrieve it.
+- **All servers use `~/projects/` (lowercase)**: All environments (dev, staging, production) store projects at `~/projects/`. This was harmonized on 2026-02-16. Never use `~/Projects/` (capital P).
+- **Auto-detect project info before asking**: When deploying or registering a project, never ask the user for information you can look up yourself. Check the local filesystem for the project directory (`~/projects/`, `~/Clients/`), then read `git remote -v` to get the repo URL. Pass `github_repo` to `gateway_register_project` so subsequent deploys auto-retrieve it.
 - **Error handling: Always use `trim() ?: fallback`**: Never rely on `??` alone for error messages - empty strings bypass it. Use `trim($error ?? '') ?: 'Fallback message'` to catch `null`, empty strings, and whitespace. See `docs/solutions/logic-errors/empty-error-null-coalescing-operator-20260215.md`.
-- **Gateway deployment pre-flight checks**: Before executing remote deployments, MCP tools must validate: (1) SSH connectivity via `SshService::testConnection()`, (2) CLI binary exists via `CommandService::findBinary()`, (3) GitHub repo access via `gh repo view {repo}`. Return actionable errors with SSH commands or setup instructions. See `GatewayDeployTool::preflight()`.
-- **PHP version auto-detection**: When no `php_version` is provided to `gateway_deploy`, the `DeploymentService` auto-detects it from the project's `composer.json` via GitHub API (`GitHubService::detectPhpVersion()`). Falls back to post-clone detection if GitHub API fails.
+- **Gateway deployment pre-flight checks**: Before executing remote deployments, MCP tools must validate: (1) SSH connectivity via `SshService::testConnection()`, (2) for dev nodes: CLI binary via `CommandService::findBinary()`, for prod/staging: `gh`/`php`/`composer` via `command -v`, (3) GitHub repo access via `gh repo view {repo}`. Return actionable errors with SSH commands or setup instructions. See `GatewayDeployTool::preflight()`.
+- **PHP version auto-detection**: For prod/staging, `DeploymentService` auto-detects PHP from the server's FPM sockets via `RemoteDeploymentOrchestrator::detectPhpVersion()`. For project-based deploys, also checks `composer.json` via GitHub API (`GitHubService::detectPhpVersion()`). Never hardcode a PHP version fallback — throw an explicit error instead.
+- **Remote deployment (prod/staging) bypasses CLI**: Production and staging nodes don't need orbit CLI. `DeploymentService` routes them to `RemoteDeploymentOrchestrator` which runs raw SSH commands (git clone, composer install, artisan migrate, etc.). Dev nodes still use CLI. See `docs/solutions/infrastructure/gateway-centric-remote-deploy-architecture-20260216.md`.
+- **Code changes don't fix live servers**: Fixing deployment code only affects future deployments. If a production site is currently broken, SSH in and fix the running config first (Caddyfile, .env, etc.), THEN fix the code to prevent recurrence. See `docs/solutions/deployment-issues/code-fixes-dont-fix-live-production-20260216.md`.
 - **CLI `--json` output must be single object**: When adding `--json` support to CLI commands, suppress all intermediate output and only emit the final result as a single JSON object. Multiple JSON objects break `SshService::executeJson()`. See `docs/solutions/integration-issues/cli-multiple-json-output-breaks-parser-20260215.md`.
 - **MCP HTTP endpoints require access control**: All infrastructure management endpoints (MCP servers, admin APIs) MUST have IP-based access control from day one. Use middleware to restrict to VPN network + localhost. Public endpoints are critical security vulnerabilities. See `docs/solutions/security-issues/mcp-endpoints-public-access-vulnerability-20260215.md`.
 - **Path repository deployment workflow**: When using composer path repositories with `symlink: false`, changes to source packages don't automatically update vendor on `composer update` (version unchanged = no re-mirror). Fix: `rm -rf vendor/{package} && composer install`. See `docs/solutions/build-errors/composer-path-repo-stale-vendor-no-remirror-20260215.md`.
 - **Test security middleware at integration level**: Unit tests verify middleware logic but don't catch missing route application. Always add integration tests that hit actual protected routes (e.g., test `/mcp/gateway`, not `/test-route`). See `docs/solutions/test-failures/middleware-unit-tests-miss-route-application-20260215.md`.
+- **Never use `readonly` on classes that need mocking**: PHP `readonly` classes cannot be extended by Mockery's generated mock subclasses (fatal error). Use `readonly` on individual properties instead. When removing an interface from a `final readonly class`, remove BOTH modifiers. See `docs/solutions/test-failures/mockery-readonly-class-fatal-error-20260215.md`.
+- **Shared helpers in core**: Duplicated logic (path expansion, URL normalization, project type detection) belongs in `packages/core/src/Support/ProjectHelper.php`. When extracting methods, grep ALL test files across ALL packages for reflection calls to the moved method names.
 
 ## Package Architecture
 
@@ -126,8 +132,8 @@ Orbit provides cross-node deployment orchestration with release-based zero-downt
    ```
    MCP: gateway_deploy(project_slug: "my-app", node_id: 3)
    ```
-   - Production/staging nodes: Uses `project:deploy` (release-based, zero-downtime)
-   - Development nodes: Uses `project:create` (direct)
+   - Production/staging nodes: Uses `RemoteDeploymentOrchestrator` (raw SSH commands, no CLI needed)
+   - Development nodes: Uses `project:create` via CLI
    - Auto-creates Cloudflare DNS record pointing to node's `external_host`
    - Tracks deployment in `Deployment` model
 
@@ -147,13 +153,13 @@ Orbit provides cross-node deployment orchestration with release-based zero-downt
 
 **`DeploymentService`** auto-selects strategy based on `Node->environment`:
 
-| Environment | CLI Command | Strategy |
-|-------------|-------------|----------|
-| Production | `project:deploy` | Release-based (zero-downtime) |
-| Staging | `project:deploy` | Release-based (zero-downtime) |
-| Development | `project:create` | Direct (in-place) |
+| Environment | Mechanism | Strategy |
+|-------------|-----------|----------|
+| Production | `RemoteDeploymentOrchestrator` (SSH) | Release-based (zero-downtime), no CLI needed |
+| Staging | `RemoteDeploymentOrchestrator` (SSH) | Release-based (zero-downtime), no CLI needed |
+| Development | `project:create` (CLI) | Direct (in-place) |
 
-### Release-Based Deployment (`project:deploy`)
+### Release-Based Deployment (Remote Orchestrator)
 
 Zero-downtime deployments with timestamped releases and atomic symlink switching:
 
@@ -200,18 +206,29 @@ Each `GatewayProject` links to a specific Cloudflare zone. `CloudflareService` s
 | `gateway_deployments` | List/filter deployments |
 | `gateway_projects` | List registered projects |
 | `gateway_nodes` | List nodes with deployment counts |
-| `gateway_cloudflare_*` | DNS record management (zones, add, remove, list) |
+| `gateway_cloudflare_zones` | List all Cloudflare zones |
+| `gateway_cloudflare_status` | Zone info and SSL mode |
+| `gateway_cloudflare_dns` | List DNS records for a zone |
+| `gateway_cloudflare_add_record` | Create a DNS record |
+| `gateway_cloudflare_remove_record` | Delete a DNS record |
+| `gateway_cloudflare_set_ssl` | Set SSL mode (strict for production) |
+| `gateway_cloudflare_flush_cache` | Purge CDN cache (zone-wide or by URLs) |
+| `gateway_cloudflare_create_cache_rule` | Create "Cache Everything" rule for a zone |
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `packages/core/src/Services/DeploymentService.php` | Deployment orchestration |
-| `packages/cli/app/Commands/ProjectDeployCommand.php` | Release-based deployment CLI |
+| `packages/core/src/Services/DeploymentService.php` | Deployment orchestration (routes to CLI or remote orchestrator) |
+| `packages/core/src/Services/RemoteDeploy/RemoteDeploymentOrchestrator.php` | SSH-based deployment for prod/staging (no CLI needed) |
+| `packages/core/src/Services/RemoteDeploy/RemoteDeployContext.php` | Deployment parameters DTO |
+| `packages/core/src/Services/RemoteDeploy/RemoteEnvManager.php` | .env bootstrap via SSH |
+| `packages/core/src/Services/RemoteDeploy/RemoteCaddyManager.php` | Caddy site block management via SSH |
+| `packages/cli/app/Commands/ProjectDeployCommand.php` | Release-based deployment CLI (dev nodes) |
 | `packages/core/src/Models/GatewayProject.php` | Project registry model |
 | `packages/core/src/Models/Deployment.php` | Deployment tracking model |
 | `packages/core/src/Enums/DeploymentStatus.php` | Status: Pending → Active/Failed/Removed |
-| `packages/core/src/Services/CloudflareService.php` | Multi-zone DNS management |
+| `packages/core/src/Services/CloudflareService.php` | Multi-zone DNS management, cache purge, cache rules |
 | `packages/app/src/Mcp/GatewayServer.php` | All gateway MCP tools |
 
 ## Reference Documentation
@@ -229,6 +246,7 @@ Detailed documentation is organized in `docs/reference/`:
 | [cli-development.md](docs/reference/cli-development.md) | Making CLI changes, building, release workflow, desktop-CLI communication |
 | [e2e-testing.md](docs/reference/e2e-testing.md) | Desktop flow test, WebSocket broadcasting architecture |
 | [mcp-servers.md](docs/reference/mcp-servers.md) | OrbitServer, GatewayServer tools/resources, conditional registration, gateway deployment |
+| [cloudflare-caching.md](docs/reference/cloudflare-caching.md) | CDN caching playbook: stateless middleware, cache rules, MCP tools, dynamic content patterns |
 
 ## Development
 
@@ -284,5 +302,8 @@ php artisan test
 - **Case-sensitive filenames on Linux**: macOS is case-insensitive, Linux is not. Renaming `Home.vue` → `home.vue` on macOS won't be tracked by git. Use `git mv` with a temp name to force it. Always verify Inertia page filenames match controller references before deploying to Linux.
 - **Custom Caddy configs survive regeneration**: Production domains, reverse proxies, and any non-orbit-managed Caddy blocks MUST be placed in `~/.config/orbit/caddy/sites/*.caddy` files. The CaddyfileGenerator imports these at the end. Never append custom blocks directly to the Caddyfile — `caddy:reload` regenerates it from scratch. See `docs/solutions/infrastructure/caddy-reload-wipes-custom-sites-20260215.md`.
 - **Local phar build needs vendor symlink replaced**: In the monorepo, `packages/cli/vendor/hardimpactdev/orbit-core` is a symlink that `box compile` doesn't follow. Before building: `rm vendor/hardimpactdev/orbit-core && cp -R ../../packages/core vendor/hardimpactdev/orbit-core`. Restore after: `rm -rf vendor/hardimpactdev/orbit-core && ln -s ../../../core vendor/hardimpactdev/orbit-core`. See `docs/solutions/build-errors/phar-build-vendor-symlink-orbit-core-20260215.md`.
-- **Release-based deployments on production**: Production projects use `project:deploy` (not `project:create`) with timestamped releases and atomic symlink switching. Structure: `~/projects/{slug}/releases/{timestamp}/`, `current` symlink, shared `.env`/`storage`/`database` at base. `DeploymentService` auto-selects the command based on node environment.
+- **Release-based deployments on production**: Production/staging nodes use `RemoteDeploymentOrchestrator` (raw SSH, no CLI needed) with timestamped releases and atomic symlink switching. Structure: `~/projects/{slug}/releases/{timestamp}/`, `current` symlink, shared `.env`/`storage`/`database` at base. Dev nodes still use CLI. `DeploymentService` auto-selects the strategy based on node environment.
+- **Linux DNS: config.json `dns_mappings` must match `tld`**: The orbit-dns dnsmasq resolves domains based on `dns_mappings`, not the `tld` field. When changing a node's TLD, always update both. Use `ConfigManager::updateTldInDnsMappings()` or update the `dns_mappings` array directly when working with raw config data. `/etc/resolver/` files are macOS-only; Linux uses orbit-dns (dnsmasq) via `/etc/resolv.conf`. See `docs/solutions/infrastructure/linux-php-dns-custom-tld-resolution-20260217.md`.
+- **Docker containers need recreation after compose changes**: `ComposeGenerator` correctly adds `networks: [orbit]` to all services, but existing containers created before this don't automatically get the new network. Fix: `docker network connect orbit {container}` or recreate with `docker compose up -d`. See `docs/solutions/infrastructure/docker-services-orbit-network-legacy-containers-20260217.md`.
 - **`gateway_sync_node` silently fails**: The tool returns `{"success": false, "error": ""}` with no useful message. Until fixed, manually register projects and create deployment records for pre-existing deployments. See `docs/solutions/database-issues/production-node-inactive-missing-registrations-20260215.md`.
+- **Caddy security: snippets vs inline**: Dev Caddyfiles (CaddyfileGenerator) use `(security_headers)` and `(path_blocking)` snippets with `import`. Remote deploy `.caddy` files (RemoteCaddyManager, production stubs) use inline directives because snippets must be defined at Caddyfile top level and `.caddy` files are concatenated after. Dev sites must NOT include HSTS (self-signed certs). See `docs/solutions/security-issues/caddy-security-headers-snippet-vs-inline-20260216.md`.

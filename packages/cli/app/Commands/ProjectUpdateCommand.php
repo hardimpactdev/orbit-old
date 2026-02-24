@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Contracts\CaddyfileGeneratorInterface;
+use App\Services\CaddyfileGenerator;
 use App\Enums\ExitCode;
 use App\Services\ConfigManager;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
@@ -27,7 +28,7 @@ final class ProjectUpdateCommand extends Command
 
     public function handle(
         ConfigManager $config,
-        CaddyfileGeneratorInterface $caddy,
+        CaddyfileGenerator $caddy,
     ): int {
         /** @var string|null $path */
         $path = $this->argument('path');
@@ -52,7 +53,7 @@ final class ProjectUpdateCommand extends Command
             return $this->failWithMessage('Project path is required');
         }
 
-        $path = $this->expandPath($path);
+        $path = ProjectHelper::expandPath($path);
 
         if (! is_dir($path)) {
             return $this->failWithMessage("Directory does not exist: {$path}");
@@ -237,7 +238,7 @@ final class ProjectUpdateCommand extends Command
     {
         $paths = $config->get('paths', []);
         foreach ($paths as $basePath) {
-            $expandedPath = $this->expandPath($basePath);
+            $expandedPath = ProjectHelper::expandPath($basePath);
             $projectPath = "{$expandedPath}/{$project}";
             if (is_dir($projectPath)) {
                 return $projectPath;
@@ -245,15 +246,6 @@ final class ProjectUpdateCommand extends Command
         }
 
         return null;
-    }
-
-    private function expandPath(string $path): string
-    {
-        if (str_starts_with($path, '~/')) {
-            return $_SERVER['HOME'].substr($path, 1);
-        }
-
-        return $path;
     }
 
     private function outputResult(array $results, bool $success, ?string $message = null): int
@@ -288,11 +280,6 @@ final class ProjectUpdateCommand extends Command
         }
 
         return ExitCode::GeneralError->value;
-    }
-
-    private function wantsJson(): bool
-    {
-        return (bool) $this->option('json') || ! $this->input->isInteractive();
     }
 
     /**

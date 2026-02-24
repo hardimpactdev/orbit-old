@@ -102,7 +102,7 @@ final class NodeRegisterTldCommand extends Command
 
         $this->info("Registering .{$tld} for node '{$node->name}'");
         $this->newLine();
-        $this->info("Gateway: {$gateway['name']} ({$gateway['ip']})");
+        $this->info("Gateway: {$gateway->name} ({$gateway->ip_address})");
         $this->info("Node VPN IP: {$node->vpn_ip}");
         $this->newLine();
 
@@ -129,7 +129,7 @@ final class NodeRegisterTldCommand extends Command
         $this->newLine();
         $this->line("  Gateway will proxy *.{$tld} to {$node->name} ({$node->vpn_ip})");
         $this->newLine();
-        $this->warn("NOTE: You must configure DNS to resolve *.{$tld} to gateway ({$gateway['ip']})");
+        $this->warn("NOTE: You must configure DNS to resolve *.{$tld} to gateway ({$gateway->ip_address})");
         $this->line('  Option 1: Add to /etc/hosts on your machine');
         $this->line("  Option 2: Configure your router's DNS");
         $this->line('  Option 3: Use a public DNS service like Cloudflare');
@@ -138,7 +138,7 @@ final class NodeRegisterTldCommand extends Command
         return self::SUCCESS;
     }
 
-    private function removeTld(Node $node, array $gateway, GatewayManager $gatewayManager): int
+    private function removeTld(Node $node, \HardImpact\Orbit\Core\Models\Gateway $gateway, GatewayManager $gatewayManager): int
     {
         if ($node->custom_tld === null) {
             warning("Node '{$node->name}' has no custom TLD");
@@ -204,11 +204,11 @@ final class NodeRegisterTldCommand extends Command
     /**
      * @return array{success: bool, error?: string}
      */
-    private function updateGatewayCaddy(array $gateway, GatewayManager $gatewayManager): array
+    private function updateGatewayCaddy(\HardImpact\Orbit\Core\Models\Gateway $gateway, GatewayManager $gatewayManager): array
     {
         try {
             // Get all client nodes with custom TLDs for this gateway
-            $nodes = Node::where('gateway_id', $gateway['id'])
+            $nodes = Node::where('gateway_id', $gateway->id)
                 ->where('node_type', NodeType::Client)
                 ->whereNotNull('custom_tld')
                 ->whereNotNull('vpn_ip')

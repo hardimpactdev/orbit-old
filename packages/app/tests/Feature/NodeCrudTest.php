@@ -51,6 +51,9 @@ beforeEach(function () {
             'success' => true,
             'enabled' => false,
         ]);
+        $mock->shouldReceive('getFormattedReverbConfig')->andReturn([
+            'enabled' => false,
+        ]);
     });
 });
 

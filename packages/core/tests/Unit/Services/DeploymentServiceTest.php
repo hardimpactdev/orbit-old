@@ -10,11 +10,13 @@ use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\CloudflareService;
 use HardImpact\Orbit\Core\Services\DeploymentService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
+use HardImpact\Orbit\Core\Services\RemoteDeploy\RemoteDeploymentOrchestrator;
 
 beforeEach(function () {
     $this->commandService = mock(CommandService::class);
     $this->cloudflareService = mock(CloudflareService::class);
-    $this->service = new DeploymentService($this->commandService, $this->cloudflareService);
+    $this->orchestrator = mock(RemoteDeploymentOrchestrator::class);
+    $this->service = new DeploymentService($this->commandService, $this->cloudflareService, $this->orchestrator);
 });
 
 describe('DeploymentService', function () {
@@ -80,7 +82,7 @@ describe('DeploymentService', function () {
 
             expect($deployment->status)->toBe(DeploymentStatus::Failed);
             expect($deployment->error_message)->not->toBeEmpty();
-            expect($deployment->error_message)->toBe('Deployment command failed — check node connectivity and CLI installation');
+            expect($deployment->error_message)->toBe('CLI deployment command failed — check node connectivity and CLI installation');
         });
 
         it('throws when active deployment already exists', function () {
@@ -136,35 +138,51 @@ describe('DeploymentService', function () {
             ]);
         });
 
-        it('uses release-based deploy for production nodes', function () {
+        it('uses remote orchestrator for production nodes', function () {
             $node = Node::factory()->client()->production()->create();
 
-            $this->commandService->shouldReceive('executeCommand')
+            $this->orchestrator->shouldReceive('detectPhpVersion')
                 ->once()
-                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:deploy'))
-                ->andReturn(['success' => true, 'data' => []]);
+                ->andReturn('8.5');
 
-            $this->service->deploy($node, ['name' => 'prod-app', 'clone' => 'org/repo']);
+            $this->orchestrator->shouldReceive('deploy')
+                ->once()
+                ->andReturn(['success' => true, 'domain' => 'prod-app.bear', 'url' => 'https://prod-app.bear']);
+
+            $this->commandService->shouldNotReceive('executeCommand');
+
+            $deployment = $this->service->deploy($node, ['name' => 'prod-app', 'clone' => 'org/repo']);
+
+            expect($deployment->status)->toBe(DeploymentStatus::Active);
         });
 
-        it('uses release-based deploy for staging nodes', function () {
+        it('uses remote orchestrator for staging nodes', function () {
             $node = Node::factory()->client()->staging()->create();
 
-            $this->commandService->shouldReceive('executeCommand')
+            $this->orchestrator->shouldReceive('detectPhpVersion')
                 ->once()
-                ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:deploy'))
-                ->andReturn(['success' => true, 'data' => []]);
+                ->andReturn('8.5');
 
-            $this->service->deploy($node, ['name' => 'staging-app', 'clone' => 'org/repo']);
+            $this->orchestrator->shouldReceive('deploy')
+                ->once()
+                ->andReturn(['success' => true, 'domain' => 'staging-app.bear', 'url' => 'https://staging-app.bear']);
+
+            $this->commandService->shouldNotReceive('executeCommand');
+
+            $deployment = $this->service->deploy($node, ['name' => 'staging-app', 'clone' => 'org/repo']);
+
+            expect($deployment->status)->toBe(DeploymentStatus::Active);
         });
 
-        it('uses direct create for development nodes', function () {
+        it('uses CLI for development nodes', function () {
             $node = Node::factory()->client()->development()->create();
 
             $this->commandService->shouldReceive('executeCommand')
                 ->once()
                 ->withArgs(fn ($n, $cmd) => str_contains($cmd, 'project:create'))
                 ->andReturn(['success' => true, 'data' => []]);
+
+            $this->orchestrator->shouldNotReceive('deploy');
 
             $this->service->deploy($node, ['name' => 'dev-app']);
         });
@@ -361,7 +379,8 @@ describe('DeploymentService', function () {
                 'cloudflare_zone_id' => 'zone123',
             ]);
 
-            $this->commandService->shouldReceive('executeCommand')
+            $this->orchestrator->shouldReceive('detectPhpVersion')->andReturn('8.5');
+            $this->orchestrator->shouldReceive('deploy')
                 ->once()
                 ->andReturn(['success' => false, 'error' => 'Clone failed']);
 
@@ -392,7 +411,8 @@ describe('DeploymentService', function () {
                 'gateway_project_id' => $project->id,
             ]);
 
-            $this->commandService->shouldReceive('executeCommand')
+            $this->orchestrator->shouldReceive('detectPhpVersion')->andReturn('8.5');
+            $this->orchestrator->shouldReceive('deploy')
                 ->once()
                 ->andReturn(['success' => false, 'error' => 'Deploy failed']);
 
@@ -411,17 +431,22 @@ describe('DeploymentService', function () {
             expect($deployment->fresh()->cloudflare_record_id)->toBeNull();
         });
 
-        it('creates unproxied DNS records by default', function () {
+        it('creates proxied DNS records for production nodes', function () {
             $node = Node::factory()->client()->production()->create(['external_host' => '1.2.3.4']);
             $project = GatewayProject::factory()->create([
-                'slug' => 'unproxied-test',
-                'production_domain' => 'unproxied.com',
+                'slug' => 'proxied-test',
+                'production_domain' => 'proxied.com',
                 'cloudflare_zone_id' => 'zone123',
             ]);
 
-            $this->commandService->shouldReceive('executeCommand')
+            $this->orchestrator->shouldReceive('detectPhpVersion')->andReturn('8.5');
+            $this->orchestrator->shouldReceive('deploy')
                 ->once()
-                ->andReturn(['success' => true, 'data' => []]);
+                ->andReturn(['success' => true, 'domain' => 'proxied.com', 'url' => 'https://proxied.com']);
+
+            $this->cloudflareService->shouldReceive('setSslMode')
+                ->once()
+                ->with('zone123', 'strict');
 
             $this->cloudflareService->shouldReceive('isConfigured')
                 ->once()
@@ -430,17 +455,145 @@ describe('DeploymentService', function () {
 
             $this->cloudflareService->shouldReceive('isDomainAvailable')
                 ->once()
-                ->with('unproxied.com', 'zone123')
+                ->with('proxied.com', 'zone123')
                 ->andReturn(true);
 
             $this->cloudflareService->shouldReceive('createRecord')
                 ->once()
-                ->withArgs(fn ($domain, $ip, $type, $proxied, $zoneId) => $domain === 'unproxied.com' && $ip === '1.2.3.4' && $type === 'A' && $proxied === false && $zoneId === 'zone123')
+                ->withArgs(fn ($domain, $ip, $type, $proxied, $zoneId) => $domain === 'proxied.com' && $ip === '1.2.3.4' && $type === 'A' && $proxied === true && $zoneId === 'zone123')
                 ->andReturn(['id' => 'cf-rec-789']);
+
+            $this->cloudflareService->shouldReceive('purgeCache')
+                ->once()
+                ->with('zone123');
 
             $deployment = $this->service->deployProject($project, $node);
 
             expect($deployment->cloudflare_record_id)->toBe('cf-rec-789');
+        });
+
+        it('creates unproxied DNS records for dev nodes', function () {
+            $node = Node::factory()->client()->development()->create(['external_host' => '1.2.3.4', 'tld' => 'bear']);
+            $project = GatewayProject::factory()->create([
+                'slug' => 'dev-test',
+                'cloudflare_zone_id' => 'zone123',
+            ]);
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->once()
+                ->andReturn(['success' => true, 'data' => ['domain' => 'dev-test.bear']]);
+
+            $this->cloudflareService->shouldReceive('setSslMode')->never();
+
+            $this->cloudflareService->shouldReceive('isConfigured')
+                ->once()
+                ->with('zone123')
+                ->andReturn(true);
+
+            $this->cloudflareService->shouldReceive('isDomainAvailable')
+                ->once()
+                ->andReturn(true);
+
+            $this->cloudflareService->shouldReceive('createRecord')
+                ->once()
+                ->withArgs(fn ($domain, $ip, $type, $proxied) => $proxied === false)
+                ->andReturn(['id' => 'cf-rec-dev']);
+
+            $this->cloudflareService->shouldReceive('purgeCache')
+                ->once()
+                ->with('zone123');
+
+            $deployment = $this->service->deployProject($project, $node);
+
+            expect($deployment->cloudflare_record_id)->toBe('cf-rec-dev');
+        });
+
+        it('purges cloudflare cache after successful deploy', function () {
+            $node = Node::factory()->client()->production()->create(['external_host' => '1.2.3.4']);
+            $project = GatewayProject::factory()->create([
+                'slug' => 'purge-test',
+                'production_domain' => 'purge.com',
+                'cloudflare_zone_id' => 'zone-purge',
+            ]);
+
+            $this->orchestrator->shouldReceive('detectPhpVersion')->andReturn('8.5');
+            $this->orchestrator->shouldReceive('deploy')
+                ->once()
+                ->andReturn(['success' => true, 'domain' => 'purge.com']);
+
+            $this->cloudflareService->shouldReceive('setSslMode')->once();
+            $this->cloudflareService->shouldReceive('isConfigured')->with('zone-purge')->andReturn(true);
+            $this->cloudflareService->shouldReceive('isDomainAvailable')->andReturn(true);
+            $this->cloudflareService->shouldReceive('createRecord')->andReturn(['id' => 'rec-1']);
+
+            $this->cloudflareService->shouldReceive('purgeCache')
+                ->once()
+                ->with('zone-purge')
+                ->andReturn(true);
+
+            $this->service->deployProject($project, $node);
+        });
+
+        it('succeeds even when cache purge fails', function () {
+            $node = Node::factory()->client()->production()->create(['external_host' => '1.2.3.4']);
+            $project = GatewayProject::factory()->create([
+                'slug' => 'purge-fail',
+                'production_domain' => 'purgefail.com',
+                'cloudflare_zone_id' => 'zone-fail',
+            ]);
+
+            $this->orchestrator->shouldReceive('detectPhpVersion')->andReturn('8.5');
+            $this->orchestrator->shouldReceive('deploy')
+                ->once()
+                ->andReturn(['success' => true, 'domain' => 'purgefail.com']);
+
+            $this->cloudflareService->shouldReceive('setSslMode')->once();
+            $this->cloudflareService->shouldReceive('isConfigured')->with('zone-fail')->andReturn(true);
+            $this->cloudflareService->shouldReceive('isDomainAvailable')->andReturn(true);
+            $this->cloudflareService->shouldReceive('createRecord')->andReturn(['id' => 'rec-2']);
+
+            $this->cloudflareService->shouldReceive('purgeCache')
+                ->once()
+                ->with('zone-fail')
+                ->andThrow(new \RuntimeException('API timeout'));
+
+            $deployment = $this->service->deployProject($project, $node);
+
+            expect($deployment->status)->toBe(DeploymentStatus::Active);
+        });
+
+        it('purges cache when undeploying with cloudflare record', function () {
+            $node = Node::factory()->create();
+            $project = GatewayProject::factory()->create([
+                'slug' => 'undeploy-purge',
+                'cloudflare_zone_id' => 'zone-undeploy',
+            ]);
+            $deployment = Deployment::create([
+                'node_id' => $node->id,
+                'project_slug' => 'undeploy-purge',
+                'project_name' => 'Undeploy Purge',
+                'status' => DeploymentStatus::Active,
+                'cloudflare_record_id' => 'cf-rec-undeploy',
+                'gateway_project_id' => $project->id,
+            ]);
+
+            $this->commandService->shouldReceive('executeCommand')
+                ->andReturn(['success' => true]);
+
+            $this->cloudflareService->shouldReceive('isConfigured')
+                ->once()
+                ->with('zone-undeploy')
+                ->andReturn(true);
+
+            $this->cloudflareService->shouldReceive('deleteRecord')
+                ->once()
+                ->with('cf-rec-undeploy', 'zone-undeploy');
+
+            $this->cloudflareService->shouldReceive('purgeCache')
+                ->once()
+                ->with('zone-undeploy');
+
+            $this->service->undeploy($deployment);
         });
     });
 });

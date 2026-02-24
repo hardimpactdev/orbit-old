@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace HardImpact\Orbit\Core\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -51,14 +52,20 @@ class TemplateFavorite extends Model
         $this->update($data);
     }
 
-    public static function recentlyUsed(int $limit = 10)
+    /**
+     * @return Collection<int, static>
+     */
+    public static function recentlyUsed(int $limit = 10): Collection
     {
         return static::orderByDesc('last_used_at')
             ->limit($limit)
             ->get();
     }
 
-    public static function mostUsed(int $limit = 10)
+    /**
+     * @return Collection<int, static>
+     */
+    public static function mostUsed(int $limit = 10): Collection
     {
         return static::orderByDesc('usage_count')
             ->limit($limit)

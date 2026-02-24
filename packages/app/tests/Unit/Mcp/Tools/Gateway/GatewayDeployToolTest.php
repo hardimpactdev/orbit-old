@@ -9,6 +9,7 @@ use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\CloudflareService;
 use HardImpact\Orbit\Core\Services\DeploymentService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
+use HardImpact\Orbit\Core\Services\RemoteDeploy\RemoteDeploymentOrchestrator;
 use HardImpact\Orbit\Core\Services\SshService;
 
 beforeEach(function () {
@@ -17,7 +18,8 @@ beforeEach(function () {
     $this->sshService = mock(SshService::class);
     $this->commandService = new CommandService($this->sshService);
     $this->cloudflareService = mock(CloudflareService::class);
-    $this->deploymentService = new DeploymentService($this->commandService, $this->cloudflareService);
+    $this->orchestrator = mock(RemoteDeploymentOrchestrator::class);
+    $this->deploymentService = new DeploymentService($this->commandService, $this->cloudflareService, $this->orchestrator);
 });
 
 describe('GatewayDeployTool', function () {

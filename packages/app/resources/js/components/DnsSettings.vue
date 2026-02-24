@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { Loader2, Plus, Trash2, Check, AlertCircle, Server, Network } from 'lucide-vue-next';
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Badge } from '@hardimpactdev/craft-ui';
+import { useCsrf } from '@/composables/useCsrf';
 
 interface DnsMapping {
     type: 'address' | 'server';
@@ -29,7 +30,7 @@ const newMapping = ref<DnsMapping>({
     value: '',
 });
 
-const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
+const csrfToken = useCsrf();
 
 const loadMappings = async () => {
     loading.value = true;

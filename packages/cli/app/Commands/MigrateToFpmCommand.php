@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Contracts\CaddyfileGeneratorInterface;
+use App\Services\CaddyfileGenerator;
 use App\Services\CaddyManager;
 use App\Services\DockerManager;
 use App\Services\PhpManager;
@@ -15,7 +15,7 @@ final class MigrateToFpmCommand extends Command
 {
     use WithJsonOutput;
 
-    protected $signature = 'migrate:to-fpm 
+    protected $signature = 'migrate:to-fpm
         {--force : Skip confirmation prompts}
         {--keep-containers : Keep old PHP containers after migration}
         {--json : Output results as JSON}';
@@ -25,7 +25,7 @@ final class MigrateToFpmCommand extends Command
     public function handle(
         PhpManager $phpManager,
         CaddyManager $caddyManager,
-        CaddyfileGeneratorInterface $caddyfileGenerator,
+        CaddyfileGenerator $caddyfileGenerator,
         DockerManager $dockerManager
     ): int {
         // Detect current setup

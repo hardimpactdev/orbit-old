@@ -15,9 +15,9 @@ return [
     |
     */
     'php' => [
-        'versions' => ['8.3', '8.4', '8.5'],
-        'default' => '8.4',
-        'recommended' => '8.5',
+        'versions' => \HardImpact\Orbit\Core\Support\PhpVersion::SUPPORTED,
+        'default' => \HardImpact\Orbit\Core\Support\PhpVersion::DEFAULT,
+        'recommended' => \HardImpact\Orbit\Core\Support\PhpVersion::SUPPORTED[0],
     ],
 
     /*

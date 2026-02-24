@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Contracts\CaddyfileGeneratorInterface;
-use App\Services\CaddyfileGenerator;
 use App\Services\ConfigManager;
 use HardImpact\Orbit\Core\Services\Gateway\WgEasyService;
 use Illuminate\Http\Client\Factory;
@@ -26,9 +24,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Bind interface to concrete implementation for mockability
-        $this->app->bind(CaddyfileGeneratorInterface::class, CaddyfileGenerator::class);
-
         // WgEasyService needs explicit config from ConfigManager
         $this->app->bind(WgEasyService::class, function ($app) {
             $cm = $app->make(ConfigManager::class);
@@ -46,36 +41,5 @@ class AppServiceProvider extends ServiceProvider
         // Alias for facade
         $this->app->alias(Factory::class, 'http');
 
-        // Manually load commands for PHAR compatibility
-        if ($this->app->runningInConsole()) {
-            // Use CommandRegistry if available (for PHAR builds)
-            if (class_exists(\App\CommandRegistry::class)) {
-                $this->commands(\App\CommandRegistry::getCommands());
-            } else {
-                // Fallback for development
-                $this->commands($this->getCommandClasses());
-            }
-        }
-    }
-
-    /**
-     * Get all command classes from the Commands directory.
-     */
-    protected function getCommandClasses(): array
-    {
-        $commands = [];
-        $commandsPath = $this->app->basePath('app/Commands');
-
-        if (is_dir($commandsPath)) {
-            $files = glob($commandsPath.'/*.php');
-            foreach ($files as $file) {
-                $class = 'App\\Commands\\'.basename($file, '.php');
-                if (class_exists($class) && is_subclass_of($class, \Illuminate\Console\Command::class)) {
-                    $commands[] = $class;
-                }
-            }
-        }
-
-        return $commands;
     }
 }

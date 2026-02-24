@@ -7,6 +7,7 @@ import Heading from '@/components/Heading.vue';
 import Modal from '@/components/Modal.vue';
 import AddServiceModal from '@/components/AddServiceModal.vue';
 import ConfigureServiceModal from '@/components/ConfigureServiceModal.vue';
+import { useCsrf } from '@/composables/useCsrf';
 import {
     Loader2,
     Play,
@@ -105,7 +106,7 @@ const getApiUrl = (path: string) => {
 
 const baseApiUrl = computed(() => getApiUrl(''));
 
-const csrfToken = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '';
+const csrfToken = useCsrf();
 
 // Local state (no more Pinia)
 const services = ref<Record<string, Service>>({});
@@ -205,14 +206,14 @@ const serviceMeta: Record<string, ServiceMeta> = {
     },
     horizon: {
         name: 'Laravel Horizon',
-        description: 'Queue worker for production (orbit.ccc)',
+        description: 'Queue worker for production',
         icon: FileText,
         category: 'utility',
         required: true,
     },
     'horizon-dev': {
         name: 'Laravel Horizon',
-        description: 'Queue worker for development (orbit-web.ccc)',
+        description: 'Queue worker for development',
         icon: FileText,
         category: 'utility',
         required: true,

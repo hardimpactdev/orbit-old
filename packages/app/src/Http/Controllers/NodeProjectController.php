@@ -52,21 +52,11 @@ class NodeProjectController extends Controller
     {
         $editor = $node->getEditor();
         $remoteApiUrl = $this->getRemoteApiUrl($node);
-        $reverb = $this->config->getReverbConfig($node);
-
         return \Inertia\Inertia::render('nodes/Projects', [
             'node' => $node,
             'editor' => $editor,
             'remoteApiUrl' => $remoteApiUrl,
-            'reverb' => $reverb['success'] ? [
-                'enabled' => $reverb['enabled'] ?? false,
-                'host' => $reverb['host'] ?? null,
-                'port' => $reverb['port'] ?? null,
-                'scheme' => $reverb['scheme'] ?? null,
-                'app_key' => $reverb['app_key'] ?? null,
-            ] : [
-                'enabled' => false,
-            ],
+            'reverb' => $this->config->getFormattedReverbConfig($node),
         ]);
     }
 

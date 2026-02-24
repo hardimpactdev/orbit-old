@@ -11,7 +11,7 @@ Migrate an existing Laravel + Vue + Inertia website into a new project based on 
 ## Parameters
 
 Ask the user for:
-- **Source project path** (e.g., `~/Projects/srpm`)
+- **Source project path** (e.g., `~/projects/srpm`)
 - **New project slug** (e.g., `srpm-craft` — becomes `{slug}.test` via Orbit)
 - **GitHub org** (default: `hardimpactdev`)
 
@@ -21,7 +21,7 @@ Ask the user for:
 # Create repo from template
 gh repo create {org}/{slug} --template hardimpactdev/craft-starterkit --private --clone -p ~/Projects
 
-cd ~/Projects/{slug}
+cd ~/projects/{slug}
 ```
 
 Skip `setup.php` — it uses `fgets(STDIN)` and calls `herd secure/link` which is incompatible with Orbit and non-interactive agents. Replicate manually:

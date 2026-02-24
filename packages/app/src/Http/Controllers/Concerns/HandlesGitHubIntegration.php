@@ -6,6 +6,7 @@ namespace HardImpact\Orbit\App\Http\Controllers\Concerns;
 
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\SshService;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 
 trait HandlesGitHubIntegration
 {
@@ -132,35 +133,7 @@ trait HandlesGitHubIntegration
      */
     protected function getRecommendedPhpVersion(string $constraint): string
     {
-        $constraint = trim($constraint);
-        $availableVersions = ['8.5', '8.4', '8.3'];
-
-        // Check for explicit upper bound that excludes versions
-        if (preg_match('/<\s*(\d+)\.(\d+)/', $constraint, $matches)) {
-            $maxMajor = (int) $matches[1];
-            $maxMinor = (int) $matches[2];
-
-            foreach ($availableVersions as $version) {
-                [$major, $minor] = explode('.', $version);
-                if ((int) $major < $maxMajor || ((int) $major === $maxMajor && (int) $minor < $maxMinor)) {
-                    return $version;
-                }
-            }
-        }
-
-        // Check for tilde constraint ~8.x.y which locks to 8.x.*
-        if (preg_match('/~\s*(\d+)\.(\d+)\./', $constraint, $matches)) {
-            return $matches[1].'.'.$matches[2];
-        }
-
-        // Check for wildcard constraint 8.x.* which locks to 8.x
-        if (preg_match('/(\d+)\.(\d+)\.\*/', $constraint, $matches)) {
-            return $matches[1].'.'.$matches[2];
-        }
-
-        // For caret (^), greater-than (>=, >), or simple version constraints,
-        // the latest version is compatible
-        return '8.5';
+        return PhpVersion::recommendedForConstraint($constraint);
     }
 
     /**

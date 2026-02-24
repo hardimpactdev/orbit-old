@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Contracts\CaddyfileGeneratorInterface;
 use App\Enums\ExitCode;
+use App\Services\CaddyfileGenerator;
 use App\Services\ConfigManager;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use App\Services\DatabaseService;
 use App\Services\ProjectScanner;
 use LaravelZero\Framework\Commands\Command;
@@ -24,12 +25,12 @@ final class PhpCommand extends Command
 
     protected $description = 'Set PHP version for a project';
 
-    protected array $validVersions = ['8.3', '8.4', '8.5'];
+    protected array $validVersions = PhpVersion::SUPPORTED;
 
     public function handle(
         ConfigManager $configManager,
         ProjectScanner $projectScanner,
-        CaddyfileGeneratorInterface $caddyfileGenerator,
+        CaddyfileGenerator $caddyfileGenerator,
         DatabaseService $databaseService
     ): int {
         $project = $this->argument('project');
@@ -130,7 +131,7 @@ final class PhpCommand extends Command
         return self::SUCCESS;
     }
 
-    private function regenerateAndReload(CaddyfileGeneratorInterface $caddyfileGenerator): bool
+    private function regenerateAndReload(CaddyfileGenerator $caddyfileGenerator): bool
     {
         if (! $this->wantsJson()) {
             $this->task('Regenerating Caddyfile', function () use ($caddyfileGenerator) {

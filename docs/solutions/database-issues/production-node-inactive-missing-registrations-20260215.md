@@ -24,7 +24,7 @@ tags: [gateway, mcp, node, deployment, production, data-integrity]
 1. Queried the gateway SQLite database directly via SSH
 2. Found `is_active = 0` on the production node
 3. Found `gateway_projects` and `deployments` tables completely empty
-4. Verified srpm.nl was actually running on production (`~/Projects/srpm/current` symlink exists, Caddy serving it)
+4. Verified srpm.nl was actually running on production (`~/projects/srpm/current` symlink exists, Caddy serving it)
 
 ## Root Cause
 
@@ -70,7 +70,7 @@ curl ... gateway_deployments  # srpm on Hetzner Production, status: active
 
 - **When adding a new node**: Always set `is_active = 1` explicitly. Don't rely on database defaults.
 - **When deploying projects outside the gateway flow** (manual SSH, direct CLI): Register the project and create a deployment record afterward so MCP tools stay in sync.
-- **Fix `gateway_sync_node`**: It should discover projects on a node by SSHing in and listing `~/projects/` (or `~/Projects/`), then auto-creating missing `GatewayProject` + `Deployment` records. Currently it silently fails.
+- **Fix `gateway_sync_node`**: It should discover projects on a node by SSHing in and listing `~/projects/`, then auto-creating missing `GatewayProject` + `Deployment` records. Currently it silently fails.
 - **After any infrastructure change**: Always verify through MCP tools end-to-end before declaring it done.
 
 ## Related
@@ -78,4 +78,4 @@ curl ... gateway_deployments  # srpm on Hetzner Production, status: active
 - `docs/solutions/database-issues/web-cli-sqlite-path-mismatch-20260215.md` — related database config issue
 - `docs/solutions/infrastructure/production-node-setup-orbit-cli-20260214.md` — production node setup
 - `packages/app/src/Mcp/Tools/Gateway/GatewayDeployTool.php:65` — `isActive()` check that blocks deployment
-- Note: production server uses `~/Projects/` (capital P), not `~/projects/`
+- Note: all servers now use `~/projects/` (lowercase) — harmonized on 2026-02-16
