@@ -7,7 +7,7 @@ namespace App\Support;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Terminal;
 
-final class HumanReadableFormatter
+final readonly class HumanReadableFormatter
 {
     /** @var array<string, string> */
     private const ABBREVIATIONS = [
@@ -29,10 +29,10 @@ final class HumanReadableFormatter
         'db' => 'DB',
     ];
 
-    private readonly int $terminalWidth;
+    private int $terminalWidth;
 
     public function __construct(
-        private readonly OutputInterface $output,
+        private OutputInterface $output,
         ?int $terminalWidth = null,
     ) {
         $this->terminalWidth = $terminalWidth ?? (new Terminal)->getWidth();
@@ -204,7 +204,7 @@ final class HumanReadableFormatter
                 return '<fg=gray>-</>';
             }
 
-            return implode(', ', array_map(fn ($v) => $this->formatValue($v), $value));
+            return implode(', ', array_map($this->formatValue(...), $value));
         }
 
         $string = (string) $value;

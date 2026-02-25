@@ -70,12 +70,12 @@ final class ProjectRegisterCommand extends Command
 
         $this->line('Registering project on gateway...');
 
-        $args = ['project:store', escapeshellarg($name), escapeshellarg($slug)];
+        $args = ['project:store', escapeshellarg((string) $name), escapeshellarg((string) $slug)];
         if ($repo) {
-            $args[] = '--repo='.escapeshellarg($repo);
+            $args[] = '--repo='.escapeshellarg((string) $repo);
         }
         if ($domain) {
-            $args[] = '--domain='.escapeshellarg($domain);
+            $args[] = '--domain='.escapeshellarg((string) $domain);
         }
         $args[] = '--json';
 
