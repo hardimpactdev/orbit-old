@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Node;
 
+use App\Concerns\WithHumanOutput;
 use App\Concerns\WithJsonOutput;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Gateway;
@@ -15,6 +16,7 @@ use function Laravel\Prompts\spin;
 
 final class NodeListCommand extends Command
 {
+    use WithHumanOutput;
     use WithJsonOutput;
 
     protected $signature = 'list:nodes
@@ -83,35 +85,29 @@ final class NodeListCommand extends Command
         $activeNodeId = Node::where('is_active', true)->value('id');
         $gateways = Gateway::all()->keyBy('id');
 
-        $rows = $nodes->map(function ($node) use ($activeNodeId, $gateways, $vpnClients) {
-            $active = $node->id === $activeNodeId ? '✓' : '';
-            $vpn = $node->hasVpn() ? $node->getAttribute('vpn_ip') : '-';
-
-            $gateway = '-';
+        $tableData = $nodes->map(function ($node) use ($activeNodeId, $gateways, $vpnClients) {
+            $gatewayName = null;
             $gatewayId = $node->getAttribute('gateway_id');
             if ($gatewayId !== null && $gateways->has($gatewayId)) {
-                $gateway = $gateways->get($gatewayId)->name;
+                $gatewayName = $gateways->get($gatewayId)->name;
             }
 
             $vpnStatus = $this->getVpnStatus($node, $vpnClients);
 
             return [
-                $node->id,
-                $node->name,
-                $node->node_type->value,
-                $node->host,
-                $vpn,
-                $gateway,
-                $vpnStatus['display'],
-                $node->status->value,
-                $active,
+                'id' => $node->id,
+                'name' => $node->name,
+                'type' => $node->node_type->value,
+                'host' => $node->host,
+                'vpn_ip' => $node->hasVpn() ? $node->getAttribute('vpn_ip') : null,
+                'gateway' => $gatewayName,
+                'vpn_status' => $vpnStatus['status'],
+                'status' => $node->status->value,
+                'active' => $node->id === $activeNodeId,
             ];
         })->toArray();
 
-        $this->table(
-            ['ID', 'Name', 'Type', 'Host', 'VPN IP', 'Gateway', 'VPN Status', 'Status', 'Active'],
-            $rows
-        );
+        $this->renderForHumans($tableData, 'Nodes');
 
         return self::SUCCESS;
     }

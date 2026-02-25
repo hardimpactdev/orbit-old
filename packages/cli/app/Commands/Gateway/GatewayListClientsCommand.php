@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Gateway;
 
+use App\Concerns\WithHumanOutput;
 use App\Concerns\WithJsonOutput;
 use App\Services\GatewayCliAdapter;
 use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
@@ -11,6 +12,7 @@ use LaravelZero\Framework\Commands\Command;
 
 final class GatewayListClientsCommand extends Command
 {
+    use WithHumanOutput;
     use WithJsonOutput;
 
     protected $signature = 'list:gateway-clients {--json}';
@@ -55,26 +57,24 @@ final class GatewayListClientsCommand extends Command
         }
 
         $this->line("  <fg=gray>Gateway:</> {$gateway->name}");
-        $this->newLine();
 
         if ($clients === []) {
+            $this->newLine();
             $this->line('  <fg=gray>No clients found.</>');
             $this->newLine();
 
             return self::SUCCESS;
         }
 
-        foreach ($clients as $client) {
-            $online = $client['online'] ?? false;
-            $dot = $online ? '<fg=green>●</>' : '<fg=gray>○</>';
-            $nameColor = $online ? 'white' : 'gray';
-            $disabled = ($client['enabled'] ?? true) ? '' : ' <fg=yellow>[disabled]</>';
-            $tld = ! empty($client['tld']) ? " <fg=cyan>.{$client['tld']}</>" : '';
+        $tableData = array_map(fn (array $client) => [
+            'name' => $client['name'],
+            'ip' => $client['ip'],
+            'tld' => ! empty($client['tld']) ? '.'.$client['tld'] : null,
+            'status' => ($client['online'] ?? false) ? 'online' : 'offline',
+            'enabled' => $client['enabled'] ?? true,
+        ], $clients);
 
-            $this->line("  {$dot}  <fg={$nameColor}>{$client['name']}</>  <fg=gray>{$client['ip']}</>{$tld}{$disabled}");
-        }
-
-        $this->newLine();
+        $this->renderForHumans($tableData);
 
         return self::SUCCESS;
     }

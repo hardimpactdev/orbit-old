@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Service;
 
+use App\Concerns\WithHumanOutput;
 use App\Concerns\WithJsonOutput;
 use App\Services\ServiceManager;
 use App\Services\ServiceTemplateLoader;
@@ -11,6 +12,7 @@ use LaravelZero\Framework\Commands\Command;
 
 final class ServiceListCommand extends Command
 {
+    use WithHumanOutput;
     use WithJsonOutput;
 
     protected $signature = 'service:list 
@@ -42,28 +44,24 @@ final class ServiceListCommand extends Command
             ]);
         }
 
-        $this->newLine();
-        $this->line('  <fg=cyan>Configured Services:</> ('.count($services).' total, '.count($enabled).' enabled)');
-        $this->newLine();
-
         if (empty($services)) {
+            $this->newLine();
             $this->line('  <fg=yellow>No services configured. Use --available to see available templates.</>');
             $this->newLine();
 
             return self::SUCCESS;
         }
 
+        $tableData = [];
         foreach ($services as $name => $config) {
-            $enabled = $config['enabled'] ?? false;
-            $version = $config['version'] ?? 'default';
-
-            $statusIcon = $enabled ? '<fg=green>●</>' : '<fg=gray>○</>';
-            $statusLabel = $enabled ? '<fg=green>enabled</>' : '<fg=gray>disabled</>';
-
-            $this->line("    {$statusIcon} <fg=white>{$name}</> ({$statusLabel}) - version: {$version}");
+            $tableData[] = [
+                'name' => $name,
+                'status' => ($config['enabled'] ?? false) ? 'enabled' : 'disabled',
+                'version' => $config['version'] ?? 'default',
+            ];
         }
 
-        $this->newLine();
+        $this->renderForHumans($tableData, 'Configured Services ('.count($services).' total, '.count($enabled).' enabled)');
 
         return self::SUCCESS;
     }

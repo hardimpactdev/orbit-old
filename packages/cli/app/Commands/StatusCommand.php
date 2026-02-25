@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Concerns\WithHumanOutput;
 use App\Concerns\WithJsonOutput;
 use App\Services\CaddyManager;
 use App\Services\ConfigManager;
@@ -15,6 +16,7 @@ use LaravelZero\Framework\Commands\Command;
 
 final class StatusCommand extends Command
 {
+    use WithHumanOutput;
     use WithJsonOutput;
 
     protected $signature = 'status {--json : Output as JSON}';
@@ -141,13 +143,13 @@ final class StatusCommand extends Command
             $this->line("    {$statusIcon} {$name}{$healthLabel}");
         }
 
-        $this->newLine();
-        $this->line('  <fg=cyan>Architecture:</> '.$architecture);
-        $this->line('  <fg=cyan>Projects:</> '.count($projects));
-        $this->line('  <fg=cyan>Config:</> '.$configManager->getConfigPath());
-        $this->line('  <fg=cyan>TLD:</> .'.$configManager->getTld());
-        $this->line('  <fg=cyan>Default PHP:</> '.$configManager->getDefaultPhpVersion());
-        $this->newLine();
+        $this->renderForHumans([
+            'architecture' => $architecture,
+            'projects' => count($projects),
+            'config' => $configManager->getConfigPath(),
+            'tld' => '.'.$configManager->getTld(),
+            'default_php' => $configManager->getDefaultPhpVersion(),
+        ]);
 
         return self::SUCCESS;
     }

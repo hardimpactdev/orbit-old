@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands;
 
+use App\Concerns\WithHumanOutput;
 use App\Concerns\WithJsonOutput;
 use App\Services\ConfigManager;
 use App\Services\ProjectScanner;
@@ -11,6 +12,7 @@ use LaravelZero\Framework\Commands\Command;
 
 final class ProjectListCommand extends Command
 {
+    use WithHumanOutput;
     use WithJsonOutput;
 
     protected $signature = 'project:list {--json : Output as JSON}';
@@ -38,33 +40,20 @@ final class ProjectListCommand extends Command
             return self::SUCCESS;
         }
 
-        $this->info('Projects:');
-        $this->newLine();
+        $tableData = array_map(fn ($project) => [
+            'name' => $project['name'],
+            'has_public' => $project['has_public_folder'],
+            'domain' => $project['domain'] ?? null,
+            'php' => $project['php_version'].($project['has_custom_php'] ? ' (custom)' : ''),
+        ], $projects);
 
-        $tableData = [];
-        foreach ($projects as $project) {
-            $phpDisplay = $project['php_version'];
-            if ($project['has_custom_php']) {
-                $phpDisplay .= ' (custom)';
-            }
+        $this->renderForHumans($tableData, 'Projects');
 
-            $hasPublic = $project['has_public_folder'] ? 'Yes' : 'No';
-            $domain = $project['domain'] ?? '-';
-
-            $tableData[] = [
-                $project['name'],
-                $hasPublic,
-                $domain,
-                $phpDisplay,
-            ];
-        }
-
-        $this->table(['Name', 'Has Public', 'Domain', 'PHP'], $tableData);
-
-        $this->newLine();
-        $this->line("TLD: {$tld}");
-        $this->line("Default PHP: {$defaultPhp}");
-        $this->line('Total: '.count($projects).' projects');
+        $this->formatter()->renderKeyValue([
+            'tld' => $tld,
+            'default_php' => $defaultPhp,
+            'total' => count($projects).' projects',
+        ]);
 
         return self::SUCCESS;
     }

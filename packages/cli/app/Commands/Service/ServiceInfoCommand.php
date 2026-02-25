@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Commands\Service;
 
+use App\Concerns\WithHumanOutput;
 use App\Concerns\WithJsonOutput;
 use App\Services\ServiceManager;
 use App\Services\ServiceTemplateLoader;
@@ -12,6 +13,7 @@ use RuntimeException;
 
 final class ServiceInfoCommand extends Command
 {
+    use WithHumanOutput;
     use WithJsonOutput;
 
     protected $signature = 'service:info 
@@ -79,31 +81,22 @@ final class ServiceInfoCommand extends Command
         if ($template !== null) {
             $this->line("  <fg=cyan>{$template->label}</> ({$template->name})");
             $this->line("  {$template->description}");
-            $this->newLine();
 
-            $this->line('  <fg=cyan>Category:</> '.$template->category);
-            $this->line('  <fg=cyan>Available versions:</> '.implode(', ', $template->versions));
+            $templateInfo = [
+                'category' => $template->category,
+                'available_versions' => implode(', ', $template->versions),
+            ];
 
             if (! empty($template->dependsOn)) {
-                $this->line('  <fg=cyan>Dependencies:</> '.implode(', ', $template->dependsOn));
+                $templateInfo['dependencies'] = implode(', ', $template->dependsOn);
             }
 
-            $this->newLine();
+            $this->renderForHumans($templateInfo);
         }
 
         // Show current configuration
         if ($config !== null) {
-            $enabled = $config['enabled'] ?? false;
-            $statusLabel = $enabled ? '<fg=green>enabled</>' : '<fg=gray>disabled</>';
-
-            $this->line("  <fg=cyan>Status:</> {$statusLabel}");
-            $this->newLine();
-
-            $this->line('  <fg=cyan>Configuration:</>');
-            foreach ($config as $key => $value) {
-                $displayValue = is_bool($value) ? ($value ? 'true' : 'false') : $value;
-                $this->line("    {$key}: {$displayValue}");
-            }
+            $this->renderForHumans($config, 'Configuration');
         } else {
             $this->line('  <fg=yellow>Not configured</>');
             $this->line("  <fg=gray>Run 'orbit service:enable {$serviceName}' to enable this service</>");
@@ -111,18 +104,16 @@ final class ServiceInfoCommand extends Command
 
         // Show configuration schema if available
         if ($template !== null && ! empty($template->configSchema['properties'])) {
-            $this->newLine();
-            $this->line('  <fg=cyan>Available configuration options:</>');
-
+            $schemaData = [];
             foreach ($template->configSchema['properties'] as $key => $schema) {
                 $type = $schema['type'] ?? 'string';
                 $default = isset($schema['default']) ? " (default: {$schema['default']})" : '';
-                $required = in_array($key, $template->configSchema['required'] ?? [], true) ? ' <fg=red>*</>' : '';
+                $required = in_array($key, $template->configSchema['required'] ?? [], true) ? ' *' : '';
 
-                $this->line("    {$key}: <fg=gray>{$type}</>{$default}{$required}");
+                $schemaData[$key] = $type.$default.$required;
             }
 
-            $this->newLine();
+            $this->renderForHumans($schemaData, 'Available Options');
             $this->line('  <fg=gray>Use \'orbit service:configure '.$serviceName.' --set key=value\' to configure</>');
         }
 
