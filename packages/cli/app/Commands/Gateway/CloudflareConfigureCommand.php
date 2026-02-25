@@ -40,14 +40,8 @@ final class CloudflareConfigureCommand extends Command
             return self::FAILURE;
         }
 
+        /** @var Gateway $gateway */
         $gateway = $active['gateway'];
-
-        if (! $gateway instanceof Gateway) {
-            $this->error('Gateway not found in database.');
-            $this->line('  <fg=gray>Register one with: orbit gateway:add</>');
-
-            return self::FAILURE;
-        }
 
         $this->info('Configure Cloudflare');
         $this->line("  Gateway: {$gateway->name}");

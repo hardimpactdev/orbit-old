@@ -21,7 +21,7 @@ final class GatewayListCommand extends Command
     {
         $gateways = $gatewayManager->all();
 
-        if ($gateways === []) {
+        if ($gateways->isEmpty()) {
             $this->warn('No gateways configured.');
             $this->info('Add a gateway with: orbit gateway:add');
 

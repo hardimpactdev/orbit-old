@@ -45,10 +45,8 @@ findtime = 300
 bantime = 1800
 CONF;
 
-        $result = Process::run(
-            'sudo tee /etc/fail2ban/jail.local',
-            input: $jailConfig
-        );
+        $result = Process::input($jailConfig)
+            ->run('sudo tee /etc/fail2ban/jail.local');
         if (! $result->successful()) {
             $logger->warn('Failed to write fail2ban jail config');
 
@@ -62,10 +60,8 @@ failregex = ^.*"remote_ip":"<HOST>".*"status":(401|403).*$
 ignoreregex =
 CONF;
 
-        $result = Process::run(
-            'sudo tee /etc/fail2ban/filter.d/caddy-auth.conf',
-            input: $filterConfig
-        );
+        $result = Process::input($filterConfig)
+            ->run('sudo tee /etc/fail2ban/filter.d/caddy-auth.conf');
         if (! $result->successful()) {
             $logger->warn('Failed to write caddy-auth filter');
 

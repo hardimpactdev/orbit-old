@@ -36,10 +36,8 @@ Unattended-Upgrade::Remove-Unused-Dependencies "true";
 Unattended-Upgrade::Automatic-Reboot "false";
 CONF;
 
-        $result = Process::run(
-            'sudo tee /etc/apt/apt.conf.d/50unattended-upgrades',
-            input: $config
-        );
+        $result = Process::input($config)
+            ->run('sudo tee /etc/apt/apt.conf.d/50unattended-upgrades');
         if (! $result->successful()) {
             $logger->warn('Failed to write unattended-upgrades config');
 

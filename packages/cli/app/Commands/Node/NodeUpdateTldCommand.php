@@ -148,7 +148,7 @@ final class NodeUpdateTldCommand extends Command
             }
         }, 'Regenerating node DNS config...');
 
-        if ($dnsRegenResult['success'] ?? false) {
+        if ($dnsRegenResult['success']) {
             $this->info('✓ Node DNS config regenerated');
         } else {
             $this->warn('⚠ Node DNS restart skipped (service may not be running)');
