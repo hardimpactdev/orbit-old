@@ -35,6 +35,7 @@ final class CloudflareConfigureCommand extends Command
 
         if ($active === null) {
             $this->error('No active WireGuard connection found.');
+            $this->line('  <fg=gray>Check VPN status: wg show</>');
 
             return self::FAILURE;
         }
@@ -43,6 +44,7 @@ final class CloudflareConfigureCommand extends Command
 
         if (! $gateway instanceof Gateway) {
             $this->error('Gateway not found in database.');
+            $this->line('  <fg=gray>Register one with: orbit gateway:add</>');
 
             return self::FAILURE;
         }
@@ -65,6 +67,7 @@ final class CloudflareConfigureCommand extends Command
 
         if ($zonesOutput === null) {
             $this->error('Failed to validate token via gateway.');
+            $this->line('  <fg=gray>Verify gateway is reachable: curl -sf https://orbit.gateway/health</>');
 
             return self::FAILURE;
         }
@@ -74,6 +77,7 @@ final class CloudflareConfigureCommand extends Command
         if (! is_array($decoded) || ! ($decoded['success'] ?? false)) {
             $error = $decoded['error'] ?? 'Unknown error';
             $this->error("Could not retrieve zones: {$error}");
+            $this->line('  <fg=gray>Verify your Cloudflare API token has Zone:Read permissions</>');
 
             return self::FAILURE;
         }

@@ -325,7 +325,23 @@ final class UpgradeCommand extends Command
         }
 
         $this->error($message);
+        $this->hintForError($message);
 
         return $exitCode->value;
+    }
+
+    private function hintForError(string $message): void
+    {
+        if (str_contains($message, 'compiled binary')) {
+            $this->line('  <fg=gray>Development installs cannot self-upgrade. Build a phar first</>');
+        } elseif (str_contains($message, 'GitHub')) {
+            $this->line('  <fg=gray>Check your internet connection and try again</>');
+        } elseif (str_contains($message, 'platform')) {
+            $this->line('  <fg=gray>Supported platforms: linux-x86_64, linux-aarch64, macos-aarch64</>');
+        } elseif (str_contains($message, 'download')) {
+            $this->line('  <fg=gray>Check your internet connection and try again</>');
+        } elseif (str_contains($message, 'valid binary')) {
+            $this->line('  <fg=gray>The download may be corrupt. Try again</>');
+        }
     }
 }

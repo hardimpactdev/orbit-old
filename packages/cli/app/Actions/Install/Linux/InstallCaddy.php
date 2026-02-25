@@ -39,15 +39,15 @@ final readonly class InstallCaddy
 
         $logger->step('Downloading Caddy with cloudflare DNS module...');
         $result = Process::timeout(120)->run(
-            'curl -fsSL -o /tmp/caddy-cloudflare ' . escapeshellarg(self::DOWNLOAD_URL)
-            . ' && chmod +x /tmp/caddy-cloudflare'
-            . ' && sudo mv /tmp/caddy-cloudflare /usr/bin/caddy'
-            . ' && sudo chown root:root /usr/bin/caddy'
-            . ' && sudo chmod 755 /usr/bin/caddy'
+            'curl -fsSL -o /tmp/caddy-cloudflare '.escapeshellarg(self::DOWNLOAD_URL)
+            .' && chmod +x /tmp/caddy-cloudflare'
+            .' && sudo mv /tmp/caddy-cloudflare /usr/bin/caddy'
+            .' && sudo chown root:root /usr/bin/caddy'
+            .' && sudo chmod 755 /usr/bin/caddy'
         );
 
         if (! $result->successful()) {
-            return StepResult::failed('Failed to install Caddy: ' . $result->errorOutput());
+            return StepResult::failed('Failed to install Caddy: '.$result->errorOutput());
         }
 
         // Verify the module is present
@@ -62,7 +62,7 @@ final readonly class InstallCaddy
         $startResult = Process::run('sudo systemctl enable caddy && sudo systemctl start caddy');
 
         if (! $startResult->successful()) {
-            $logger->warn('Failed to start Caddy service: ' . $startResult->errorOutput());
+            $logger->warn('Failed to start Caddy service: '.$startResult->errorOutput());
             $logger->warn('You may need to start it manually: sudo systemctl start caddy');
         } else {
             $logger->success('Caddy service started');
@@ -112,7 +112,7 @@ AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
 WantedBy=multi-user.target
 UNIT;
 
-            Process::run("echo " . escapeshellarg($serviceFile) . " | sudo tee /etc/systemd/system/caddy.service > /dev/null");
+            Process::run('echo '.escapeshellarg($serviceFile).' | sudo tee /etc/systemd/system/caddy.service > /dev/null');
             Process::run('sudo mkdir -p /etc/caddy');
             Process::run('sudo systemctl daemon-reload');
         }

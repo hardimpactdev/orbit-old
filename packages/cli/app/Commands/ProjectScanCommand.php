@@ -187,5 +187,4 @@ final class ProjectScanCommand extends Command
 
         return ExitCode::GeneralError->value;
     }
-
 }

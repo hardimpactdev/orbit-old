@@ -77,6 +77,9 @@ final class UpdateCommand extends Command
         }
 
         $this->error($message);
+        if (str_contains($message, 'GitHub')) {
+            $this->line('  <fg=gray>Check your internet connection and try again</>');
+        }
 
         return $exitCode->value;
     }

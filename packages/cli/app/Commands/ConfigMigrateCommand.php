@@ -6,8 +6,8 @@ namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
 use App\Services\ConfigManager;
-use HardImpact\Orbit\Core\Support\ProjectHelper;
 use App\Services\DatabaseService;
+use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Facades\File;
 use LaravelZero\Framework\Commands\Command;
 
@@ -104,5 +104,4 @@ final class ConfigMigrateCommand extends Command
 
         return null;
     }
-
 }

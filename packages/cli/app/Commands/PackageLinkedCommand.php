@@ -29,9 +29,10 @@ final class PackageLinkedCommand extends Command
         // Validate app path exists
         if (! File::isDirectory($appPath)) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError("App '$app' not found at $appPath");
+                return $this->outputJsonError("App '$app' not found at $appPath. Check project exists in ~/projects/");
             }
             $this->error("App '$app' not found at $appPath");
+            $this->line('  <fg=gray>Check project exists in ~/projects/</>');
 
             return self::FAILURE;
         }

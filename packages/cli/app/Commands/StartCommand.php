@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Services\CaddyfileGenerator;
 use App\Enums\ExitCode;
+use App\Services\CaddyfileGenerator;
 use App\Services\CaddyManager;
 use App\Services\PhpManager;
 use App\Services\ServiceManager;

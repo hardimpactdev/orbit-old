@@ -39,9 +39,10 @@ final class NodeAddCommand extends Command
 
         if (! filter_var($host, FILTER_VALIDATE_IP)) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError('Invalid IP address format');
+                return $this->outputJsonError('Invalid IP address format. Provide a valid IPv4 or IPv6 address');
             }
             $this->error('Invalid IP address format');
+            $this->line('  <fg=gray>Provide a valid IPv4 or IPv6 address</>');
 
             return self::FAILURE;
         }

@@ -38,9 +38,10 @@ final class WorktreeUnlinkCommand extends Command
         if (! $success) {
             $message = "Worktree '{$worktreeName}' not found for site '{$siteName}'.";
             if ($this->wantsJson()) {
-                return $this->outputJsonError($message);
+                return $this->outputJsonError($message.' List worktrees with: orbit worktrees');
             }
             $this->error($message);
+            $this->line('  <fg=gray>List worktrees with: orbit worktrees</>');
 
             return self::FAILURE;
         }

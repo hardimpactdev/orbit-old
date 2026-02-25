@@ -36,6 +36,7 @@ final class ProjectRegisterCommand extends Command
 
         if ($active === null) {
             $this->error('No active WireGuard connection found.');
+            $this->line('  <fg=gray>Check VPN status: wg show</>');
 
             return self::FAILURE;
         }
@@ -45,6 +46,7 @@ final class ProjectRegisterCommand extends Command
 
         if ($gateway === null) {
             $this->error('Gateway not found in database.');
+            $this->line('  <fg=gray>Register one with: orbit gateway:add</>');
 
             return self::FAILURE;
         }
@@ -70,10 +72,10 @@ final class ProjectRegisterCommand extends Command
 
         $args = ['project:store', escapeshellarg($name), escapeshellarg($slug)];
         if ($repo) {
-            $args[] = '--repo=' . escapeshellarg($repo);
+            $args[] = '--repo='.escapeshellarg($repo);
         }
         if ($domain) {
-            $args[] = '--domain=' . escapeshellarg($domain);
+            $args[] = '--domain='.escapeshellarg($domain);
         }
         $args[] = '--json';
 
@@ -81,6 +83,7 @@ final class ProjectRegisterCommand extends Command
 
         if ($output === null) {
             $this->error('Failed to register project on gateway.');
+            $this->line('  <fg=gray>Check gateway connectivity: curl -sf https://orbit.gateway/health</>');
 
             return self::FAILURE;
         }

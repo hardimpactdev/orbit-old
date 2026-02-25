@@ -28,6 +28,7 @@ final class MigrateCommand extends Command
         $db = $databaseService->getPdo();
         if (! $db) {
             $this->error('Could not connect to database.');
+            $this->line('  <fg=gray>Check that ~/.config/orbit/database.sqlite exists and is readable</>');
 
             return self::FAILURE;
         }

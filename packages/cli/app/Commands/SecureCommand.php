@@ -46,6 +46,7 @@ final class SecureCommand extends Command
 
         if (! $result) {
             $this->error('Failed to reload Caddy');
+            $this->line('  <fg=gray>Check config: caddy validate --config ~/.config/orbit/caddy/Caddyfile</>');
 
             return self::FAILURE;
         }
@@ -211,6 +212,7 @@ final class SecureCommand extends Command
         } else {
             $this->error('Failed to trust Caddy root CA');
             $this->line($result->errorOutput());
+            $this->line('  <fg=gray>Try manually: sudo security add-trusted-cert -d -r trustRoot /path/to/root.crt</>');
         }
     }
 }

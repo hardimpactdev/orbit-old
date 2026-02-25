@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Actions\Install\Shared;
 
-use App\Services\CaddyfileGenerator;
 use App\Data\Install\InstallContext;
+use App\Services\CaddyfileGenerator;
 use App\Services\ConfigManager;
 use App\Services\Install\InstallLogger;
 use HardImpact\Orbit\Core\Data\StepResult;

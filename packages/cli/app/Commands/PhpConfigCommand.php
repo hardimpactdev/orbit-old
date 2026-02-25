@@ -38,9 +38,10 @@ final class PhpConfigCommand extends Command
             $installed = $phpManager->getInstalledVersions();
             if (empty($installed)) {
                 if ($this->wantsJson()) {
-                    return $this->outputJsonError('No PHP versions installed.', ExitCode::InvalidArguments->value);
+                    return $this->outputJsonError('No PHP versions installed. Install with: orbit install --php-versions=8.4', ExitCode::InvalidArguments->value);
                 }
                 $this->error('No PHP versions installed.');
+                $this->line('  <fg=gray>Install with: orbit install --php-versions=8.4</>');
 
                 return ExitCode::InvalidArguments->value;
             }
@@ -122,9 +123,10 @@ final class PhpConfigCommand extends Command
 
         if (! $success) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError('Failed to update settings.', ExitCode::GeneralError->value);
+                return $this->outputJsonError('Failed to update settings. Check file permissions on ~/.config/orbit/php/', ExitCode::GeneralError->value);
             }
             $this->error('Failed to update settings.');
+            $this->line('  <fg=gray>Check file permissions on ~/.config/orbit/php/</>');
 
             return ExitCode::GeneralError->value;
         }

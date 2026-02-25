@@ -294,9 +294,20 @@ final class ProjectCreateCommand extends Command
             $this->outputJsonError($message);
         } else {
             $this->error($message);
+            $this->hintForError($message);
         }
 
         return ExitCode::GeneralError->value;
     }
 
+    private function hintForError(string $message): void
+    {
+        if (str_contains($message, 'reserved')) {
+            $this->line('  <fg=gray>Choose a different project name</>');
+        } elseif (str_contains($message, 'orbit init')) {
+            $this->line('  <fg=gray>Initialize this node first: orbit init</>');
+        } elseif (str_contains($message, 'already exists')) {
+            $this->line('  <fg=gray>List projects with: orbit project:list</>');
+        }
+    }
 }

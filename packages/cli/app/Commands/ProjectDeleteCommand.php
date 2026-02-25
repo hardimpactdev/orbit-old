@@ -248,6 +248,7 @@ final class ProjectDeleteCommand extends Command
             $this->outputJsonError($message);
         } else {
             $this->error($message);
+            $this->hintForError($message);
         }
 
         // Broadcast failure if logger is initialized
@@ -256,4 +257,12 @@ final class ProjectDeleteCommand extends Command
         return ExitCode::GeneralError->value;
     }
 
+    private function hintForError(string $message): void
+    {
+        if (str_contains($message, 'slug or --id is required')) {
+            $this->line('  <fg=gray>List projects with: orbit project:list</>');
+        } elseif (str_contains($message, 'Confirmation failed')) {
+            $this->line('  <fg=gray>Use --force to skip confirmation</>');
+        }
+    }
 }

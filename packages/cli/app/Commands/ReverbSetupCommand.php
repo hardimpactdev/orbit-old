@@ -55,6 +55,7 @@ final class ReverbSetupCommand extends Command
         $stubPath = base_path('stubs/reverb');
         if (! File::isDirectory($stubPath)) {
             $this->error('Reverb stubs not found at: '.$stubPath);
+            $this->line('  <fg=gray>This usually means the orbit binary is outdated. Run: orbit upgrade</>');
 
             return 1;
         }
@@ -111,6 +112,7 @@ ENV;
             if (! $buildResult->successful()) {
                 $this->error('Failed to build Reverb container:');
                 $this->line($buildResult->errorOutput());
+                $this->line('  <fg=gray>Check Docker is running: docker info</>');
 
                 return 1;
             }

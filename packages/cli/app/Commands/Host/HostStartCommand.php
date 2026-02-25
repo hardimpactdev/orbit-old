@@ -32,17 +32,22 @@ final class HostStartCommand extends Command
                 $success = $php->start($version);
             } else {
                 if ($this->wantsJson()) {
-                    return $this->outputJsonError("Unknown host service: {$service}", ExitCode::InvalidArguments->value);
+                    return $this->outputJsonError("Unknown host service: {$service}. Valid services: caddy, php-8.3, php-8.4, php-8.5", ExitCode::InvalidArguments->value);
                 }
                 $this->error("Unknown host service: {$service}");
+                $this->line('  <fg=gray>Valid services: caddy, php-8.3, php-8.4, php-8.5</>');
 
                 return ExitCode::InvalidArguments->value;
             }
 
             if ($this->wantsJson()) {
+                $statusHint = PHP_OS_FAMILY === 'Darwin'
+                    ? "brew services info {$service}"
+                    : "sudo systemctl status {$service}";
+
                 return $success
                     ? $this->outputJsonSuccess(['message' => "Started {$service}"])
-                    : $this->outputJsonError("Failed to start {$service}", ExitCode::ServiceFailed->value);
+                    : $this->outputJsonError("Failed to start {$service}. Check status with: {$statusHint}", ExitCode::ServiceFailed->value);
             }
 
             if ($success) {
@@ -52,6 +57,10 @@ final class HostStartCommand extends Command
             }
 
             $this->error("Failed to start {$service}");
+            $statusCmd = PHP_OS_FAMILY === 'Darwin'
+                ? "brew services info {$service}"
+                : "sudo systemctl status {$service}";
+            $this->line("  <fg=gray>Check status with: {$statusCmd}</>");
 
             return ExitCode::ServiceFailed->value;
 

@@ -8,9 +8,9 @@ use App\Concerns\WithJsonOutput;
 use App\Enums\ExitCode;
 use App\Services\CaddyfileGenerator;
 use App\Services\ConfigManager;
-use HardImpact\Orbit\Core\Support\PhpVersion;
 use App\Services\DatabaseService;
 use App\Services\ProjectScanner;
+use HardImpact\Orbit\Core\Support\PhpVersion;
 use LaravelZero\Framework\Commands\Command;
 
 final class PhpCommand extends Command

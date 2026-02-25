@@ -127,6 +127,11 @@ final class GatewayClientsCommand extends Command
         }
 
         $this->error($message);
+        if (str_contains($message, 'password')) {
+            $this->line('  <fg=gray>Set the password: orbit gateway:set-password</>');
+        } elseif (str_contains($message, 'No clients') || str_contains($message, 'authentication')) {
+            $this->line('  <fg=gray>Verify WireGuard API is running on port 51821</>');
+        }
 
         return self::FAILURE;
     }

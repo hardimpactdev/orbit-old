@@ -60,6 +60,7 @@ final class ServiceDisableCommand extends Command
     {
         $this->newLine();
         $this->error("  {$message}");
+        $this->line('  <fg=gray>Check Docker status: docker ps</>');
         $this->newLine();
 
         return self::FAILURE;

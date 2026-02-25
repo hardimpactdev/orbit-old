@@ -293,6 +293,7 @@ SQL;
                     $this->line('  source ~/.zshrc');
                 } else {
                     $this->error('  Failed to install mysql-client');
+                    $this->line('  <fg=gray>Install manually: brew install mysql-client</>');
                 }
             }
         }
@@ -302,6 +303,7 @@ SQL;
     {
         $this->newLine();
         $this->error("  {$message}");
+        $this->line('  <fg=gray>Check service definition exists in ~/.config/orbit/services.yaml</>');
         $this->newLine();
 
         return self::FAILURE;

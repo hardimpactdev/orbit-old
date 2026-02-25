@@ -16,9 +16,10 @@ it('lists all projects', function () {
         ['name' => 'myproject', 'domain' => 'myproject.test', 'path' => '/path/to/myproject', 'php_version' => '8.3', 'has_custom_php' => false, 'has_public_folder' => true],
         ['name' => 'another', 'domain' => 'another.test', 'path' => '/path/to/another', 'php_version' => '8.4', 'has_custom_php' => true, 'has_public_folder' => true],
     ]);
+    $this->configManager->shouldReceive('getTld')->andReturn('test');
     $this->configManager->shouldReceive('getDefaultPhpVersion')->andReturn('8.3');
 
-    $this->artisan('projects')
+    $this->artisan('project:list')
         ->expectsOutputToContain('myproject.test')
         ->expectsOutputToContain('another.test')
         ->assertExitCode(0);
@@ -26,9 +27,10 @@ it('lists all projects', function () {
 
 it('shows warning when no projects found', function () {
     $this->projectScanner->shouldReceive('scan')->andReturn([]);
+    $this->configManager->shouldReceive('getTld')->andReturn('test');
     $this->configManager->shouldReceive('getDefaultPhpVersion')->andReturn('8.3');
 
-    $this->artisan('projects')
+    $this->artisan('project:list')
         ->expectsOutputToContain('No projects found')
         ->assertExitCode(0);
 });
@@ -37,8 +39,9 @@ it('outputs json when --json flag is used', function () {
     $this->projectScanner->shouldReceive('scan')->andReturn([
         ['name' => 'myproject', 'domain' => 'myproject.test', 'path' => '/path/to/myproject', 'php_version' => '8.3', 'has_custom_php' => false, 'has_public_folder' => true],
     ]);
+    $this->configManager->shouldReceive('getTld')->andReturn('test');
     $this->configManager->shouldReceive('getDefaultPhpVersion')->andReturn('8.3');
 
-    $this->artisan('projects --json')
+    $this->artisan('project:list --json')
         ->assertExitCode(0);
 });

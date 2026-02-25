@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Commands;
 
 use App\Concerns\WithJsonOutput;
-use App\Services\CaddyfileGenerator;
 use App\Enums\ExitCode;
+use App\Services\CaddyfileGenerator;
 use App\Services\ConfigManager;
 use HardImpact\Orbit\Core\Support\ProjectHelper;
 use Illuminate\Support\Facades\Process;
@@ -277,9 +277,21 @@ final class ProjectUpdateCommand extends Command
             $this->outputJsonError($message);
         } else {
             $this->error($message);
+            $this->hintForError($message);
         }
 
         return ExitCode::GeneralError->value;
+    }
+
+    private function hintForError(string $message): void
+    {
+        if (str_contains($message, 'Could not find path')) {
+            $this->line('  <fg=gray>List projects with: orbit project:list</>');
+        } elseif (str_contains($message, 'does not exist')) {
+            $this->line('  <fg=gray>Check the project path is correct</>');
+        } elseif (str_contains($message, 'Not a git repository')) {
+            $this->line('  <fg=gray>Initialize git first: git init</>');
+        }
     }
 
     /**

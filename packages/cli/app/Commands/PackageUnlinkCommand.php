@@ -31,9 +31,10 @@ final class PackageUnlinkCommand extends Command
         // Validate app path exists
         if (! File::isDirectory($appPath)) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError("App '$app' not found at $appPath");
+                return $this->outputJsonError("App '$app' not found at $appPath. Check project exists in ~/projects/");
             }
             $this->error("App '$app' not found at $appPath");
+            $this->line('  <fg=gray>Check project exists in ~/projects/</>');
 
             return self::FAILURE;
         }
@@ -47,6 +48,7 @@ final class PackageUnlinkCommand extends Command
             }
             $this->error('Failed to unlink package:');
             $this->line($result->errorOutput());
+            $this->line('  <fg=gray>List linked packages with: orbit package:linked '.$app.'</>');
 
             return self::FAILURE;
         }

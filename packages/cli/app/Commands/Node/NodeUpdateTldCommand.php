@@ -7,7 +7,6 @@ namespace App\Commands\Node;
 use HardImpact\Orbit\Core\Enums\NodeType;
 use HardImpact\Orbit\Core\Models\Node;
 use HardImpact\Orbit\Core\Services\Gateway\GatewayDnsService;
-use HardImpact\Orbit\Core\Services\Gateway\GatewayManager;
 use HardImpact\Orbit\Core\Services\OrbitCli\ConfigurationService;
 use HardImpact\Orbit\Core\Services\OrbitCli\Shared\CommandService;
 use HardImpact\Orbit\Core\Services\TldService;
@@ -15,7 +14,6 @@ use Illuminate\Support\Facades\Process;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\error;
-use function Laravel\Prompts\info;
 use function Laravel\Prompts\spin;
 use function Laravel\Prompts\text;
 
@@ -30,7 +28,6 @@ final class NodeUpdateTldCommand extends Command
 
     public function handle(
         TldService $tldService,
-        GatewayManager $gatewayManager,
         ConfigurationService $configService,
         CommandService $commandService,
         GatewayDnsService $dnsService,

@@ -41,6 +41,7 @@ final class CaddyReloadCommand extends Command
             $this->info('Caddyfile regenerated and Caddy reloaded.');
         } else {
             $this->error('Failed to reload Caddy.');
+            $this->line('  <fg=gray>Check config: caddy validate --config ~/.config/orbit/caddy/Caddyfile</>');
         }
 
         return $reloaded ? self::SUCCESS : self::FAILURE;

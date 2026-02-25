@@ -41,6 +41,7 @@ final class GatewayRenameCommand extends Command
 
         if ($gateway === null) {
             $this->error("Gateway not found: {$id}");
+            $this->line('  <fg=gray>List gateways with: orbit gateway:list</>');
 
             return self::FAILURE;
         }

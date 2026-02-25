@@ -162,7 +162,7 @@ final class ProjectDeployCommand extends Command
 
             // Cleanup failed release directory
             if (is_dir($releasePath)) {
-                Process::run("rm -rf " . escapeshellarg($releasePath));
+                Process::run('rm -rf '.escapeshellarg($releasePath));
             }
 
             if ($this->wantsJson()) {
@@ -369,7 +369,7 @@ final class ProjectDeployCommand extends Command
 
             // Remove existing file/directory in the release
             if (is_dir($linkPath) && ! is_link($linkPath)) {
-                Process::run("rm -rf " . escapeshellarg($linkPath));
+                Process::run('rm -rf '.escapeshellarg($linkPath));
             } elseif (file_exists($linkPath) || is_link($linkPath)) {
                 unlink($linkPath);
             }
@@ -438,7 +438,7 @@ final class ProjectDeployCommand extends Command
             ->run("ln -sfn releases/{$releaseDir} current");
 
         if (! $result->successful()) {
-            throw new \RuntimeException('Failed to switch current symlink: ' . $result->errorOutput());
+            throw new \RuntimeException('Failed to switch current symlink: '.$result->errorOutput());
         }
 
         $this->logger->info("Switched current → releases/{$releaseDir}");
@@ -460,7 +460,7 @@ final class ProjectDeployCommand extends Command
 
         // If systemd failed, try direct signal to php-fpm
         if (! $result->successful()) {
-            Process::run("sudo pkill -USR2 php-fpm 2>&1 || true");
+            Process::run('sudo pkill -USR2 php-fpm 2>&1 || true');
         }
 
         $this->logger->info('PHP-FPM reload signal sent');
@@ -487,7 +487,7 @@ final class ProjectDeployCommand extends Command
 
             $path = "{$releasesDir}/{$release}";
             if (is_dir($path)) {
-                Process::run("rm -rf " . escapeshellarg($path));
+                Process::run('rm -rf '.escapeshellarg($path));
                 $this->logger->info("Removed old release: {$release}");
             }
         }
@@ -528,14 +528,13 @@ final class ProjectDeployCommand extends Command
         return ProjectHelper::expandPath("{$basePath}/{$slug}");
     }
 
-
     private function setEnvValue(string $env, string $key, string $value): string
     {
         if (preg_match("/^{$key}=.*/m", $env)) {
             return preg_replace("/^{$key}=.*/m", "{$key}={$value}", $env);
         }
 
-        return rtrim($env) . "\n{$key}={$value}\n";
+        return rtrim($env)."\n{$key}={$value}\n";
     }
 
     /**
@@ -612,7 +611,6 @@ final class ProjectDeployCommand extends Command
             $this->logger->warn('Failed to clear config cache: '.$result->errorOutput());
         }
     }
-
 
     /**
      * Create production Caddy site block with ACME TLS.
@@ -704,9 +702,18 @@ final class ProjectDeployCommand extends Command
             $this->outputJsonError($message);
         } else {
             $this->error($message);
+            $this->hintForError($message);
         }
 
         return ExitCode::GeneralError->value;
     }
 
+    private function hintForError(string $message): void
+    {
+        if (str_contains($message, 'orbit init')) {
+            $this->line('  <fg=gray>Initialize this node first: orbit init</>');
+        } elseif (str_contains($message, '--clone is required')) {
+            $this->line('  <fg=gray>Provide the GitHub repo: orbit project:deploy myapp --clone=org/repo</>');
+        }
+    }
 }

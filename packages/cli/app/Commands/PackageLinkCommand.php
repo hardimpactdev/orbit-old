@@ -32,18 +32,20 @@ final class PackageLinkCommand extends Command
         // Validate paths exist
         if (! File::isDirectory($packagePath)) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError("Package '$package' not found at $packagePath");
+                return $this->outputJsonError("Package '$package' not found at $packagePath. Check project exists in ~/projects/");
             }
             $this->error("Package '$package' not found at $packagePath");
+            $this->line('  <fg=gray>Check project exists in ~/projects/</>');
 
             return self::FAILURE;
         }
 
         if (! File::isDirectory($appPath)) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError("App '$app' not found at $appPath");
+                return $this->outputJsonError("App '$app' not found at $appPath. Check project exists in ~/projects/");
             }
             $this->error("App '$app' not found at $appPath");
+            $this->line('  <fg=gray>Check project exists in ~/projects/</>');
 
             return self::FAILURE;
         }
@@ -51,9 +53,10 @@ final class PackageLinkCommand extends Command
         // Check package has composer.json
         if (! File::exists("$packagePath/composer.json")) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError("Package '$package' has no composer.json");
+                return $this->outputJsonError("Package '$package' has no composer.json. Ensure the package directory is correct");
             }
             $this->error("Package '$package' has no composer.json");
+            $this->line('  <fg=gray>Ensure the package directory is correct</>');
 
             return self::FAILURE;
         }
@@ -67,6 +70,7 @@ final class PackageLinkCommand extends Command
             }
             $this->error('Failed to link package:');
             $this->line($result->errorOutput());
+            $this->line('  <fg=gray>Ensure composer-link plugin is installed: composer global require sllh/composer-link</>');
 
             return self::FAILURE;
         }

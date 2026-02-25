@@ -49,6 +49,7 @@ final class WorkspaceDeleteCommand extends Command
             }
 
             $this->error($e->getMessage());
+            $this->line('  <fg=gray>List workspaces with: orbit workspaces</>');
 
             return self::FAILURE;
         }

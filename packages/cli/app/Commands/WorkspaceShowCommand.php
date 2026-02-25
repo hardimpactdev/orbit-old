@@ -25,10 +25,11 @@ final class WorkspaceShowCommand extends Command
 
         if (! is_dir($info['path'])) {
             if ($this->wantsJson()) {
-                return $this->outputJsonError("Workspace '{$name}' does not exist");
+                return $this->outputJsonError("Workspace '{$name}' does not exist. List workspaces with: orbit workspaces");
             }
 
             $this->error("Workspace '{$name}' does not exist");
+            $this->line('  <fg=gray>List workspaces with: orbit workspaces</>');
 
             return self::FAILURE;
         }
