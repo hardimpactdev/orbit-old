@@ -78,6 +78,39 @@ final readonly class GatewayCliAdapter
         return trim($result->output());
     }
 
+    /**
+     * Forward a command to the gateway via SSH and parse the JSON response.
+     *
+     * @return array{success: bool, data?: array, error?: string, gateway?: string}
+     */
+    public function forwardJson(string $command, int $timeout = 30): array
+    {
+        $active = $this->detectActive();
+
+        if ($active === null) {
+            return ['success' => false, 'error' => 'No active WireGuard connection found matching a configured gateway subnet.'];
+        }
+
+        $gateway = $active['gateway'];
+        $output = $this->sshCommand($gateway->id, $command, $timeout);
+
+        if ($output === null) {
+            return ['success' => false, 'error' => "Failed to connect to gateway '{$gateway->name}' via SSH."];
+        }
+
+        $decoded = json_decode($output, true);
+
+        if (! is_array($decoded)) {
+            return ['success' => false, 'error' => 'Invalid JSON response from gateway.'];
+        }
+
+        if (! ($decoded['success'] ?? false)) {
+            return ['success' => false, 'error' => $decoded['error'] ?? 'Unknown error from gateway'];
+        }
+
+        return ['success' => true, 'data' => $decoded['data'] ?? [], 'gateway' => $gateway->name];
+    }
+
     public function isWgEasyRunning(): bool
     {
         foreach (['wg-easy', 'orbit-wg-easy'] as $name) {

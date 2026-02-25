@@ -25,38 +25,22 @@ final class GatewayListClientsCommand extends Command
             return $this->failWithMessage('No gateways configured. Add one with: orbit gateway:add');
         }
 
-        $active = $adapter->detectActive();
+        $result = $adapter->forwardJson('gateway:clients --json');
 
-        if ($active === null) {
-            return $this->failWithMessage('No active WireGuard connection found matching a configured gateway subnet.');
+        if (! $result['success']) {
+            return $this->failWithMessage($result['error']);
         }
 
-        $gateway = $active['gateway'];
-
-        $output = $adapter->sshCommand($gateway->id, 'gateway:clients --json');
-
-        if ($output === null) {
-            return $this->failWithMessage("Failed to connect to gateway '{$gateway->name}' via SSH.");
-        }
-
-        $decoded = json_decode($output, true);
-
-        if (! is_array($decoded) || ! ($decoded['success'] ?? false)) {
-            $error = $decoded['error'] ?? 'Unknown error from gateway';
-
-            return $this->failWithMessage("Gateway error: {$error}");
-        }
-
-        $clients = $decoded['data']['clients'] ?? [];
+        $clients = $result['data']['clients'] ?? [];
 
         if ($this->wantsJson()) {
             return $this->outputJsonSuccess([
-                'gateway' => $gateway->name,
+                'gateway' => $result['gateway'],
                 'clients' => $clients,
             ]);
         }
 
-        $this->line("  <fg=gray>Gateway:</> {$gateway->name}");
+        $this->line("  <fg=gray>Gateway:</> {$result['gateway']}");
 
         if ($clients === []) {
             $this->newLine();
@@ -77,16 +61,5 @@ final class GatewayListClientsCommand extends Command
         $this->renderForHumans($tableData);
 
         return self::SUCCESS;
-    }
-
-    private function failWithMessage(string $message): int
-    {
-        if ($this->wantsJson()) {
-            return $this->outputJsonError($message);
-        }
-
-        $this->error($message);
-
-        return self::FAILURE;
     }
 }

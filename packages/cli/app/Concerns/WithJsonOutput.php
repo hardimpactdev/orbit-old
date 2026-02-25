@@ -33,4 +33,15 @@ trait WithJsonOutput
             'error' => $message,
         ], $extra), $exitCode);
     }
+
+    protected function failWithMessage(string $message): int
+    {
+        if ($this->wantsJson()) {
+            return $this->outputJsonError($message);
+        }
+
+        $this->error($message);
+
+        return self::FAILURE;
+    }
 }
