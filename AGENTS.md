@@ -84,14 +84,15 @@ The remote environments being managed can run any Linux distribution (Ubuntu rec
 
 ## Package Architecture
 
-The orbit-dev monorepo contains four packages:
+The orbit-dev monorepo contains five packages:
 
 ```
 packages/
-├── core/       # Shared models, services, migrations (used by CLI + app)
-├── app/        # Web app: MCP servers, controllers, Vue frontend, Inertia
-├── cli/        # Laravel Zero CLI: commands, install templates, phar binary
-└── desktop/    # NativePHP/Electron wrapper (optional GUI)
+├── core/         # Shared models, services, migrations (used by CLI + app)
+├── app/          # Web app: MCP servers, controllers, Vue frontend, Inertia
+├── cli/          # Laravel Zero CLI: commands, install templates, phar binary
+├── desktop/      # NativePHP/Electron wrapper (optional GUI)
+└── sdk-laravel/  # Standalone Laravel SDK for external integrations
 ```
 
 ### What Lives Where
@@ -102,6 +103,7 @@ packages/
 | **app** | MCP servers (OrbitServer, GatewayServer), HTTP controllers, Vue pages, Inertia routes | Desktop (NativePHP), Remote web deployments |
 | **cli** | CLI commands, install templates (Gateway/Client/Local), GatewayCliAdapter (Process-based operations), phar build | Installed on all nodes |
 | **desktop** | NativePHP config, Electron window management | Local macOS only |
+| **sdk-laravel** | Saloon-based HTTP SDK (`HardImpact\Orbit`): OrbitConnector (REST) + GatewayConnector (MCP JSON-RPC), typed DTOs, resource classes | Any external Laravel app |
 
 ### Gateway Services in Core
 
@@ -275,6 +277,12 @@ php artisan test
     - Source: `packages/cli/` in this monorepo
     - Releases: `https://github.com/hardimpactdev/orbit-cli/releases`
     - Update: `orbit upgrade` (self-updates to latest platform binary)
+
+- **orbit-sdk-laravel**: Standalone Laravel SDK for integrating with Orbit instances over HTTP
+    - Source: `packages/sdk-laravel/` in this monorepo
+    - Packagist: `hardimpactdev/orbit-sdk-laravel`
+    - Namespace: `HardImpact\Orbit`
+    - Install: `composer require hardimpactdev/orbit-sdk-laravel`
 
 - **orchestrator**: Laravel API backend for cross-project management
     - Source: `ssh orbit@ai:~/projects/orchestrator/`
