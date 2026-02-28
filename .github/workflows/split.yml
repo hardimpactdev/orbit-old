@@ -19,6 +19,8 @@ jobs:
             remote: orbit-app
           - local: cli
             remote: orbit-cli
+          - local: sdk-laravel
+            remote: orbit-sdk-laravel
     steps:
       - uses: actions/checkout@v4
         with:
