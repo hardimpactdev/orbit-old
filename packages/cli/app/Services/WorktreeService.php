@@ -217,11 +217,11 @@ class WorktreeService
         try {
             if ($this->isWorktreeLinked($siteName, $worktreeName)) {
                 return [
-                    "success" => true,
-                    "linked" => false,
-                    "reloaded" => false,
-                    "site" => $siteName,
-                    "worktree" => $worktreeName,
+                    'success' => true,
+                    'linked' => false,
+                    'reloaded' => false,
+                    'site' => $siteName,
+                    'worktree' => $worktreeName,
                 ];
             }
 
@@ -229,20 +229,20 @@ class WorktreeService
             $this->regenerateCaddyConfig();
 
             return [
-                "success" => true,
-                "linked" => true,
-                "reloaded" => true,
-                "site" => $siteName,
-                "worktree" => $worktreeName,
+                'success' => true,
+                'linked' => true,
+                'reloaded' => true,
+                'site' => $siteName,
+                'worktree' => $worktreeName,
             ];
         } catch (\Throwable $e) {
             return [
-                "success" => false,
-                "linked" => false,
-                "reloaded" => false,
-                "error" => $e->getMessage(),
-                "site" => $siteName,
-                "worktree" => $worktreeName,
+                'success' => false,
+                'linked' => false,
+                'reloaded' => false,
+                'error' => $e->getMessage(),
+                'site' => $siteName,
+                'worktree' => $worktreeName,
             ];
         }
     }

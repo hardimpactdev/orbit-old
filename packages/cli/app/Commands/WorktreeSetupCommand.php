@@ -99,9 +99,9 @@ final class WorktreeSetupCommand extends Command
             // Step 3: Link routing (only reload if changed)
             $link = $worktrees->linkWorktreeIfMissing($site, $worktreePath, $name);
             $results['steps']['routing'] = $link;
-            $results['changed']['routing_linked'] = (bool) ($link['linked'] ?? false);
-            if (! ($link['success'] ?? false)) {
-                return $this->failWithMessage($link['error'] ?? 'routing link failed', $results);
+            $results['changed']['routing_linked'] = (bool) $link['linked'];
+            if (! $link['success']) {
+                return $this->failWithMessage(($link['error'] ?? 'routing link failed'), $results);
             }
 
             // Step 4: Ensure .env exists + enforce SQLite
@@ -114,7 +114,7 @@ final class WorktreeSetupCommand extends Command
 
             // Step 5: composer install
             if ($force || ! is_dir($worktreePath.'/vendor')) {
-                $r = Process::path($worktreePath)->timeout(600)->run('composer install --no-interaction');
+                $r = Process::path($worktreePath)->timeout(1200)->run('composer install --no-interaction');
                 $results['steps']['composer_install'] = $this->procResult($r);
                 if (! $r->successful()) {
                     return $this->failWithMessage('composer install failed', $results);
@@ -124,7 +124,7 @@ final class WorktreeSetupCommand extends Command
             }
 
             // Step 6: composer setup (must run migrations + seeders)
-            $r = Process::path($worktreePath)->timeout(900)->run('composer setup');
+            $r = Process::path($worktreePath)->timeout(1800)->run('composer setup');
             $results['steps']['composer_setup'] = $this->procResult($r);
             if (! $r->successful()) {
                 return $this->failWithMessage('composer setup failed', $results);
@@ -199,10 +199,12 @@ final class WorktreeSetupCommand extends Command
         }
 
         $content = rtrim($content, "\n");
+
         return $content."\n{$line}\n";
     }
 
-    private function procResult(\Illuminate\Process\ProcessResult $r): array
+    /** @param \Illuminate\Contracts\Process\ProcessResult $r */
+    private function procResult($r): array
     {
         $out = trim($r->output());
         $err = trim($r->errorOutput());
@@ -221,7 +223,7 @@ final class WorktreeSetupCommand extends Command
     private function okResult(array $results): int
     {
         if ($this->wantsJson()) {
-            return $this->outputJson(array_merge(["success" => true], $results));
+            return $this->outputJson(array_merge(['success' => true], $results));
         }
 
         $this->info('Worktree setup complete.');
@@ -234,7 +236,7 @@ final class WorktreeSetupCommand extends Command
     private function failWithMessage(string $message, array $results = []): int
     {
         if ($this->wantsJson()) {
-            return $this->outputJson(array_merge(["success" => false, "error" => $message], $results), self::FAILURE);
+            return $this->outputJson(array_merge(['success' => false, 'error' => $message], $results), self::FAILURE);
         }
 
         $this->error($message);
