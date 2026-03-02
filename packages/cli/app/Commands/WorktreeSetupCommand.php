@@ -199,6 +199,7 @@ final class WorktreeSetupCommand extends Command
         }
 
         $content = rtrim($content, "\n");
+
         return $content."\n{$line}\n";
     }
 
@@ -221,7 +222,7 @@ final class WorktreeSetupCommand extends Command
     private function okResult(array $results): int
     {
         if ($this->wantsJson()) {
-            return $this->outputJson(array_merge(["success" => true], $results));
+            return $this->outputJson(array_merge(['success' => true], $results));
         }
 
         $this->info('Worktree setup complete.');
@@ -234,7 +235,7 @@ final class WorktreeSetupCommand extends Command
     private function failWithMessage(string $message, array $results = []): int
     {
         if ($this->wantsJson()) {
-            return $this->outputJson(array_merge(["success" => false, "error" => $message], $results), self::FAILURE);
+            return $this->outputJson(array_merge(['success' => false, 'error' => $message], $results), self::FAILURE);
         }
 
         $this->error($message);
