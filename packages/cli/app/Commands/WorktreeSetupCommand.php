@@ -114,7 +114,7 @@ final class WorktreeSetupCommand extends Command
 
             // Step 5: composer install
             if ($force || ! is_dir($worktreePath.'/vendor')) {
-                $r = Process::path($worktreePath)->timeout(600)->run('composer install --no-interaction');
+                $r = Process::path($worktreePath)->timeout(1200)->run('composer install --no-interaction');
                 $results['steps']['composer_install'] = $this->procResult($r);
                 if (! $r->successful()) {
                     return $this->failWithMessage('composer install failed', $results);
@@ -124,7 +124,7 @@ final class WorktreeSetupCommand extends Command
             }
 
             // Step 6: composer setup (must run migrations + seeders)
-            $r = Process::path($worktreePath)->timeout(900)->run('composer setup');
+            $r = Process::path($worktreePath)->timeout(1800)->run('composer setup');
             $results['steps']['composer_setup'] = $this->procResult($r);
             if (! $r->successful()) {
                 return $this->failWithMessage('composer setup failed', $results);
