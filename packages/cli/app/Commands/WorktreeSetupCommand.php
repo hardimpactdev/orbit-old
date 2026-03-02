@@ -99,9 +99,9 @@ final class WorktreeSetupCommand extends Command
             // Step 3: Link routing (only reload if changed)
             $link = $worktrees->linkWorktreeIfMissing($site, $worktreePath, $name);
             $results['steps']['routing'] = $link;
-            $results['changed']['routing_linked'] = (bool) ($link['linked'] ?? false);
-            if (! ($link['success'] ?? false)) {
-                return $this->failWithMessage($link['error'] ?? 'routing link failed', $results);
+            $results['changed']['routing_linked'] = (bool) $link['linked'];
+            if (! $link['success']) {
+                return $this->failWithMessage(($link['error'] ?? 'routing link failed'), $results);
             }
 
             // Step 4: Ensure .env exists + enforce SQLite
@@ -203,7 +203,8 @@ final class WorktreeSetupCommand extends Command
         return $content."\n{$line}\n";
     }
 
-    private function procResult(\Illuminate\Process\ProcessResult $r): array
+    /** @param \Illuminate\Contracts\Process\ProcessResult $r */
+    private function procResult($r): array
     {
         $out = trim($r->output());
         $err = trim($r->errorOutput());
