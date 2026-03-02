@@ -68,6 +68,8 @@ class WorktreeService
      * Deterministically create/setup a worktree (routing + env + deps + composer setup).
      *
      * CLI: `orbit worktree:setup <site> <worktree> --branch <branch> [--base <base>] [--force] --json`
+     *
+     * Remote execution is disabled by default; pass allowRemote=true to enable.
      */
     public function setupWorktree(
         Node $node,
@@ -75,8 +77,16 @@ class WorktreeService
         string $worktreeName,
         string $branch,
         string $base = 'main',
-        bool $force = false
+        bool $force = false,
+        bool $allowRemote = false
     ): array {
+        if (! $allowRemote && ! $node->isLocal()) {
+            return [
+                'success' => false,
+                'error' => 'Remote worktree:setup is disabled. Pass allowRemote=true to enable.',
+            ];
+        }
+
         $escapedSite = escapeshellarg($site);
         $escapedWorktree = escapeshellarg($worktreeName);
         $escapedBranch = escapeshellarg($branch);
