@@ -63,4 +63,38 @@ class WorktreeService
 
         return $this->connector->sendRequest($node, new RefreshWorktreesRequest);
     }
+
+    /**
+     * Deterministically create/setup a worktree (routing + env + deps + composer setup).
+     *
+     * CLI: `orbit worktree:setup <site> <worktree> --branch <branch> [--base <base>] [--force] --json`
+     */
+    public function setupWorktree(
+        Node $node,
+        string $site,
+        string $worktreeName,
+        string $branch,
+        string $base = 'main',
+        bool $force = false
+    ): array {
+        if (! $node->isLocal()) {
+            return [
+                'success' => false,
+                'error' => 'worktree:setup remote execution not implemented in core yet',
+            ];
+        }
+
+        $escapedSite = escapeshellarg($site);
+        $escapedWorktree = escapeshellarg($worktreeName);
+        $escapedBranch = escapeshellarg($branch);
+        $escapedBase = escapeshellarg($base);
+
+        $cmd = "worktree:setup {$escapedSite} {$escapedWorktree} --branch={$escapedBranch} --base={$escapedBase} --json";
+        if ($force) {
+            $cmd .= ' --force';
+        }
+
+        return $this->command->executeCommand($node, $cmd);
+    }
+
 }

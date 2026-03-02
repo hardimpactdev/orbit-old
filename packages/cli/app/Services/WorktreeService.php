@@ -197,6 +197,57 @@ class WorktreeService
     }
 
     /**
+    /**
+     * Check if a worktree is already linked.
+     */
+    public function isWorktreeLinked(string $siteName, string $worktreeName): bool
+    {
+        $linkedWorktrees = $this->loadLinkedWorktrees();
+
+        return isset($linkedWorktrees[$siteName][$worktreeName]);
+    }
+
+    /**
+     * Link a worktree only if missing, and reload routing only when a link was added.
+     *
+     * @return array{success: bool, linked: bool, reloaded: bool, error?: string, site?: string, worktree?: string}
+     */
+    public function linkWorktreeIfMissing(string $siteName, string $path, string $worktreeName): array
+    {
+        try {
+            if ($this->isWorktreeLinked($siteName, $worktreeName)) {
+                return [
+                    "success" => true,
+                    "linked" => false,
+                    "reloaded" => false,
+                    "site" => $siteName,
+                    "worktree" => $worktreeName,
+                ];
+            }
+
+            $this->linkWorktree($siteName, $path, $worktreeName);
+            $this->regenerateCaddyConfig();
+
+            return [
+                "success" => true,
+                "linked" => true,
+                "reloaded" => true,
+                "site" => $siteName,
+                "worktree" => $worktreeName,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                "success" => false,
+                "linked" => false,
+                "reloaded" => false,
+                "error" => $e->getMessage(),
+                "site" => $siteName,
+                "worktree" => $worktreeName,
+            ];
+        }
+    }
+
+    /**
      * Unlink a worktree from a site.
      */
     public function unlinkWorktree(string $siteName, string $worktreeName): bool

@@ -484,12 +484,15 @@ class ProjectCliService
     }
 
     /**
-     * Setup a Laravel project (configure env, create database, run composer setup).
+     * Deprecated: Orbit CLI does not support `setup <project>`.
+     *
+     * Use WorktreeService::setupWorktree() (CLI: `worktree:setup`) for deterministic per-worktree setup.
      */
     public function setupProject(Node $node, string $project): array
     {
-        $escapedProject = escapeshellarg($project);
-
-        return $this->command->executeCommand($node, "setup {$escapedProject} --json");
+        return [
+            'success' => false,
+            'error' => 'Deprecated: use worktree:setup (WorktreeService::setupWorktree) instead of setupProject()',
+        ];
     }
 }
