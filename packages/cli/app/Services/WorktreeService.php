@@ -383,12 +383,21 @@ class WorktreeService
      */
     protected function regenerateCaddyConfig(): void
     {
+        $caddyfilePath = $this->configManager->getConfigPath().'/caddy/Caddyfile';
+        $before = File::exists($caddyfilePath) ? md5_file($caddyfilePath) : null;
+
         // We need to regenerate the Caddyfile - the CaddyfileGenerator
         // will call getLinkedWorktreesForCaddy() to include worktrees
         $generator = $this->getCaddyfileGenerator();
         $generator->generate();
-        $generator->reload();
-        $generator->reloadPhp();
+
+        $after = File::exists($caddyfilePath) ? md5_file($caddyfilePath) : null;
+
+        // Reload only if the generated config changed
+        if ($before !== $after) {
+            $generator->reload();
+            $generator->reloadPhp();
+        }
     }
 
     /**

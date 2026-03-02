@@ -77,13 +77,6 @@ class WorktreeService
         string $base = 'main',
         bool $force = false
     ): array {
-        if (! $node->isLocal()) {
-            return [
-                'success' => false,
-                'error' => 'worktree:setup remote execution not implemented in core yet',
-            ];
-        }
-
         $escapedSite = escapeshellarg($site);
         $escapedWorktree = escapeshellarg($worktreeName);
         $escapedBranch = escapeshellarg($branch);
@@ -94,7 +87,7 @@ class WorktreeService
             $cmd .= ' --force';
         }
 
-        return $this->command->executeCommand($node, $cmd);
+        return $this->command->executeCommand($node, $cmd, 1800);
     }
 
 }
