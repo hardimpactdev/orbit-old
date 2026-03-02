@@ -163,7 +163,8 @@ final class WorktreeSetupCommand extends Command
                 return ['success' => false, 'error' => '.env is not writable in worktree'];
             }
 
-            $content = (string) File::get($envPath);
+            $original = (string) File::get($envPath);
+            $content = $original;
             $appUrl = 'https://'.$domain;
             $dbPath = rtrim($worktreePath, '/').'/database/database.sqlite';
 
@@ -176,9 +177,13 @@ final class WorktreeSetupCommand extends Command
                 File::put($dbPath, '');
             }
 
-            File::put($envPath, $content);
+            $written = false;
+            if ($content !== $original) {
+                File::put($envPath, $content);
+                $written = true;
+            }
 
-            return ['success' => true, 'written' => true];
+            return ['success' => true, 'written' => $written];
         } catch (\Throwable $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
