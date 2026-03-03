@@ -159,6 +159,20 @@ final class ProjectUpdateCommand extends Command
                 $results['steps']['trusted_proxies'] = $trustedProxiesResult;
             }
 
+            // Step 7: Restart Horizon workers if the project uses Horizon
+            if (file_exists("{$path}/config/horizon.php") && file_exists("{$path}/artisan")) {
+                $this->log('Terminating Horizon workers to reload code...');
+                $horizonResult = Process::path($path)->timeout(30)->run('php artisan horizon:terminate');
+
+                $results['steps']['horizon'] = [
+                    'success' => $horizonResult->successful(),
+                ];
+
+                if (! $horizonResult->successful()) {
+                    $results['steps']['horizon']['error'] = $horizonResult->errorOutput();
+                }
+            }
+
             // Regenerate Caddy config in case anything changed
             $caddy->generate();
             $caddy->reload();
