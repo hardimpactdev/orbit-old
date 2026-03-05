@@ -23,7 +23,8 @@ final class WorktreeSetupCommand extends Command
                             {--branch= : Branch name to create/checkout inside the worktree (required)}
                             {--base=main : Base ref/branch for worktree creation}
                             {--force : Re-run setup steps even if already prepared}
-                            {--json : Output as JSON}';
+                            {--json : Output as JSON}
+                            {--dry-run : Validate and print planned actions without executing}';
 
     protected $description = 'Create and fully set up a worktree (routing + env + deps + migrations/seeders via composer setup)';
 
@@ -34,10 +35,24 @@ final class WorktreeSetupCommand extends Command
         $branch = (string) ($this->option('branch') ?? '');
         $base = (string) ($this->option('base') ?? 'main');
         $force = (bool) $this->option('force');
+        $dryRun = (bool) $this->option('dry-run');
 
         if ($branch === '') {
             return $this->failWithMessage('Missing required option: --branch');
         }
+
+        if (! preg_match('/^[a-z0-9][a-z0-9-]{0,63}$/', $site)) {
+            return $this->failWithMessage('Invalid site slug format');
+        }
+
+        if (! preg_match('/^[A-Za-z0-9._-]{1,80}$/', $name)) {
+            return $this->failWithMessage('Invalid worktree name format');
+        }
+
+        if (! preg_match('/^[A-Za-z0-9._\/-]{1,120}$/', $branch)) {
+            return $this->failWithMessage('Invalid branch format');
+        }
+
 
         $results = [
             'site' => $site,
@@ -51,7 +66,7 @@ final class WorktreeSetupCommand extends Command
                 'routing_linked' => false,
                 'env_written' => false,
             ],
-            'steps' => [],
+            'steps' => ['dry_run' => ['success' => true, 'enabled' => $dryRun]],
         ];
 
         try {
@@ -77,27 +92,27 @@ final class WorktreeSetupCommand extends Command
                     escapeshellarg($base)
                 );
 
-                $r = Process::path($sitePath)->timeout(180)->run($cmd);
-                $results['steps']['git_worktree'] = $this->procResult($r);
+                $r = $dryRun ? null : Process::path($sitePath)->timeout(180)->run($cmd);
+                $results['steps']['git_worktree'] = $dryRun ? ['success' => true, 'dry_run' => true, 'command' => $cmd] : $this->procResult($r);
 
-                if (! $r->successful()) {
+                if (! $dryRun && ! $r->successful()) {
                     return $this->failWithMessage('git worktree add failed', $results);
                 }
 
-                $results['changed']['worktree_created'] = true;
+                $results['changed']['worktree_created'] = ! $dryRun;
             } else {
                 $results['steps']['git_worktree'] = ['skipped' => true, 'message' => 'worktree exists'];
             }
 
             // Step 2: Checkout/create branch inside worktree
-            $r = Process::path($worktreePath)->timeout(60)->run('git checkout -B '.escapeshellarg($branch));
-            $results['steps']['git_branch'] = $this->procResult($r);
-            if (! $r->successful()) {
+            $r = $dryRun ? null : Process::path($worktreePath)->timeout(60)->run('git checkout -B '.escapeshellarg($branch));
+            $results['steps']['git_branch'] = $dryRun ? ['success' => true, 'dry_run' => true, 'command' => 'git checkout -B '.escapeshellarg($branch)] : $this->procResult($r);
+            if (! $dryRun && ! $r->successful()) {
                 return $this->failWithMessage('git checkout -B failed', $results);
             }
 
             // Step 3: Link routing (only reload if changed)
-            $link = $worktrees->linkWorktreeIfMissing($site, $worktreePath, $name);
+            $link = $dryRun ? ['success' => true, 'linked' => false, 'reloaded' => false, 'dry_run' => true] : $worktrees->linkWorktreeIfMissing($site, $worktreePath, $name);
             $results['steps']['routing'] = $link;
             $results['changed']['routing_linked'] = (bool) $link['linked'];
             if (! $link['success']) {
@@ -105,7 +120,7 @@ final class WorktreeSetupCommand extends Command
             }
 
             // Step 4: Ensure .env exists + enforce SQLite
-            $env = $this->ensureEnvAndSqlite($sitePath, $worktreePath, $results['domain']);
+            $env = $dryRun ? ['success' => true, 'written' => false, 'dry_run' => true] : $this->ensureEnvAndSqlite($sitePath, $worktreePath, $results['domain']);
             $results['steps']['env'] = $env;
             $results['changed']['env_written'] = (bool) ($env['written'] ?? false);
             if (! ($env['success'] ?? false)) {
@@ -114,9 +129,9 @@ final class WorktreeSetupCommand extends Command
 
             // Step 5: composer install
             if ($force || ! is_dir($worktreePath.'/vendor')) {
-                $r = Process::path($worktreePath)->timeout(1200)->run('composer install --no-interaction');
-                $results['steps']['composer_install'] = $this->procResult($r);
-                if (! $r->successful()) {
+                $r = $dryRun ? null : Process::path($worktreePath)->timeout(1200)->run('composer install --no-interaction');
+                $results['steps']['composer_install'] = $dryRun ? ['success' => true, 'dry_run' => true, 'command' => 'composer install --no-interaction'] : $this->procResult($r);
+                if (! $dryRun && ! $r->successful()) {
                     return $this->failWithMessage('composer install failed', $results);
                 }
             } else {
@@ -124,9 +139,9 @@ final class WorktreeSetupCommand extends Command
             }
 
             // Step 6: composer setup (must run migrations + seeders)
-            $r = Process::path($worktreePath)->timeout(1800)->run('composer setup');
-            $results['steps']['composer_setup'] = $this->procResult($r);
-            if (! $r->successful()) {
+            $r = $dryRun ? null : Process::path($worktreePath)->timeout(1800)->run('composer setup');
+            $results['steps']['composer_setup'] = $dryRun ? ['success' => true, 'dry_run' => true, 'command' => 'composer setup'] : $this->procResult($r);
+            if (! $dryRun && ! $r->successful()) {
                 return $this->failWithMessage('composer setup failed', $results);
             }
 
