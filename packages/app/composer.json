@@ -19,7 +19,7 @@
     "php": "^8.4",
     "illuminate/contracts": "^11.0||^12.0",
     "inertiajs/inertia-laravel": "^2.0",
-    "laravel/mcp": "^0.5.2",
+    "laravel/mcp": "^0.6.2",
     "hardimpactdev/orbit-core": "^0.1"
   },
   "require-dev": {
