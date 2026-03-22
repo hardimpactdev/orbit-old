@@ -20,7 +20,7 @@
         "typecheck": "vue-tsc --noEmit"
     },
     "dependencies": {
-        "@hardimpactdev/craft-ui": "^0.0.17",
+        "@hardimpactdev/craft-ui": "^0.0.29",
         "@inertiajs/core": "^2.3.11",
         "@inertiajs/vue3": "^2.3.11",
         "@laravel/echo-vue": "^2.3.0",
