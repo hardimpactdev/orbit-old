@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for CI
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.6.0
         with:
           ref: ${{ github.sha }}
           check-name: 'core'
@@ -32,7 +32,7 @@ jobs:
           wait-interval: 10
 
       - name: Wait for CLI CI
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.6.0
         with:
           ref: ${{ github.sha }}
           check-name: 'cli'
@@ -40,7 +40,7 @@ jobs:
           wait-interval: 10
 
       - name: Wait for App CI
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.6.0
         with:
           ref: ${{ github.sha }}
           check-name: 'app'
@@ -48,7 +48,7 @@ jobs:
           wait-interval: 10
 
       - name: Wait for Web CI
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.6.0
         with:
           ref: ${{ github.sha }}
           check-name: 'web'
