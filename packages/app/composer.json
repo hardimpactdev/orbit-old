@@ -18,7 +18,7 @@
   "require": {
     "php": "^8.4",
     "illuminate/contracts": "^11.0||^12.0",
-    "inertiajs/inertia-laravel": "^2.0",
+    "inertiajs/inertia-laravel": "^3.1",
     "laravel/mcp": "^0.5.2",
     "hardimpactdev/orbit-core": "^0.1"
   },
