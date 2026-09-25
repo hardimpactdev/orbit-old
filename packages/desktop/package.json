@@ -13,7 +13,7 @@
     "format:check": "oxfmt --check"
   },
   "dependencies": {
-    "@hardimpactdev/craft-ui": "^0.0.17",
+    "@hardimpactdev/craft-ui": "^0.0.22",
     "@inertiajs/vue3": "^2.3.11",
     "@laravel/echo-vue": "^2.3.0",
     "@vueuse/core": "^14.2.1",
