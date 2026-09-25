@@ -16,7 +16,7 @@
     "@hardimpactdev/craft-ui": "^0.0.17",
     "@inertiajs/vue3": "^2.3.11",
     "@laravel/echo-vue": "^2.3.0",
-    "@vueuse/core": "^14.1.0",
+    "@vueuse/core": "^14.2.1",
     "class-variance-authority": "^0.7.1",
     "laravel-echo": "^2.3.0",
     "lucide-vue-next": "^0.562.0",
