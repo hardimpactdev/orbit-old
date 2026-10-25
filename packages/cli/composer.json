@@ -19,7 +19,7 @@
         "illuminate/http": "^12.45",
         "illuminate/log": "^12.0",
         "laravel-zero/framework": "^12.0.2",
-        "laravel-zero/phar-updater": "^1.4",
+        "laravel-zero/phar-updater": "^2.0",
         "pusher/pusher-php-server": "^7.2"
     },
     "require-dev": {
